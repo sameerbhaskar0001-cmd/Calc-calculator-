@@ -16,3 +16,13 @@
 local.properties
 .env
 debug.keystore
+
+# Robust ignore rules for build folders and binaries
+build/
+app/build/
+.build-outputs/
+*.apk
+*.aab
+bin/
+gen/
+out/
