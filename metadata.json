@@ -1,0 +1,6 @@
+{
+  "name": "Exchange Calc",
+  "description": "A beautiful, premium Calculator with integrated US Dollar to Indian Rupee (USD/INR) currency exchange converter.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
