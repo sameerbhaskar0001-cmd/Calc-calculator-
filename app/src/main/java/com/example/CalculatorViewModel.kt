@@ -149,6 +149,13 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _fileLossProtection = MutableStateFlow(prefs.getBoolean("file_loss_protection", false))
     val fileLossProtection: StateFlow<Boolean> = _fileLossProtection.asStateFlow()
 
+    private val _pendingDeleteSender = MutableStateFlow<android.content.IntentSender?>(null)
+    val pendingDeleteSender: StateFlow<android.content.IntentSender?> = _pendingDeleteSender.asStateFlow()
+
+    fun clearPendingDelete() {
+        _pendingDeleteSender.value = null
+    }
+
     // --- Multi-Language Localization State ---
     private val _selectedLanguage = MutableStateFlow(prefs.getString("selected_language", "en") ?: "en")
     val selectedLanguage: StateFlow<String> = _selectedLanguage.asStateFlow()
@@ -772,7 +779,17 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             }
             
             mimeType = contentResolver.getType(uri) ?: mimeType
-            if (mimeType.isEmpty()) mimeType = "application/octet-stream"
+            if (mimeType.isEmpty() || mimeType == "application/octet-stream") {
+                val ext = File(originalName).extension.lowercase()
+                mimeType = when (ext) {
+                    "jpg", "jpeg", "png", "webp", "heic", "heif", "gif", "bmp" -> "image/$ext"
+                    "mp4", "mkv", "3gp", "avi", "mov", "webm" -> "video/$ext"
+                    "pdf" -> "application/pdf"
+                    "txt", "csv", "log" -> "text/plain"
+                    "zip" -> "application/zip"
+                    else -> "application/octet-stream"
+                }
+            }
             
             val readableSize = formatFileSize(size)
             val id = System.currentTimeMillis().toString()
@@ -812,6 +829,27 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             val isDecoy = _decoyActive.value
             val filesKey = if (isDecoy) "decoy_files" else "vault_files"
             prefs.edit().putStringSet(filesKey, updatedFiles.toSet()).apply()
+
+            // Secure Deletion of Original Media File from System Gallery
+            try {
+                contentResolver.delete(uri, null, null)
+            } catch (securityException: SecurityException) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && securityException is android.app.RecoverableSecurityException) {
+                    _pendingDeleteSender.value = securityException.userAction.actionIntent.intentSender
+                } else {
+                    try {
+                        val fileToDelete = File(uri.path ?: "")
+                        if (fileToDelete.exists()) {
+                            fileToDelete.delete()
+                        }
+                    } catch (ex: Exception) {
+                        ex.printStackTrace()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -919,42 +957,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         _panicAction.value = action
     }
 
-    fun switchIcon(context: Context, iconName: String) {
-        prefs.edit().putString("active_app_icon", iconName).apply()
-        _activeAppIcon.value = iconName
-        
-        val pm = context.packageManager
-        val packageName = context.packageName
-        
-        val aliases = listOf(
-            "LauncherCalculator",
-            "LauncherCalculatorRetro",
-            "LauncherCalculatorNeon",
-            "LauncherNotes",
-            "LauncherWeather",
-            "LauncherCompass",
-            "LauncherSudoku",
-            "LauncherVoice"
-        )
-        
-        for (alias in aliases) {
-            val fullClassName = "$packageName.$alias"
-            val enableState = if (alias == iconName) {
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-            } else {
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-            }
-            try {
-                pm.setComponentEnabledSetting(
-                    ComponentName(context, fullClassName),
-                    enableState,
-                    PackageManager.DONT_KILL_APP
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
+
 
     fun toggleAppLock(appPackageName: String) {
         val current = _lockedApps.value.toMutableSet()
