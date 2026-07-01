@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Microphone body -->
+    <path
+        android:pathData="M 44,28 H 64 A 10,10 0 0 1 74,38 V 48 A 10,10 0 0 1 64,58 H 44 A 10,10 0 0 1 34,48 V 38 A 10,10 0 0 1 44,28 Z"
+        android:fillColor="#15FFFFFF"
+        android:strokeColor="#EF4444"
+        android:strokeWidth="2.5" />
+
+    <!-- Microphone grille lines -->
+    <path
+        android:pathData="M34,38 h40 M34,44 h40 M34,50 h40 M54,28 v30"
+        android:strokeColor="#EF4444"
+        android:strokeWidth="1.5" />
+
+    <!-- Microphone stand / cradle -->
+    <path
+        android:pathData="M 28,44 V 48 A 26,26 0 0 0 80,48 V 44"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round" />
+
+    <path
+        android:pathData="M 54,74 V 80 M 42,80 H 66"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round" />
+
+    <!-- Sound waves pulses on left/right -->
+    <path
+        android:pathData="M20,38 A24,24 0 0 0 20,58 M14,34 A32,32 0 0 0 14,62"
+        android:strokeColor="#FCA5A5"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M88,38 A24,24 0 0 1 88,58 M94,34 A32,32 0 0 1 94,62"
+        android:strokeColor="#FCA5A5"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+
+</vector>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Compass Outer Ring -->
+    <path
+        android:pathData="M54,22 A32,32 0 1 1 54,86 A32,32 0 1 1 54,22 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3" />
+
+    <!-- Degree markers -->
+    <path
+        android:pathData="M54,22 v6 M54,86 v-6 M22,54 h6 M86,54 h-6 M31,31 l4,4 M77,77 l-4,-4 M31,77 l4,-4 M77,31 l-4,4"
+        android:strokeColor="#94A3B8"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+
+    <!-- North Pointer (Red needle) -->
+    <path
+        android:pathData="M54,54 L54,30 L48,46 Z"
+        android:fillColor="#EF4444" />
+    <path
+        android:pathData="M54,54 L54,30 L60,46 Z"
+        android:fillColor="#DC2626" />
+
+    <!-- South Pointer (Silver needle) -->
+    <path
+        android:pathData="M54,54 L54,78 L48,62 Z"
+        android:fillColor="#E2E8F0" />
+    <path
+        android:pathData="M54,54 L54,78 L60,62 Z"
+        android:fillColor="#CBD5E1" />
+
+    <!-- Center pivot pin -->
+    <path
+        android:pathData="M54,54 A4,4 0 1 1 54,53.9"
+        android:fillColor="#F1F5F9"
+        android:strokeColor="#475569"
+        android:strokeWidth="1.5" />
+
+</vector>

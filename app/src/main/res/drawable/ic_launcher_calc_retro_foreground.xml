@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Retro beige case -->
+    <path
+        android:pathData="M32,24 h44 a8,8 0 0 1 8,8 v40 a8,8 0 0 1 -8,8 h-44 a8,8 0 0 1 -8,-8 v-40 a8,8 0 0 1 8,-8 z"
+        android:fillColor="#15FFFFFF"
+        android:strokeColor="#84CC16"
+        android:strokeWidth="2.5" />
+
+    <!-- Amber CRT screen -->
+    <path
+        android:pathData="M38,30 h32 v14 h-32 z"
+        android:fillColor="#0A0F0D"
+        android:strokeColor="#84CC16"
+        android:strokeWidth="1.5" />
+
+    <path
+        android:pathData="M44,37 h20"
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round" />
+
+    <!-- Rubber keys (circular) -->
+    <group>
+        <!-- Circular keys row 1 -->
+        <path
+            android:pathData="M38,54 A3,3 0 1 1 38,53.9 M54,54 A3,3 0 1 1 54,53.9 M70,54 A3,3 0 1 1 70,53.9"
+            android:strokeColor="#84CC16"
+            android:strokeWidth="4.5"
+            android:strokeLineCap="round" />
+
+        <!-- Circular keys row 2 -->
+        <path
+            android:pathData="M38,64 A3,3 0 1 1 38,63.9 M54,64 A3,3 0 1 1 54,63.9 M70,64 A3,3 0 1 1 70,63.9"
+            android:strokeColor="#F59E0B"
+            android:strokeWidth="4.5"
+            android:strokeLineCap="round" />
+
+        <!-- Circular keys row 3 -->
+        <path
+            android:pathData="M38,74 A3,3 0 1 1 38,73.9 M54,74 A3,3 0 1 1 54,73.9 M70,74 A3,3 0 1 1 70,73.9"
+            android:strokeColor="#84CC16"
+            android:strokeWidth="4.5"
+            android:strokeLineCap="round" />
+    </group>
+
+</vector>

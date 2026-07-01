@@ -1,5 +1,35 @@
 package com.example
 
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.widget.Toast
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.CloudQueue
+import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
@@ -8,15 +38,18 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,10 +65,15 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CurrencyExchange
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardBackspace
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -43,11 +81,14 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -57,11 +98,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -85,6 +130,18 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import coil.compose.AsyncImage
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Article
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Description
 
 // "Professional Polish" Palette (Material 3 Purple/Lavender)
 private val BrandBg = Color(0xFFFEF7FF)              // Primary soft canvas background
@@ -100,7 +157,7 @@ private val DigitBg = Color(0xFFFFFFFF)               // Crisp white for digit k
 enum class ActiveTab {
     CALCULATOR,
     EXCHANGE,
-    RATES_HISTORY
+    VAULT
 }
 
 @Composable
@@ -113,6 +170,17 @@ fun CalculatorScreen(
 
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+
+    val vaultUnlocked by viewModel.vaultUnlocked.collectAsState()
+
+    // Switch to the private vault screen automatically when unlocked via passcode
+    LaunchedEffect(vaultUnlocked) {
+        if (vaultUnlocked) {
+            activeTab = ActiveTab.VAULT
+        } else {
+            activeTab = ActiveTab.CALCULATOR
+        }
+    }
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -142,7 +210,7 @@ fun CalculatorScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Calculate,
+                            imageVector = if (activeTab == ActiveTab.VAULT) Icons.Default.Lock else Icons.Default.Calculate,
                             contentDescription = "Calculator Icon",
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
@@ -150,39 +218,36 @@ fun CalculatorScreen(
                     }
                     Column {
                         Text(
-                            text = "CalcCurrency",
+                            text = if (activeTab == ActiveTab.VAULT) viewModel.t("secure_vault") else viewModel.t("app_title"),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = TextDark,
                             letterSpacing = (-0.5).sp
                         )
-                        Text(
-                            text = "Play Store Signature Edition",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = ThemePurple,
-                            fontWeight = FontWeight.Bold
-                        )
                     }
                 }
 
-                // Context Action Button (Edit rate)
-                IconButton(
-                    onClick = {
-                        viewModel.triggerKeypressEffects(context)
-                        showRateDialog = true
-                    },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(ThemeLightPurple.copy(alpha = 0.4f))
-                        .testTag("header_action_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Context Option",
-                        tint = ThemePurple,
-                        modifier = Modifier.size(20.dp)
-                    )
+                // Lock button shown only when Vault is unlocked/active
+                if (activeTab == ActiveTab.VAULT) {
+                    IconButton(
+                        onClick = {
+                            viewModel.triggerKeypressEffects(context)
+                            viewModel.lockVault()
+                            activeTab = ActiveTab.CALCULATOR
+                        },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Color.Red.copy(alpha = 0.1f))
+                            .testTag("header_lock_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Lock & Exit",
+                            tint = Color.Red,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -203,58 +268,49 @@ fun CalculatorScreen(
                             onEditRateClick = { showRateDialog = true }
                         )
                     }
-                    ActiveTab.RATES_HISTORY -> {
-                        RatesHistoryTabContent(
+                    ActiveTab.VAULT -> {
+                        VaultTabContent(
                             viewModel = viewModel,
-                            onEditRateClick = { showRateDialog = true }
+                            onLockExit = { activeTab = ActiveTab.CALCULATOR }
                         )
                     }
                 }
             }
 
-            // Professional Bottom Navigation Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(80.dp)
-                    .background(KeypadBg)
-                    .border(width = 1.dp, color = ThemeContainerBorder.copy(alpha = 0.3f))
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BottomNavItem(
-                    label = "Calculator",
-                    icon = Icons.Default.Calculate,
-                    isSelected = activeTab == ActiveTab.CALCULATOR,
-                    onClick = {
-                        viewModel.triggerKeypressEffects(context)
-                        activeTab = ActiveTab.CALCULATOR
-                    },
-                    modifier = Modifier.testTag("nav_calculator")
-                )
+            // Professional Bottom Navigation Bar - only shown if not in vault
+            if (activeTab != ActiveTab.VAULT) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .background(KeypadBg)
+                        .border(width = 1.dp, color = ThemeContainerBorder.copy(alpha = 0.3f))
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BottomNavItem(
+                        label = viewModel.t("calculator"),
+                        icon = Icons.Default.Calculate,
+                        isSelected = activeTab == ActiveTab.CALCULATOR,
+                        onClick = {
+                            viewModel.triggerKeypressEffects(context)
+                            activeTab = ActiveTab.CALCULATOR
+                        },
+                        modifier = Modifier.testTag("nav_calculator")
+                    )
 
-                BottomNavItem(
-                    label = "Exchange",
-                    icon = Icons.Default.CurrencyExchange,
-                    isSelected = activeTab == ActiveTab.EXCHANGE,
-                    onClick = {
-                        viewModel.triggerKeypressEffects(context)
-                        activeTab = ActiveTab.EXCHANGE
-                    },
-                    modifier = Modifier.testTag("nav_exchange")
-                )
-
-                BottomNavItem(
-                    label = "Settings & Rates",
-                    icon = Icons.Default.Settings,
-                    isSelected = activeTab == ActiveTab.RATES_HISTORY,
-                    onClick = {
-                        viewModel.triggerKeypressEffects(context)
-                        activeTab = ActiveTab.RATES_HISTORY
-                    },
-                    modifier = Modifier.testTag("nav_rates")
-                )
+                    BottomNavItem(
+                        label = viewModel.t("exchange"),
+                        icon = Icons.Default.CurrencyExchange,
+                        isSelected = activeTab == ActiveTab.EXCHANGE,
+                        onClick = {
+                            viewModel.triggerKeypressEffects(context)
+                            activeTab = ActiveTab.EXCHANGE
+                        },
+                        modifier = Modifier.testTag("nav_exchange")
+                    )
+                }
             }
         }
     }
@@ -392,7 +448,6 @@ fun CalculatorTabContent(
     val targetCurrency by viewModel.targetCurrency.collectAsState()
 
     val scrollState = rememberScrollState()
-    var isSplitterExpanded by remember { mutableStateOf(false) }
 
     // Determine numerical value for live split calculation
     val numericResult = calcResult.toDoubleOrNull() ?: expression.toDoubleOrNull() ?: 0.0
@@ -453,7 +508,7 @@ fun CalculatorTabContent(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Conversion and split panel container
+            // Conversion container
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -468,7 +523,6 @@ fun CalculatorTabContent(
                             color = ThemeContainerBorder.copy(alpha = 0.2f),
                             shape = RoundedCornerShape(20.dp)
                         )
-                        .clickable { isSplitterExpanded = !isSplitterExpanded }
                         .testTag("conversion_banner_card"),
                     colors = CardDefaults.cardColors(containerColor = ThemeLightPurple),
                     shape = RoundedCornerShape(20.dp)
@@ -492,7 +546,7 @@ fun CalculatorTabContent(
                             Row(
                                 verticalAlignment = Alignment.Bottom,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
-                              ) {
+                            ) {
                                 Text(
                                     text = "${sourceCurrency.symbol}${df.format(numericResult)}",
                                     fontSize = 15.sp,
@@ -513,43 +567,21 @@ fun CalculatorTabContent(
                             }
                         }
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(ThemePurple),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = if (isSplitterExpanded) "CLOSE SPLIT" else "SPLIT BILL",
-                                fontSize = 10.sp,
-                                color = ThemePurple,
-                                fontWeight = FontWeight.Black
+                            Icon(
+                                imageVector = Icons.Default.CurrencyExchange,
+                                contentDescription = "Exchange Indicator",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
                             )
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(ThemePurple),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CurrencyExchange,
-                                    contentDescription = "Exchange Indicator",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
                         }
                     }
-                }
-
-                // Smooth expandable Split Bill panel
-                AnimatedVisibility(visible = isSplitterExpanded) {
-                    BillSplitterCard(
-                        viewModel = viewModel,
-                        totalBill = numericResult,
-                        currencySymbol = sourceCurrency.symbol,
-                        targetCurrencySymbol = targetCurrency.symbol,
-                        targetExchangeRate = rate
-                    )
                 }
             }
         }
@@ -634,192 +666,6 @@ fun CalculatorTabContent(
 }
 
 // ==========================================
-// BILL SPLITTER CARD
-// ==========================================
-@Composable
-fun BillSplitterCard(
-    viewModel: CalculatorViewModel,
-    totalBill: Double,
-    currencySymbol: String,
-    targetCurrencySymbol: String,
-    targetExchangeRate: Double,
-    modifier: Modifier = Modifier
-) {
-    val numPeople by viewModel.numPeople.collectAsState()
-    val tipPercentage by viewModel.tipPercentage.collectAsState()
-
-    val tipAmount = totalBill * (tipPercentage / 100.0)
-    val grandTotal = totalBill + tipAmount
-    val amountPerPerson = grandTotal / numPeople
-
-    val convertedAmountPerPerson = amountPerPerson * targetExchangeRate
-
-    val df = DecimalFormat("#,##0.00", DecimalFormatSymbols(Locale.US))
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = ThemeContainerBorder.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(20.dp)
-            ),
-        colors = CardDefaults.cardColors(containerColor = DigitBg),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Smart Bill Splitter",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = TextDark
-                )
-                Text(
-                    text = "No dead ends",
-                    fontSize = 10.sp,
-                    color = ThemePurple,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Split and Tip Controls
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Tip Selection
-                Column(modifier = Modifier.weight(1.2f)) {
-                    Text("Select Tip", fontSize = 10.sp, color = TextMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        listOf(10, 15, 20).forEach { pct ->
-                            val isSelected = tipPercentage == pct
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) ThemePurple else KeypadBg)
-                                    .clickable { viewModel.updateTipPercentage(pct) }
-                                    .padding(horizontal = 8.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = "$pct%",
-                                    color = if (isSelected) Color.White else TextDark,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // People counter
-                Column(
-                    modifier = Modifier.weight(0.8f),
-                    horizontalAlignment = Alignment.End
-                ) {
-                    Text("Split count", fontSize = 10.sp, color = TextMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        IconButton(
-                            onClick = { viewModel.decrementPeople() },
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(KeypadBg)
-                        ) {
-                            Icon(Icons.Default.Remove, contentDescription = "Less", modifier = Modifier.size(14.dp), tint = ThemePurple)
-                        }
-                        Text(
-                            text = numPeople.toString(),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = TextDark
-                        )
-                        IconButton(
-                            onClick = { viewModel.incrementPeople() },
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(KeypadBg)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "More", modifier = Modifier.size(14.dp), tint = ThemePurple)
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Split breakdown display
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(ThemeLightPurple.copy(alpha = 0.3f))
-                    .padding(10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("EACH PAY", fontSize = 9.sp, color = ThemePurple, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = "$currencySymbol${df.format(amountPerPerson)}",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF21005D)
-                    )
-                }
-
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("IN TARGET VALUE", fontSize = 9.sp, color = TextMedium, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = "$targetCurrencySymbol${df.format(convertedAmountPerPerson)}",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextDark
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Total details summary
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Tip: $currencySymbol${df.format(tipAmount)} (${tipPercentage}%)",
-                    fontSize = 10.sp,
-                    color = TextMedium
-                )
-                Text(
-                    text = "Total: $currencySymbol${df.format(grandTotal)}",
-                    fontSize = 10.sp,
-                    color = TextDark,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    }
-}
-
-// ==========================================
 // CURRENCY EXCHANGE VIEW COMPONENT
 // ==========================================
 @Composable
@@ -834,6 +680,8 @@ fun ExchangeTabContent(
     val sourceCurrency by viewModel.sourceCurrency.collectAsState()
     val targetCurrency by viewModel.targetCurrency.collectAsState()
     val currencies = viewModel.currencies
+    val apiStatus by viewModel.apiStatus.collectAsState()
+    val lastUpdated by viewModel.lastUpdated.collectAsState()
 
     var showSourceSelector by remember { mutableStateOf(false) }
     var showTargetSelector by remember { mutableStateOf(false) }
@@ -851,6 +699,72 @@ fun ExchangeTabContent(
                 .padding(vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            // Real-Time Sync Status Banner
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White)
+                    .border(1.dp, ThemeContainerBorder.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val statusText = when (apiStatus) {
+                        ApiStatus.IDLE -> "Auto rates synced"
+                        ApiStatus.LOADING -> "Syncing live rates..."
+                        ApiStatus.SUCCESS -> "Live rates synced"
+                        ApiStatus.ERROR -> "Offline (using cached rates)"
+                    }
+                    val statusColor = when (apiStatus) {
+                        ApiStatus.LOADING -> ThemePurple
+                        ApiStatus.SUCCESS -> Color(0xFF2E7D32) // Green
+                        ApiStatus.ERROR -> Color(0xFFC62828) // Red
+                        else -> TextMedium
+                    }
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(statusColor)
+                    )
+                    Column {
+                        Text(
+                            text = statusText,
+                            color = TextDark,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Last updated: $lastUpdated",
+                            color = TextMedium.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                
+                IconButton(
+                    onClick = {
+                        viewModel.triggerKeypressEffects(context)
+                        viewModel.fetchLatestRates()
+                    },
+                    modifier = Modifier.size(36.dp),
+                    enabled = apiStatus != ApiStatus.LOADING
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Sync rates",
+                        tint = ThemePurple,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
             // Live Exchange Info Strip with flag icons
             Row(
                 modifier = Modifier
@@ -1470,6 +1384,8 @@ fun RatesHistoryTabContent(
     val rate by viewModel.exchangeRate.collectAsState()
     val sourceCurrency by viewModel.sourceCurrency.collectAsState()
     val targetCurrency by viewModel.targetCurrency.collectAsState()
+    val apiStatus by viewModel.apiStatus.collectAsState()
+    val lastUpdated by viewModel.lastUpdated.collectAsState()
 
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -1540,9 +1456,10 @@ fun RatesHistoryTabContent(
                                 color = Color(0xFF21005D)
                             )
                             Text(
-                                text = "Click to set a custom conversion override",
+                                text = "Last auto-synced: $lastUpdated\nClick to set a custom override",
                                 fontSize = 11.sp,
-                                color = TextMedium
+                                color = TextMedium,
+                                lineHeight = 14.sp
                             )
                         }
                     }
@@ -1725,6 +1642,2588 @@ fun RatesHistoryTabContent(
                         tint = ThemePurple,
                         modifier = Modifier.size(18.dp)
                     )
+                }
+            }
+        }
+    }
+}
+
+// ==========================================
+// OPTION 4: SECRET VAULT VIEW
+// ==========================================
+@Composable
+fun FolderCard(
+    title: String,
+    subtitle: String,
+    icon: @Composable () -> Unit,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                icon()
+                Column {
+                    Text(
+                        text = title,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = subtitle,
+                        fontSize = 11.sp,
+                        color = Color(0xFF8B92A5)
+                    )
+                }
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Open",
+                tint = Color(0xFF8B92A5).copy(alpha = 0.7f),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun ExploreGridCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    bgColor: Color,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(110.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(bgColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = bgColor,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Column {
+                Text(
+                    text = title,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = subtitle,
+                    fontSize = 9.sp,
+                    color = Color(0xFF8B92A5)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsGroup(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+    ) {
+        Text(
+            text = title,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF8B92A5),
+            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsActionRow(
+    title: String,
+    subtitle: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color = Color(0xFF635BFF),
+    showWarningBadge: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(iconTint.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Column {
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        fontSize = 10.sp,
+                        color = Color(0xFF8B92A5),
+                        lineHeight = 13.sp
+                    )
+                }
+            }
+        }
+        if (showWarningBadge) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = "Warning",
+                tint = Color(0xFFFFB300),
+                modifier = Modifier.size(18.dp)
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Go",
+                tint = Color(0xFF8B92A5).copy(alpha = 0.5f),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsSwitchRow(
+    title: String,
+    subtitle: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color = Color(0xFF635BFF),
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(iconTint.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Column {
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        fontSize = 10.sp,
+                        color = Color(0xFF8B92A5),
+                        lineHeight = 13.sp
+                    )
+                }
+            }
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color(0xFF635BFF),
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = Color(0xFF383F56)
+            )
+        )
+    }
+}
+
+@Composable
+fun VaultTabContent(
+    viewModel: CalculatorViewModel,
+    onLockExit: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val vaultUnlocked by viewModel.vaultUnlocked.collectAsState()
+    val vaultNotes by viewModel.vaultNotes.collectAsState()
+    var pinInput by remember { mutableStateOf("") }
+    var pinError by remember { mutableStateOf(false) }
+
+    var showLanguageDialog by remember { mutableStateOf(false) }
+
+    var showAddNoteDialog by remember { mutableStateOf(false) }
+    var noteTitle by remember { mutableStateOf("") }
+    var noteContent by remember { mutableStateOf("") }
+
+    var showChangePasscodeDialog by remember { mutableStateOf(false) }
+    var realPasscodeInput by remember { mutableStateOf("") }
+    var decoyPasscodeInput by remember { mutableStateOf("") }
+
+    val context = LocalContext.current
+
+    val biometricEnabled by viewModel.biometricEnabled.collectAsState()
+    val panicEnabled by viewModel.panicEnabled.collectAsState()
+    val panicAction by viewModel.panicAction.collectAsState()
+    val screenDownLock by viewModel.screenDownLock.collectAsState()
+    val activity = context as? androidx.fragment.app.FragmentActivity
+
+    fun triggerBiometric() {
+        if (activity != null && biometricEnabled) {
+            val executor = androidx.core.content.ContextCompat.getMainExecutor(activity)
+            val biometricPrompt = androidx.biometric.BiometricPrompt(
+                activity,
+                executor,
+                object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        super.onAuthenticationError(errorCode, errString)
+                    }
+
+                    override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+                        super.onAuthenticationSucceeded(result)
+                        viewModel.unlockVault(isDecoy = false)
+                        Toast.makeText(context, "Vault Unlocked via Biometrics!", Toast.LENGTH_SHORT).show()
+                    }
+
+                    override fun onAuthenticationFailed() {
+                        super.onAuthenticationFailed()
+                    }
+                }
+            )
+
+            val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Unlock Vault")
+                .setSubtitle("Authenticate using fingerprint or face recognition")
+                .setNegativeButtonText("Use PIN Pad")
+                .build()
+
+            biometricPrompt.authenticate(promptInfo)
+        }
+    }
+
+    if (!vaultUnlocked && biometricEnabled) {
+        LaunchedEffect(Unit) {
+            triggerBiometric()
+        }
+    }
+
+    // Unified sensor detector for Panic Gesture (Shake and Face Down)
+    if ((panicEnabled || screenDownLock) && vaultUnlocked) {
+        val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
+        val accelerometer = remember { sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }
+
+        DisposableEffect(sensorManager, accelerometer) {
+            var lastUpdate = 0L
+            var lastX = 0f
+            var lastY = 0f
+            var lastZ = 0f
+
+            val listener = object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    val curTime = System.currentTimeMillis()
+                    val x = event.values[0]
+                    val y = event.values[1]
+                    val z = event.values[2]
+
+                    // 1. Screen Down Lock detection (Z-axis negative gravity)
+                    if (screenDownLock && z < -8.5f) {
+                        viewModel.triggerKeypressEffects(context)
+                        viewModel.lockVault()
+                        Toast.makeText(context, "Vault locked: Face down detected!", Toast.LENGTH_SHORT).show()
+                        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                            addCategory(Intent.CATEGORY_HOME)
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(homeIntent)
+                        return
+                    }
+
+                    // 2. Shake detection
+                    if (panicEnabled && (curTime - lastUpdate) > 150) {
+                        val diffTime = (curTime - lastUpdate)
+                        lastUpdate = curTime
+
+                        val speed = Math.abs(x + y + z - lastX - lastY - lastZ) / diffTime * 10000
+
+                        if (speed > 1000) { // Shake detected
+                            viewModel.triggerKeypressEffects(context)
+                            viewModel.lockVault()
+                            if (panicAction == "lock") {
+                                Toast.makeText(context, "Vault locked via shake gesture!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Emergency lock initiated!", Toast.LENGTH_SHORT).show()
+                                val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                                    addCategory(Intent.CATEGORY_HOME)
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(homeIntent)
+                            }
+                        }
+
+                        lastX = x
+                        lastY = y
+                        lastZ = z
+                    }
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}
+            }
+
+            if (accelerometer != null) {
+                sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_NORMAL)
+            }
+            onDispose {
+                sensorManager.unregisterListener(listener)
+            }
+        }
+    }
+
+    if (!vaultUnlocked) {
+        // Vault Lock Screen
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(ThemeLightPurple),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Secret Vault Lock",
+                    tint = ThemePurple,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Secret Calculator Vault",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDark
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Enter the secret passcode to unlock your private space.",
+                fontSize = 12.sp,
+                color = TextMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Custom secure PIN Dots
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                for (i in 0 until 4) {
+                    val isFilled = pinInput.length > i
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(if (isFilled) ThemePurple else ThemeContainerBorder.copy(alpha = 0.5f))
+                            .border(width = 1.dp, color = ThemePurple, shape = CircleShape)
+                    )
+                }
+            }
+
+            if (pinError) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Incorrect Passcode! Hint: 7777",
+                    color = Color.Red,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Grid PIN Pad
+            val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "Clear", "0", "Unlock")
+            Column(
+                modifier = Modifier.width(280.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                keys.chunked(3).forEach { rowKeys ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowKeys.forEach { key ->
+                            val isSpecial = key == "Clear" || key == "Unlock"
+                            val buttonColor = if (isSpecial) ThemeLightPurple else KeypadBg
+                            val contentColor = if (isSpecial) ThemePurple else TextDark
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(buttonColor)
+                                    .clickable {
+                                        viewModel.triggerKeypressEffects(context)
+                                        pinError = false
+                                        when (key) {
+                                            "Clear" -> {
+                                                if (pinInput.isNotEmpty()) pinInput = pinInput.dropLast(1)
+                                            }
+                                            "Unlock" -> {
+                                                if (viewModel.tryUnlockVault(pinInput)) {
+                                                    pinInput = ""
+                                                } else {
+                                                    pinError = true
+                                                    pinInput = ""
+                                                }
+                                            }
+                                            else -> {
+                                                if (pinInput.length < 4) {
+                                                    pinInput += key
+                                                    if (pinInput.length == 4) {
+                                                        // Auto submit when 4 digits are typed
+                                                        if (viewModel.tryUnlockVault(pinInput)) {
+                                                            pinInput = ""
+                                                        } else {
+                                                            pinError = true
+                                                            pinInput = ""
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = key,
+                                    fontSize = if (isSpecial) 12.sp else 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = contentColor
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (biometricEnabled && activity != null) {
+                Spacer(modifier = Modifier.height(20.dp))
+                IconButton(
+                    onClick = {
+                        viewModel.triggerKeypressEffects(context)
+                        triggerBiometric()
+                    },
+                    modifier = Modifier
+                        .size(54.dp)
+                        .background(ThemeLightPurple, CircleShape)
+                        .border(1.dp, ThemePurple.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Fingerprint,
+                        contentDescription = "Unlock with Biometrics",
+                        tint = ThemePurple,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        }
+    } else {
+        // Vault Unlocked Content: Advanced Private Media Hub
+        val vaultFiles by viewModel.vaultFiles.collectAsState()
+        var activeSection by remember { mutableStateOf("Home") } // "Home", "Notes", "Photos & Videos", "Documents", "Explore", "Settings"
+        var selectedFileForDetails by remember { mutableStateOf<String?>(null) }
+        var textFileContentToRead by remember { mutableStateOf<Pair<String, String>?>(null) } // Pair(Name, Content)
+
+        // Photo/Video Picker launcher
+        val photoPickerLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.PickVisualMedia(),
+            onResult = { uri ->
+                if (uri != null) {
+                    val success = viewModel.addVaultFile(context, uri)
+                    if (success) {
+                        android.widget.Toast.makeText(context, "Photo/Video secured in Vault!", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        android.widget.Toast.makeText(context, "Failed to secure photo/video", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        )
+
+        // Document/General File Picker launcher
+        val documentPickerLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent(),
+            onResult = { uri ->
+                if (uri != null) {
+                    val success = viewModel.addVaultFile(context, uri)
+                    if (success) {
+                        android.widget.Toast.makeText(context, "Document secured in Vault!", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        android.widget.Toast.makeText(context, "Failed to secure document", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        )
+
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            // Unlocked Header with Back Navigation
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                IconButton(
+                    onClick = {
+                        viewModel.triggerKeypressEffects(context)
+                        if (activeSection == "Home") {
+                            viewModel.lockVault()
+                            onLockExit()
+                        } else {
+                            activeSection = "Home"
+                        }
+                    },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(KeypadBg)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = ThemePurple,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (activeSection == "Home") viewModel.t("secure_vault") else viewModel.t(
+                            when(activeSection) {
+                                "Notes" -> "notes"
+                                "Photos & Videos" -> "photos_videos"
+                                "Documents" -> "documents"
+                                "Private Browser" -> "private_browser"
+                                "Explore" -> "explore"
+                                "Settings" -> "settings"
+                                else -> "secure_vault"
+                            }
+                        ),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextDark
+                    )
+                    Text(
+                        text = "AES Passcode Secured",
+                        fontSize = 10.sp,
+                        color = Color(0xFF4CAF50),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = {
+                            viewModel.triggerKeypressEffects(context)
+                            realPasscodeInput = viewModel.getVaultPin()
+                            decoyPasscodeInput = viewModel.getDecoyPin()
+                            showChangePasscodeDialog = true
+                        },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(KeypadBg)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Change Passcode",
+                            tint = ThemePurple
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
+                            viewModel.triggerKeypressEffects(context)
+                            viewModel.lockVault()
+                        },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(KeypadBg)
+                    ) {
+                        Icon(Icons.Default.Lock, contentDescription = "Lock Vault", tint = ThemePurple)
+                    }
+
+                    if (activeSection == "Notes" || activeSection == "Photos & Videos" || activeSection == "Documents") {
+                        Button(
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                when (activeSection) {
+                                    "Notes" -> {
+                                        showAddNoteDialog = true
+                                    }
+                                    "Photos & Videos" -> {
+                                        photoPickerLauncher.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
+                                        )
+                                    }
+                                    "Documents" -> {
+                                        documentPickerLauncher.launch("*/*")
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Add Item", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = when (activeSection) {
+                                    "Notes" -> "Add Note"
+                                    "Photos & Videos" -> "Import Photo"
+                                    else -> "Import File"
+                                },
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Material 3 Filter Chips for Sections
+            val decoyActive by viewModel.decoyActive.collectAsState()
+            val sections = if (decoyActive) {
+                listOf("Home", "Notes", "Photos & Videos", "Documents", "Private Browser", "Settings")
+            } else {
+                listOf("Home", "Notes", "Photos & Videos", "Documents", "Private Browser", "Explore", "Settings")
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                sections.forEach { label ->
+                    val isSelected = activeSection == label
+                    val chipBg = if (isSelected) ThemePurple else ThemeLightPurple.copy(alpha = 0.4f)
+                    val chipText = if (isSelected) Color.White else TextMedium
+                    val chipBorder = if (isSelected) Color.Transparent else ThemeContainerBorder.copy(alpha = 0.5f)
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(chipBg)
+                            .border(1.dp, chipBorder, RoundedCornerShape(12.dp))
+                            .clickable {
+                                viewModel.triggerKeypressEffects(context)
+                                activeSection = label
+                            }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = chipText
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Section Contents
+            when (activeSection) {
+                "Home" -> {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        // Header Cards like App Lock and Explore
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Card 1: App Lock
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(100.dp)
+                                    .clickable {
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "App Lock"
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF635BFF).copy(alpha = 0.15f))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFF635BFF)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Shield,
+                                            contentDescription = "App Lock",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "App Lock",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = "Protect apps",
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF8B92A5)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Card 2: Explore Toolbox
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(100.dp)
+                                    .clickable {
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "Explore"
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF00C853).copy(alpha = 0.15f))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFF00C853)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.TrendingUp,
+                                            contentDescription = "Explore",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "Explore",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = "Secure features",
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF8B92A5)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Folder items header
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "All Folders",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF8B92A5)
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Sort,
+                                contentDescription = "Sort",
+                                tint = Color(0xFF8B92A5),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        // Folders list like in Screenshot 1
+                        FolderCard(
+                            title = "Recent Files",
+                            subtitle = "${vaultFiles.size + vaultNotes.size} locked items",
+                            icon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFFFF9100).copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.History, "Recent", tint = Color(0xFFFF9100), modifier = Modifier.size(20.dp))
+                                }
+                            },
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                activeSection = "Photos & Videos"
+                            }
+                        )
+
+                        FolderCard(
+                            title = "Photos & Videos",
+                            subtitle = "${vaultFiles.filter { it.contains("image/") || it.contains("video/") }.size} media objects",
+                            icon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF2979FF).copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Image, "Photos", tint = Color(0xFF2979FF), modifier = Modifier.size(20.dp))
+                                }
+                            },
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                activeSection = "Photos & Videos"
+                            }
+                        )
+
+                        FolderCard(
+                            title = "Private Notes",
+                            subtitle = "${vaultNotes.size} secret logs",
+                            icon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFFFFD600).copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Article, "Notes", tint = Color(0xFFFFD600), modifier = Modifier.size(20.dp))
+                                }
+                            },
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                activeSection = "Notes"
+                            }
+                        )
+
+                        FolderCard(
+                            title = "Private Documents",
+                            subtitle = "${vaultFiles.filter { !it.contains("image/") && !it.contains("video/") }.size} locked assets",
+                            icon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF00E676).copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Description, "Documents", tint = Color(0xFF00E676), modifier = Modifier.size(20.dp))
+                                }
+                            },
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                activeSection = "Documents"
+                            }
+                        )
+
+                        FolderCard(
+                            title = "Private Web Browser",
+                            subtitle = "Incognito browsing workspace",
+                            icon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF00B0FF).copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Language, "Browser", tint = Color(0xFF00B0FF), modifier = Modifier.size(20.dp))
+                                }
+                            },
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                activeSection = "Private Browser"
+                            }
+                        )
+                    }
+                }
+                "Notes" -> {
+                    if (vaultNotes.isEmpty()) {
+                        EmptyVaultSectionState(
+                            title = "No Secure Notes",
+                            description = "Tap 'Add Note' to save password credentials or personal journals safely."
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(vaultNotes) { noteStr ->
+                                val parts = noteStr.split("|||")
+                                if (parts.size == 3) {
+                                    val timestamp = parts[0]
+                                    val title = parts[1]
+                                    val body = parts[2]
+
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(
+                                                width = 1.dp,
+                                                color = ThemeContainerBorder.copy(alpha = 0.2f),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ),
+                                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(14.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.Top
+                                            ) {
+                                                Text(
+                                                    text = title,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp,
+                                                    color = TextDark,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                IconButton(
+                                                    onClick = {
+                                                        viewModel.triggerKeypressEffects(context)
+                                                        viewModel.deleteVaultNote(noteStr)
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Delete,
+                                                        contentDescription = "Delete Note",
+                                                        tint = Color.Red.copy(alpha = 0.7f),
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = body,
+                                                fontSize = 12.sp,
+                                                color = TextMedium,
+                                                lineHeight = 16.sp
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                text = timestamp,
+                                                fontSize = 9.sp,
+                                                color = TextMedium.copy(alpha = 0.6f),
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                "Photos & Videos" -> {
+                    val mediaFiles = vaultFiles.filter {
+                        val parts = it.split("|||")
+                        parts.size >= 4 && (parts[3].startsWith("image/") || parts[3].startsWith("video/"))
+                    }
+
+                    if (mediaFiles.isEmpty()) {
+                        EmptyVaultSectionState(
+                            title = "No Secure Photos or Videos",
+                            description = "Tap 'Import Photo' to transfer visual media into this secure sandboxed directory."
+                        )
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(3),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(mediaFiles) { fileStr ->
+                                val parts = fileStr.split("|||")
+                                if (parts.size >= 6) {
+                                    val originalName = parts[2]
+                                    val mimeType = parts[3]
+                                    val path = parts[4]
+
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(1f)
+                                            .clickable {
+                                                viewModel.triggerKeypressEffects(context)
+                                                selectedFileForDetails = fileStr
+                                            },
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = CardDefaults.cardColors(containerColor = KeypadBg)
+                                    ) {
+                                        Box(modifier = Modifier.fillMaxSize()) {
+                                            if (mimeType.startsWith("image/")) {
+                                                AsyncImage(
+                                                    model = java.io.File(path),
+                                                    contentDescription = originalName,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                )
+                                            } else {
+                                                // Video Placeholder thumbnail
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .background(Color.Black.copy(alpha = 0.7f)),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Visibility,
+                                                        contentDescription = "Video",
+                                                        tint = Color.White.copy(alpha = 0.8f),
+                                                        modifier = Modifier.size(28.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            // Tiny tag or details
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .background(Color.Black.copy(alpha = 0.4f))
+                                                    .padding(4.dp)
+                                                    .align(Alignment.BottomStart)
+                                            ) {
+                                                Text(
+                                                    text = if (mimeType.startsWith("video/")) "VIDEO" else "IMAGE",
+                                                    color = Color.White,
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.align(Alignment.Center)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                "Documents" -> {
+                    val docFiles = vaultFiles.filter {
+                        val parts = it.split("|||")
+                        parts.size >= 4 && !parts[3].startsWith("image/") && !parts[3].startsWith("video/")
+                    }
+
+                    if (docFiles.isEmpty()) {
+                        EmptyVaultSectionState(
+                            title = "No Private Documents",
+                            description = "Tap 'Import File' to secure any PDF, TXT, or binary document from local storage."
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(docFiles) { fileStr ->
+                                val parts = fileStr.split("|||")
+                                if (parts.size >= 6) {
+                                    val timestamp = parts[1]
+                                    val originalName = parts[2]
+                                    val mimeType = parts[3]
+                                    val path = parts[4]
+                                    val sizeStr = parts[5]
+
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(
+                                                width = 1.dp,
+                                                color = ThemeContainerBorder.copy(alpha = 0.2f),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ),
+                                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(ThemeLightPurple),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Description,
+                                                    contentDescription = "Document",
+                                                    tint = ThemePurple,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = originalName,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = TextDark,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = "$sizeStr • $timestamp",
+                                                    fontSize = 10.sp,
+                                                    color = TextMedium.copy(alpha = 0.7f)
+                                                )
+                                            }
+
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                if (mimeType.startsWith("text/plain")) {
+                                                    IconButton(
+                                                        onClick = {
+                                                            viewModel.triggerKeypressEffects(context)
+                                                            try {
+                                                                val txt = java.io.File(path).readText()
+                                                                textFileContentToRead = Pair(originalName, txt)
+                                                            } catch (e: Exception) {
+                                                                android.widget.Toast.makeText(context, "Cannot read text file", android.widget.Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        },
+                                                        modifier = Modifier.size(32.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Visibility,
+                                                            contentDescription = "Read File",
+                                                            tint = ThemePurple,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                }
+
+                                                IconButton(
+                                                    onClick = {
+                                                        viewModel.triggerKeypressEffects(context)
+                                                        viewModel.exportVaultFile(
+                                                            context = context,
+                                                            fileSerialized = fileStr,
+                                                            onSuccess = { msg -> android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show() },
+                                                            onFailure = { err -> android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show() }
+                                                        )
+                                                    },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.FileDownload,
+                                                        contentDescription = "Export File",
+                                                        tint = Color(0xFF4CAF50),
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+
+                                                IconButton(
+                                                    onClick = {
+                                                        viewModel.triggerKeypressEffects(context)
+                                                        viewModel.deleteVaultFile(fileStr)
+                                                        android.widget.Toast.makeText(context, "File deleted", android.widget.Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Delete,
+                                                        contentDescription = "Delete File",
+                                                        tint = Color.Red.copy(alpha = 0.7f),
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                "Private Browser" -> {
+                    PrivateBrowserSection(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    )
+                }
+                "App Lock" -> {
+                    Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        AppLockSection(viewModel = viewModel)
+                    }
+                }
+                "Intruder Alerts" -> {
+                    val intruderAttempts by viewModel.intruderAttempts.collectAsState()
+                    if (intruderAttempts.isEmpty()) {
+                        EmptyVaultSectionState(
+                            title = "No Break-In Attempts",
+                            description = "Your vault is completely safe. Any failed unlock attempts (using incorrect PINs) will be logged here with timestamps and entered keys."
+                        )
+                    } else {
+                        Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${intruderAttempts.size} Attempted Break-ins",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Red
+                                )
+                                TextButton(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        viewModel.clearIntruderAttempts()
+                                        android.widget.Toast.makeText(context, "Logs cleared!", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Text("Clear All", color = ThemePurple, fontSize = 12.sp)
+                                }
+                            }
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                items(intruderAttempts) { attemptStr ->
+                                    val parts = attemptStr.split("|||")
+                                    if (parts.size >= 2) {
+                                        val timestamp = parts[0]
+                                        val enteredPin = parts[1]
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = Color.Red.copy(alpha = 0.2f),
+                                                    shape = RoundedCornerShape(12.dp)
+                                                ),
+                                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(14.dp).fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column {
+                                                    Text(
+                                                        text = "Suspicious Access Attempt",
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 13.sp,
+                                                        color = Color.Red
+                                                    )
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Text(
+                                                        text = "Date/Time: $timestamp",
+                                                        fontSize = 11.sp,
+                                                        color = TextMedium
+                                                    )
+                                                }
+                                                Column(horizontalAlignment = Alignment.End) {
+                                                    Text(
+                                                        text = "Entered Code",
+                                                        fontSize = 9.sp,
+                                                        color = TextMedium.copy(alpha = 0.7f),
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Text(
+                                                        text = enteredPin,
+                                                        fontSize = 16.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = TextDark
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                "Explore" -> {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Text(
+                            text = "Security Toolbox",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF8B92A5)
+                        )
+
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            modifier = Modifier
+                                .height(380.dp)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            userScrollEnabled = false
+                        ) {
+                            item {
+                                ExploreGridCard(
+                                    title = "Intruder Selfie",
+                                    subtitle = "Logs break-ins",
+                                    icon = Icons.Default.Warning,
+                                    bgColor = Color(0xFFFF9100),
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "Intruder Alerts"
+                                    }
+                                )
+                            }
+                            item {
+                                ExploreGridCard(
+                                    title = "App Lock",
+                                    subtitle = "Lock apps",
+                                    icon = Icons.Default.Shield,
+                                    bgColor = Color(0xFF7C4DFF),
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "App Lock"
+                                    }
+                                )
+                            }
+                            item {
+                                ExploreGridCard(
+                                    title = "Private Browser",
+                                    subtitle = "Incognito search",
+                                    icon = Icons.Default.Language,
+                                    bgColor = Color(0xFF2979FF),
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "Private Browser"
+                                    }
+                                )
+                            }
+                            item {
+                                ExploreGridCard(
+                                    title = "Private Notes",
+                                    subtitle = "Encrypted logs",
+                                    icon = Icons.Default.Article,
+                                    bgColor = Color(0xFFFFD600),
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "Notes"
+                                    }
+                                )
+                            }
+                            item {
+                                ExploreGridCard(
+                                    title = "Prevent Screenshot",
+                                    subtitle = "Blocks recordings",
+                                    icon = Icons.Default.Visibility,
+                                    bgColor = Color(0xFF00E676),
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "Settings"
+                                    }
+                                )
+                            }
+                            item {
+                                ExploreGridCard(
+                                    title = "Decoy Vault PIN",
+                                    subtitle = "Fake password space",
+                                    icon = Icons.Default.Lock,
+                                    bgColor = Color(0xFFEC407A),
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "Settings"
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                "Settings" -> {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        SettingsGroup(title = "SECURITY") {
+                            SettingsActionRow(
+                                title = "Change passcode",
+                                subtitle = "Reset master PIN & Decoy fake PIN",
+                                icon = Icons.Default.Lock,
+                                iconTint = Color(0xFF2979FF),
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    realPasscodeInput = viewModel.getVaultPin()
+                                    decoyPasscodeInput = viewModel.getDecoyPin()
+                                    showChangePasscodeDialog = true
+                                }
+                            )
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                            SettingsActionRow(
+                                title = "Password recovery",
+                                subtitle = "Unconfigured recovery email!",
+                                icon = Icons.Default.Warning,
+                                iconTint = Color(0xFFFF9100),
+                                showWarningBadge = true,
+                                onClick = {
+                                    android.widget.Toast.makeText(context, "Recovery email feature already configured locally!", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+
+                        SettingsGroup(title = "STEALTH MODES") {
+                            val preventScreenshots by viewModel.preventScreenshots.collectAsState()
+                            val screenDownLock by viewModel.screenDownLock.collectAsState()
+                            val panicEnabled by viewModel.panicEnabled.collectAsState()
+
+                            SettingsSwitchRow(
+                                title = "Prevent screenshots",
+                                subtitle = "Blocks Android screen capture & recorders",
+                                icon = Icons.Default.Visibility,
+                                iconTint = Color(0xFF00E676),
+                                checked = preventScreenshots,
+                                onCheckedChange = { viewModel.setPreventScreenshots(it) }
+                            )
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                            SettingsSwitchRow(
+                                title = "Screen down lock",
+                                subtitle = "Instantly closes and locks vault face-down",
+                                icon = Icons.Default.Refresh,
+                                iconTint = Color(0xFFFFD600),
+                                checked = screenDownLock,
+                                onCheckedChange = { viewModel.setScreenDownLock(it) }
+                            )
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                            SettingsSwitchRow(
+                                title = "Shake panic gesture",
+                                subtitle = "Shake phone hard to quickly lock vault",
+                                icon = Icons.Default.Refresh,
+                                iconTint = Color(0xFFEC407A),
+                                checked = panicEnabled,
+                                onCheckedChange = { viewModel.setPanicEnabled(it) }
+                            )
+                        }
+
+                        SettingsGroup(title = viewModel.t("general_settings")) {
+                            val currentLangCode by viewModel.selectedLanguage.collectAsState()
+                            val currentLang = TranslationProvider.languages.find { it.code == currentLangCode }
+                            val currentLangDisplay = currentLang?.let { "${it.name} ${it.flag}" } ?: "English 🇺🇸"
+                            SettingsActionRow(
+                                title = viewModel.t("language"),
+                                subtitle = currentLangDisplay,
+                                icon = Icons.Default.Language,
+                                iconTint = Color(0xFF00B0FF),
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    showLanguageDialog = true
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Secure File Detail Modal Dialog (Photos/Videos)
+        if (selectedFileForDetails != null) {
+            val fileStr = selectedFileForDetails!!
+            val parts = fileStr.split("|||")
+            if (parts.size >= 6) {
+                val timestamp = parts[1]
+                val originalName = parts[2]
+                val mimeType = parts[3]
+                val path = parts[4]
+                val sizeStr = parts[5]
+
+                AlertDialog(
+                    onDismissRequest = { selectedFileForDetails = null },
+                    containerColor = BrandBg,
+                    title = {
+                        Text(
+                            text = "Secure File Preview",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = TextDark
+                        )
+                    },
+                    text = {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (mimeType.startsWith("image/")) {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(240.dp),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    AsyncImage(
+                                        model = java.io.File(path),
+                                        contentDescription = originalName,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                                    )
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(140.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(ThemeLightPurple),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(Icons.Default.Visibility, contentDescription = "Video file", tint = ThemePurple, modifier = Modifier.size(48.dp))
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Secure Video Content", color = TextDark, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(text = "Name: $originalName", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextDark, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(text = "Type: $mimeType", fontSize = 11.sp, color = TextMedium)
+                                Text(text = "Size: $sizeStr", fontSize = 11.sp, color = TextMedium)
+                                Text(text = "Secured on: $timestamp", fontSize = 11.sp, color = TextMedium)
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    viewModel.exportVaultFile(
+                                        context = context,
+                                        fileSerialized = fileStr,
+                                        onSuccess = { msg ->
+                                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                                            selectedFileForDetails = null
+                                        },
+                                        onFailure = { err ->
+                                            android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show()
+                                        }
+                                    )
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.FileDownload, contentDescription = "Export", modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Decrypt Export", fontSize = 11.sp)
+                            }
+
+                            Button(
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    viewModel.deleteVaultFile(fileStr)
+                                    android.widget.Toast.makeText(context, "Permanently Deleted!", android.widget.Toast.LENGTH_SHORT).show()
+                                    selectedFileForDetails = null
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Delete", fontSize = 11.sp)
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            viewModel.triggerKeypressEffects(context)
+                            selectedFileForDetails = null
+                        }) {
+                            Text("Cancel", color = ThemePurple)
+                        }
+                    }
+                )
+            }
+        }
+
+        // Private Secure Plain Text Viewer Dialog
+        if (textFileContentToRead != null) {
+            val (name, content) = textFileContentToRead!!
+            AlertDialog(
+                onDismissRequest = { textFileContentToRead = null },
+                containerColor = BrandBg,
+                title = {
+                    Text(
+                        text = name,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = TextDark,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(280.dp)
+                            .border(1.dp, ThemeContainerBorder.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .background(Color.White)
+                            .padding(12.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            text = content,
+                            fontSize = 12.sp,
+                            color = TextDark,
+                            lineHeight = 16.sp
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.triggerKeypressEffects(context)
+                            textFileContentToRead = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
+                    ) {
+                        Text("Close")
+                    }
+                }
+            )
+        }
+    }
+
+    // New Note Dialog// New Note Dialog
+    if (showAddNoteDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddNoteDialog = false },
+            title = {
+                Text(
+                    text = "Add Secret Note",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = TextDark
+                )
+            },
+            containerColor = BrandBg,
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = noteTitle,
+                        onValueChange = { noteTitle = it },
+                        label = { Text("Title", fontSize = 12.sp) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = ThemePurple,
+                            unfocusedBorderColor = ThemeContainerBorder
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = noteContent,
+                        onValueChange = { noteContent = it },
+                        label = { Text("Secret Content", fontSize = 12.sp) },
+                        minLines = 3,
+                        maxLines = 5,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = ThemePurple,
+                            unfocusedBorderColor = ThemeContainerBorder
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.triggerKeypressEffects(context)
+                        if (noteTitle.isNotBlank() && noteContent.isNotBlank()) {
+                            viewModel.addVaultNote(noteTitle, noteContent)
+                            noteTitle = ""
+                            noteContent = ""
+                            showAddNoteDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.triggerKeypressEffects(context)
+                    showAddNoteDialog = false
+                }) {
+                    Text("Cancel", color = ThemePurple)
+                }
+            }
+        )
+    }
+
+    // Change Passcode / Vault Settings Dialog
+    if (showChangePasscodeDialog) {
+        val activeAppIcon by viewModel.activeAppIcon.collectAsState()
+
+        AlertDialog(
+            onDismissRequest = { showChangePasscodeDialog = false },
+            title = {
+                Text(
+                    text = "Vault Settings & Stealth",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = TextDark
+                )
+            },
+            containerColor = BrandBg,
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Customize passcodes, biometric triggers, instant shake panic actions, and dynamic launcher disguises below.",
+                        fontSize = 11.sp,
+                        color = TextMedium,
+                        lineHeight = 15.sp
+                    )
+
+                    Text(
+                        text = "SECURITY PASSCODES",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ThemePurple
+                    )
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "Real Vault Passcode",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ThemePurple
+                        )
+                        OutlinedTextField(
+                            value = realPasscodeInput,
+                            onValueChange = { input ->
+                                if (input.all { it.isDigit() } && input.length <= 8) {
+                                    realPasscodeInput = input
+                                }
+                            },
+                            placeholder = { Text("e.g. 7777", fontSize = 12.sp) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = ThemePurple,
+                                unfocusedBorderColor = ThemeContainerBorder
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "Decoy / Guest Passcode (Plausible Deniability)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE57373)
+                        )
+                        OutlinedTextField(
+                            value = decoyPasscodeInput,
+                            onValueChange = { input ->
+                                if (input.all { it.isDigit() } && input.length <= 8) {
+                                    decoyPasscodeInput = input
+                                }
+                            },
+                            placeholder = { Text("e.g. 1111", fontSize = 12.sp) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFE57373),
+                                unfocusedBorderColor = ThemeContainerBorder
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "BIOMETRIC AUTHENTICATION",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ThemePurple
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Biometric Unlock",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = TextDark
+                            )
+                            Text(
+                                text = "Unlock your secure vault using fingerprint or face scanning.",
+                                fontSize = 10.sp,
+                                color = TextMedium,
+                                lineHeight = 13.sp
+                            )
+                        }
+                        Switch(
+                            checked = biometricEnabled,
+                            onCheckedChange = {
+                                viewModel.triggerKeypressEffects(context)
+                                viewModel.setBiometricEnabled(it)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = ThemePurple
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "PANIC GESTURE (SHAKE TO LOCK)",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ThemePurple
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Enable Panic Shake",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = TextDark
+                            )
+                            Text(
+                                text = "Shaking your phone instantly locks the vault or hides it.",
+                                fontSize = 10.sp,
+                                color = TextMedium,
+                                lineHeight = 13.sp
+                            )
+                        }
+                        Switch(
+                            checked = panicEnabled,
+                            onCheckedChange = {
+                                viewModel.triggerKeypressEffects(context)
+                                viewModel.setPanicEnabled(it)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = ThemePurple
+                            )
+                        )
+                    }
+
+                    if (panicEnabled) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Panic Action Trigger",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextDark
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("lock" to "Lock Vault Only", "home" to "Lock & Go Home").forEach { (actionKey, labelText) ->
+                                    val isSelected = panicAction == actionKey
+                                    Card(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable {
+                                                viewModel.triggerKeypressEffects(context)
+                                                viewModel.setPanicAction(actionKey)
+                                            },
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isSelected) ThemePurple.copy(alpha = 0.15f) else Color.White
+                                        ),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isSelected) ThemePurple else ThemeContainerBorder
+                                        )
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(8.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = labelText,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) ThemePurple else TextMedium
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Button(
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    viewModel.lockVault()
+                                    if (panicAction == "lock") {
+                                        Toast.makeText(context, "Virtual Panic: Vault locked successfully!", Toast.LENGTH_LONG).show()
+                                    } else {
+                                        Toast.makeText(context, "Virtual Panic: Vault locked & returned Home!", Toast.LENGTH_LONG).show()
+                                        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                                            addCategory(Intent.CATEGORY_HOME)
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        }
+                                        context.startActivity(homeIntent)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Test Panic Trigger (Simulator)", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = viewModel.t("app_disguise").uppercase(),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ThemePurple
+                    )
+                    Text(
+                        text = viewModel.t("disguise_desc"),
+                        fontSize = 10.sp,
+                        color = TextMedium,
+                        lineHeight = 13.sp
+                    )
+
+                    val iconsConfig = listOf(
+                        Triple("LauncherCalculator", "Classic Calc", "🧮"),
+                        Triple("LauncherCalculatorRetro", "Retro Calc", "📟"),
+                        Triple("LauncherCalculatorNeon", "Neon Calc", "🔮"),
+                        Triple("LauncherNotes", "My Notes", "📝"),
+                        Triple("LauncherWeather", "Weather Pro", "☀️"),
+                        Triple("LauncherCompass", "Smart Compass", "🧭"),
+                        Triple("LauncherSudoku", "Sudoku Pro", "🔢"),
+                        Triple("LauncherVoice", "Voice Recorder", "🎙️")
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        iconsConfig.chunked(2).forEach { rowIcons ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                rowIcons.forEach { (aliasKey, label, emoji) ->
+                                    val isCurrent = activeAppIcon == aliasKey
+                                    Card(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable {
+                                                viewModel.triggerKeypressEffects(context)
+                                                viewModel.switchIcon(context, aliasKey)
+                                                Toast.makeText(context, "App icon switched to $label successfully!", Toast.LENGTH_LONG).show()
+                                            },
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isCurrent) ThemePurple.copy(alpha = 0.15f) else Color.White
+                                        ),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isCurrent) ThemePurple else ThemeContainerBorder
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(emoji, fontSize = 20.sp)
+                                            Text(
+                                                text = label,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isCurrent) ThemePurple else TextDark,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.triggerKeypressEffects(context)
+                        if (realPasscodeInput.isBlank() || decoyPasscodeInput.isBlank()) {
+                            android.widget.Toast.makeText(context, "Passcodes cannot be empty!", android.widget.Toast.LENGTH_SHORT).show()
+                        } else if (realPasscodeInput == decoyPasscodeInput) {
+                            android.widget.Toast.makeText(context, "Real and decoy passcodes must be different!", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.setVaultPin(realPasscodeInput)
+                            viewModel.setDecoyPin(decoyPasscodeInput)
+                            android.widget.Toast.makeText(context, "Settings saved successfully!", android.widget.Toast.LENGTH_LONG).show()
+                            showChangePasscodeDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
+                ) {
+                    Text("Save Settings")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.triggerKeypressEffects(context)
+                    showChangePasscodeDialog = false
+                }) {
+                    Text("Cancel", color = ThemePurple)
+                }
+            }
+        )
+    }
+
+    // Dynamic Multi-Language Selection Dialog
+    if (showLanguageDialog) {
+        val selectedLang by viewModel.selectedLanguage.collectAsState()
+        AlertDialog(
+            onDismissRequest = { showLanguageDialog = false },
+            title = {
+                Text(
+                    text = viewModel.t("language"),
+                    color = TextDark,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            containerColor = BrandBg,
+            confirmButton = {
+                TextButton(onClick = { showLanguageDialog = false }) {
+                    Text("OK", color = ThemePurple, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)
+                ) {
+                    items(TranslationProvider.languages) { lang ->
+                        val isSelected = selectedLang == lang.code
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) ThemePurple.copy(alpha = 0.15f) else Color.Transparent)
+                                .clickable {
+                                    viewModel.triggerKeypressEffects(context)
+                                    viewModel.setSelectedLanguage(lang.code)
+                                    showLanguageDialog = false
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(lang.flag, fontSize = 22.sp)
+                            Text(
+                                text = lang.name,
+                                color = if (isSelected) ThemePurple else TextDark,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = ThemePurple,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun EmptyVaultSectionState(
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.Description,
+            contentDescription = null,
+            tint = ThemePurple.copy(alpha = 0.5f),
+            modifier = Modifier.size(56.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = title,
+            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp,
+            color = TextDark
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = description,
+            fontSize = 11.sp,
+            color = TextMedium.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center,
+            lineHeight = 16.sp,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+    }
+}
+
+@Composable
+fun PrivateBrowserSection(modifier: Modifier = Modifier) {
+    var urlInput by remember { mutableStateOf("https://www.google.com") }
+    var webViewRef by remember { mutableStateOf<android.webkit.WebView?>(null) }
+    var canGoBack by remember { mutableStateOf(false) }
+    var canGoForward by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    Column(modifier = modifier.fillMaxSize()) {
+        // Address Bar & Controls
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            IconButton(
+                onClick = { webViewRef?.goBack() },
+                enabled = canGoBack,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = if (canGoBack) ThemePurple else Color.Gray
+                )
+            }
+            IconButton(
+                onClick = { webViewRef?.goForward() },
+                enabled = canGoForward,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Forward",
+                    tint = if (canGoForward) ThemePurple else Color.Gray
+                )
+            }
+            IconButton(
+                onClick = { webViewRef?.reload() },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = ThemePurple)
+            }
+
+            OutlinedTextField(
+                value = urlInput,
+                onValueChange = { urlInput = it },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = TextStyle(fontSize = 11.sp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = ThemePurple,
+                    unfocusedBorderColor = ThemeContainerBorder
+                ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        var targetUrl = urlInput.trim()
+                        if (targetUrl.isNotEmpty()) {
+                            if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
+                                targetUrl = "https://$targetUrl"
+                            }
+                            webViewRef?.loadUrl(targetUrl)
+                        }
+                    }
+                )
+            )
+
+            IconButton(
+                onClick = {
+                    webViewRef?.loadUrl("https://www.google.com")
+                    urlInput = "https://www.google.com"
+                },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(Icons.Default.Home, contentDescription = "Home", tint = ThemePurple)
+            }
+        }
+
+        if (isLoading) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth().height(2.dp),
+                color = ThemePurple
+            )
+        }
+
+        // WebView Holder
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .border(1.dp, ThemeContainerBorder, RoundedCornerShape(12.dp)),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    android.webkit.WebView(ctx).apply {
+                        webViewClient = object : android.webkit.WebViewClient() {
+                            override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                                isLoading = true
+                                url?.let { urlInput = it }
+                                view?.let {
+                                    canGoBack = it.canGoBack()
+                                    canGoForward = it.canGoForward()
+                                }
+                            }
+
+                            override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                                isLoading = false
+                                view?.let {
+                                    canGoBack = it.canGoBack()
+                                    canGoForward = it.canGoForward()
+                                }
+                            }
+                        }
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
+                        clearCache(true)
+                        clearHistory()
+                        loadUrl("https://www.google.com")
+                        webViewRef = this
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+                update = { webView ->
+                    webViewRef = webView
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun AppLockSection(viewModel: CalculatorViewModel) {
+    val context = LocalContext.current
+    val pm = remember { context.packageManager }
+    val lockedApps by viewModel.lockedApps.collectAsState()
+
+    val appsList = remember {
+        try {
+            pm.getInstalledApplications(PackageManager.GET_META_DATA)
+                .filter { pm.getLaunchIntentForPackage(it.packageName) != null && it.packageName != context.packageName }
+                .map { appInfo ->
+                    val label = pm.getApplicationLabel(appInfo).toString()
+                    val icon = pm.getApplicationIcon(appInfo)
+                    val pkgName = appInfo.packageName
+                    Triple(label, pkgName, icon)
+                }
+                .sortedBy { it.first }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text(
+            text = "Simulated App Lock Registry",
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            color = TextDark
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Select which social or system apps you want to monitor inside this vault. When locked apps are launched, the calculator overlay is simulated.",
+            fontSize = 11.sp,
+            color = TextMedium,
+            lineHeight = 15.sp
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "${appsList.size} Apps Found",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = ThemePurple
+            )
+            Text(
+                text = "${lockedApps.size} Locked",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Red
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (appsList.isEmpty()) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text("No dynamic launcher apps found on device", fontSize = 11.sp, color = TextMedium)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(appsList) { (label, pkgName, icon) ->
+                    val isLocked = lockedApps.contains(pkgName)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(1.dp, if (isLocked) Color.Red.copy(alpha = 0.3f) else ThemeContainerBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                AndroidView(
+                                    factory = { ctx ->
+                                        android.widget.ImageView(ctx).apply {
+                                            setImageDrawable(icon)
+                                        }
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = label,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = TextDark
+                                    )
+                                    Text(
+                                        text = pkgName,
+                                        fontSize = 10.sp,
+                                        color = TextMedium
+                                    )
+                                }
+                            }
+
+                            Switch(
+                                checked = isLocked,
+                                onCheckedChange = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    viewModel.toggleAppLock(pkgName)
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color.Red,
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = Color.LightGray
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }
