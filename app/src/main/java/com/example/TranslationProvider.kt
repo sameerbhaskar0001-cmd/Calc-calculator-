@@ -46,7 +46,9 @@ object TranslationProvider {
             "disguise_desc" to "Disguise this secret calculator as another standard app icon. Tapping the chosen icon opens this vault.",
             "screen_down_desc" to "Flipping your phone screen down immediately locks the vault and opens home screen.",
             "back_to_calc" to "Back to Calculator",
-            "app_theme" to "App Theme"
+            "app_theme" to "App Theme",
+            "unhide" to "Unhide",
+            "recently_deleted" to "Recently Deleted"
         ),
         "hi" to mapOf(
             "app_title" to "कैलकुलेटर+",
@@ -81,7 +83,9 @@ object TranslationProvider {
             "disguise_desc" to "इस गुप्त कैलकुलेटर को किसी अन्य साधारण ऐप की तरह दिखाएं। चुने हुए आइकन पर क्लिक करने से तिजोरी खुलेगी।",
             "screen_down_desc" to "फ़ोन की स्क्रीन को नीचे की ओर पलटने पर तिजोरी तुरंत लॉक हो जाएगी और होम स्क्रीन खुल जाएगी।",
             "back_to_calc" to "कैलकुलेटर पर वापस जाएं",
-            "app_theme" to "ऐप थीम"
+            "app_theme" to "ऐप थीम",
+            "unhide" to "दिखाएँ",
+            "recently_deleted" to "हाल ही में हटाए गए"
         ),
         "es" to mapOf(
             "app_title" to "Calculadora+",
@@ -116,7 +120,9 @@ object TranslationProvider {
             "disguise_desc" to "Disfraza esta calculadora secreta como otra app estándar. Tocar el icono elegido abre esta bóveda.",
             "screen_down_desc" to "Colocar la pantalla del teléfono boca abajo bloquea la bóveda y va a la pantalla de inicio.",
             "back_to_calc" to "Volver a la Calculadora",
-            "app_theme" to "Tema de la aplicación"
+            "app_theme" to "Tema de la aplicación",
+            "unhide" to "Mostrar",
+            "recently_deleted" to "Eliminado Recientemente"
         ),
         "fr" to mapOf(
             "app_title" to "Calculatrice+",
@@ -151,7 +157,9 @@ object TranslationProvider {
             "disguise_desc" to "Déguisez cette calculatrice secrète sous une icône d'application standard.",
             "screen_down_desc" to "Retourner l'écran de votre téléphone vers le bas verrouille le coffre et affiche l'accueil.",
             "back_to_calc" to "Retour à la Calculatrice",
-            "app_theme" to "Thème de l'application"
+            "app_theme" to "Thème de l'application",
+            "unhide" to "Afficher",
+            "recently_deleted" to "Récemment supprimé"
         ),
         "de" to mapOf(
             "app_title" to "Rechner+",
@@ -186,7 +194,9 @@ object TranslationProvider {
             "disguise_desc" to "Tarnen Sie diesen geheimen Rechner als eine andere Standard-App auf dem Startbildschirm.",
             "screen_down_desc" to "Das Umdrehen des Telefons sperrt den Tresor und öffnet sofort den Homescreen.",
             "back_to_calc" to "Zurück zum Rechner",
-            "app_theme" to "App-Design (Thema)"
+            "app_theme" to "App-Design (Thema)",
+            "unhide" to "Sichtbar machen",
+            "recently_deleted" to "Zuletzt gelöscht"
         ),
         "ja" to mapOf(
             "app_title" to "電卓+",
@@ -221,7 +231,9 @@ object TranslationProvider {
             "disguise_desc" to "この秘密の電卓を別の標準的なアプリアイコンに偽装します。タップすると保管庫が開きます。",
             "screen_down_desc" to "画面を下向きに伏せると、即座に保管庫をロックしてホーム画面に戻ります。",
             "back_to_calc" to "電卓に戻る",
-            "app_theme" to "アプリのテーマ"
+            "app_theme" to "アプリのテーマ",
+            "unhide" to "再表示する",
+            "recently_deleted" to "最近削除された項目"
         ),
         "ar" to mapOf(
             "app_title" to "آلة حاسبة+",
@@ -256,7 +268,9 @@ object TranslationProvider {
             "disguise_desc" to "تمويه هذه الحاسبة السرية كأيقونة تطبيق عادي آخر. النقر عليها يفتح هذه الخزنة.",
             "screen_down_desc" to "قلب شاشة الهاتف لأسفل يغلق الخزنة فوراً ويعود للشاشة الرئيسية.",
             "back_to_calc" to "العودة للآلة الحاسبة",
-            "app_theme" to "مظهر التطبيق"
+            "app_theme" to "مظهر التطبيق",
+            "unhide" to "إلغاء الإخفاء",
+            "recently_deleted" to "المحذوفة مؤخراً"
         ),
         "ru" to mapOf(
             "app_title" to "Калькулятор+",
@@ -291,7 +305,9 @@ object TranslationProvider {
             "disguise_desc" to "Замаскируйте этот секретный калькулятор под другую иконку стандартного приложения.",
             "screen_down_desc" to "Переворот телефона экраном вниз немедленно блокирует сейф и открывает главный экран.",
             "back_to_calc" to "Назад в Калькулятор",
-            "app_theme" to "Тема Приложения"
+            "app_theme" to "Тема Приложения",
+            "unhide" to "Показать",
+            "recently_deleted" to "Недавно удаленные"
         )
     )
 

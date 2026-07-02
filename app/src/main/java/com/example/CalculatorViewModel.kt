@@ -66,6 +66,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _calcResult = MutableStateFlow("")
     val calcResult: StateFlow<String> = _calcResult.asStateFlow()
 
+    private val _isEvaluated = MutableStateFlow(false)
+    val isEvaluated: StateFlow<Boolean> = _isEvaluated.asStateFlow()
+
     private val _history = MutableStateFlow<List<String>>(emptyList())
     val history: StateFlow<List<String>> = _history.asStateFlow()
 
@@ -121,6 +124,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _vaultFiles = MutableStateFlow<List<String>>(emptyList())
     val vaultFiles: StateFlow<List<String>> = _vaultFiles.asStateFlow()
+
+    private val _recentlyDeletedFiles = MutableStateFlow<List<String>>(emptyList())
+    val recentlyDeletedFiles: StateFlow<List<String>> = _recentlyDeletedFiles.asStateFlow()
 
     private val _intruderAttempts = MutableStateFlow<List<String>>(emptyList())
     val intruderAttempts: StateFlow<List<String>> = _intruderAttempts.asStateFlow()
@@ -392,14 +398,20 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     // --- Calculator Methods ---
     fun onCalcKeyPress(key: String) {
         val currentExpr = _expression.value
+        val isCurrentEval = _isEvaluated.value
 
         when (key) {
             "C" -> {
                 _expression.value = ""
                 _calcResult.value = ""
+                _isEvaluated.value = false
             }
             "⌫" -> {
-                if (currentExpr.isNotEmpty()) {
+                if (isCurrentEval) {
+                    _expression.value = ""
+                    _calcResult.value = ""
+                    _isEvaluated.value = false
+                } else if (currentExpr.isNotEmpty()) {
                     _expression.value = currentExpr.dropLast(1)
                     updateLiveResult()
                 }
@@ -407,8 +419,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             "=" -> {
                 if (tryUnlockVault(currentExpr)) {
                     _expression.value = ""
-                    _calcResult.value = "Vault Unlocked!"
-                } else if (currentExpr.isNotEmpty()) {
+                    _calcResult.value = ""
+                    _isEvaluated.value = false
+                } else if (currentExpr.isNotEmpty() && !isCurrentEval) {
                     try {
                         val result = evaluateExpression(currentExpr)
                         val formattedResult = formatDouble(result)
@@ -417,47 +430,91 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                         val historyItem = "$currentExpr = $formattedResult"
                         _history.value = (listOf(historyItem) + _history.value).take(20)
                         
-                        _expression.value = formattedResult
-                        _calcResult.value = ""
+                        _expression.value = currentExpr
+                        _calcResult.value = formattedResult
+                        _isEvaluated.value = true
                     } catch (e: Exception) {
                         _calcResult.value = "Error"
+                        _isEvaluated.value = true
                     }
                 }
             }
             "+/-" -> {
-                try {
-                    _expression.value = toggleLastNumberSign(currentExpr)
-                    updateLiveResult()
-                } catch (e: Exception) {
-                    // Ignore if invalid
+                if (isCurrentEval) {
+                    val lastRes = _calcResult.value
+                    if (lastRes.isNotEmpty() && lastRes != "Error") {
+                        try {
+                            _expression.value = toggleLastNumberSign(lastRes)
+                            _calcResult.value = ""
+                            _isEvaluated.value = false
+                            updateLiveResult()
+                        } catch (e: Exception) {}
+                    }
+                } else {
+                    try {
+                        _expression.value = toggleLastNumberSign(currentExpr)
+                        updateLiveResult()
+                    } catch (e: Exception) {
+                        // Ignore if invalid
+                    }
                 }
             }
             "%" -> {
-                if (currentExpr.isNotEmpty() && currentExpr.last().isDigit()) {
+                if (isCurrentEval) {
+                    val lastRes = _calcResult.value
+                    if (lastRes.isNotEmpty() && lastRes != "Error" && lastRes.last().isDigit()) {
+                        _expression.value = lastRes + "÷100"
+                        _calcResult.value = ""
+                        _isEvaluated.value = false
+                        updateLiveResult()
+                    }
+                } else if (currentExpr.isNotEmpty() && currentExpr.last().isDigit()) {
                     _expression.value = currentExpr + "÷100"
                     updateLiveResult()
                 }
             }
             "+", "-", "×", "÷" -> {
-                if (currentExpr.isNotEmpty()) {
-                    val lastChar = currentExpr.last().toString()
-                    if (lastChar == "+" || lastChar == "-" || lastChar == "×" || lastChar == "÷") {
-                        _expression.value = currentExpr.dropLast(1) + key
-                    } else if (lastChar != ".") {
-                        _expression.value = currentExpr + key
+                if (isCurrentEval) {
+                    val lastRes = _calcResult.value
+                    if (lastRes.isNotEmpty() && lastRes != "Error") {
+                        _expression.value = lastRes + key
+                        _calcResult.value = ""
+                        _isEvaluated.value = false
                     }
-                } else if (key == "-") {
-                    _expression.value = "-"
+                } else {
+                    if (currentExpr.isNotEmpty()) {
+                        val lastChar = currentExpr.last().toString()
+                        if (lastChar == "+" || lastChar == "-" || lastChar == "×" || lastChar == "÷") {
+                            _expression.value = currentExpr.dropLast(1) + key
+                        } else if (lastChar != ".") {
+                            _expression.value = currentExpr + key
+                        }
+                    } else if (key == "-") {
+                        _expression.value = "-"
+                    }
                 }
             }
             "." -> {
-                if (canAppendDecimal(currentExpr)) {
-                    _expression.value = currentExpr + "."
+                if (isCurrentEval) {
+                    _expression.value = "0."
+                    _calcResult.value = ""
+                    _isEvaluated.value = false
+                } else {
+                    if (canAppendDecimal(currentExpr)) {
+                        _expression.value = currentExpr + "."
+                    }
                 }
             }
             else -> { // Digits 0-9
-                _expression.value = currentExpr + key
-                updateLiveResult()
+                if (isCurrentEval) {
+                    _expression.value = key
+                    _calcResult.value = ""
+                    _isEvaluated.value = false
+                    updateLiveResult()
+                } else {
+                    _expression.value = currentExpr + key
+                    updateLiveResult()
+                }
             }
         }
     }
@@ -712,6 +769,54 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
         val savedFiles = prefs.getStringSet(filesKey, emptySet()) ?: emptySet()
         _vaultFiles.value = savedFiles.toList().sortedByDescending { it }
+
+        // --- Load & Auto-cleanup Recently Deleted Files ---
+        val recentKey = if (isDecoy) "recently_deleted_decoy_files" else "recently_deleted_files"
+        val savedRecent = prefs.getStringSet(recentKey, emptySet()) ?: emptySet()
+        
+        val currentMillis = System.currentTimeMillis()
+        val thirtyDaysMillis = 30L * 24 * 60 * 60 * 1000
+        val validRecent = mutableListOf<String>()
+        val toDeleteFiles = mutableListOf<String>()
+
+        for (item in savedRecent) {
+            val parts = item.split("|||")
+            if (parts.size >= 7) {
+                val deletedTime = parts[6].toLongOrNull() ?: 0L
+                if (currentMillis - deletedTime >= thirtyDaysMillis) {
+                    toDeleteFiles.add(item)
+                } else {
+                    validRecent.add(item)
+                }
+            } else {
+                // Default fallback
+                validRecent.add(item)
+            }
+        }
+
+        // Permanently delete expired files from disk
+        for (item in toDeleteFiles) {
+            try {
+                val parts = item.split("|||")
+                if (parts.size >= 5) {
+                    val file = File(parts[4])
+                    if (file.exists()) {
+                        file.delete()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        if (toDeleteFiles.isNotEmpty()) {
+            prefs.edit().putStringSet(recentKey, validRecent.toSet()).apply()
+        }
+
+        _recentlyDeletedFiles.value = validRecent.sortedByDescending {
+            val parts = it.split("|||")
+            if (parts.size >= 7) parts[6].toLongOrNull() ?: 0L else 0L
+        }
     }
 
     fun tryUnlockVault(pin: String): Boolean {
@@ -738,6 +843,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     fun lockVault() {
         _vaultUnlocked.value = false
         _decoyActive.value = false
+        _expression.value = ""
+        _calcResult.value = ""
+        _isEvaluated.value = false
         loadVaultData()
     }
 
@@ -929,7 +1037,87 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     fun deleteVaultFile(fileSerialized: String): Boolean {
         return try {
-            val parts = fileSerialized.split("|||")
+            val isDecoy = _decoyActive.value
+            val filesKey = if (isDecoy) "decoy_files" else "vault_files"
+            val recentKey = if (isDecoy) "recently_deleted_decoy_files" else "recently_deleted_files"
+
+            // Remove from main vault
+            val updatedFiles = _vaultFiles.value - fileSerialized
+            _vaultFiles.value = updatedFiles
+            prefs.edit().putStringSet(filesKey, updatedFiles.toSet()).apply()
+
+            // Add to Recently Deleted with current timestamp
+            val deletionTime = System.currentTimeMillis().toString()
+            val recentSerialized = if (fileSerialized.split("|||").size >= 7) {
+                fileSerialized
+            } else {
+                "$fileSerialized|||$deletionTime"
+            }
+
+            val savedRecent = prefs.getStringSet(recentKey, emptySet()) ?: emptySet()
+            val updatedRecent = savedRecent + recentSerialized
+            prefs.edit().putStringSet(recentKey, updatedRecent).apply()
+
+            _recentlyDeletedFiles.value = updatedRecent.toList().sortedByDescending {
+                val parts = it.split("|||")
+                if (parts.size >= 7) parts[6].toLongOrNull() ?: 0L else 0L
+            }
+
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    fun restoreFromRecent(recentSerialized: String): Boolean {
+        return try {
+            val isDecoy = _decoyActive.value
+            val filesKey = if (isDecoy) "decoy_files" else "vault_files"
+            val recentKey = if (isDecoy) "recently_deleted_decoy_files" else "recently_deleted_files"
+
+            // Remove from recently deleted
+            val savedRecent = prefs.getStringSet(recentKey, emptySet()) ?: emptySet()
+            val updatedRecent = savedRecent - recentSerialized
+            prefs.edit().putStringSet(recentKey, updatedRecent).apply()
+
+            _recentlyDeletedFiles.value = updatedRecent.toList().sortedByDescending {
+                val parts = it.split("|||")
+                if (parts.size >= 7) parts[6].toLongOrNull() ?: 0L else 0L
+            }
+
+            // Restore to main vault (strip the 7th part - deletion timestamp)
+            val parts = recentSerialized.split("|||")
+            val originalSerialized = parts.take(6).joinToString("|||")
+
+            val updatedFiles = _vaultFiles.value + originalSerialized
+            _vaultFiles.value = updatedFiles.sortedByDescending { it }
+            prefs.edit().putStringSet(filesKey, updatedFiles.toSet()).apply()
+
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    fun deletePermanentlyFromRecent(recentSerialized: String): Boolean {
+        return try {
+            val isDecoy = _decoyActive.value
+            val recentKey = if (isDecoy) "recently_deleted_decoy_files" else "recently_deleted_files"
+
+            // Remove from recently deleted
+            val savedRecent = prefs.getStringSet(recentKey, emptySet()) ?: emptySet()
+            val updatedRecent = savedRecent - recentSerialized
+            prefs.edit().putStringSet(recentKey, updatedRecent).apply()
+
+            _recentlyDeletedFiles.value = updatedRecent.toList().sortedByDescending {
+                val parts = it.split("|||")
+                if (parts.size >= 7) parts[6].toLongOrNull() ?: 0L else 0L
+            }
+
+            // Delete physical file
+            val parts = recentSerialized.split("|||")
             if (parts.size >= 5) {
                 val absolutePath = parts[4]
                 val file = File(absolutePath)
@@ -937,16 +1125,94 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     file.delete()
                 }
             }
-            val updatedFiles = _vaultFiles.value - fileSerialized
-            _vaultFiles.value = updatedFiles
-            
-            val isDecoy = _decoyActive.value
-            val filesKey = if (isDecoy) "decoy_files" else "vault_files"
-            prefs.edit().putStringSet(filesKey, updatedFiles.toSet()).apply()
+
             true
         } catch (e: Exception) {
             e.printStackTrace()
             false
+        }
+    }
+
+    fun unhideVaultFile(
+        context: Context,
+        fileSerialized: String,
+        onSuccess: (String) -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        try {
+            val parts = fileSerialized.split("|||")
+            if (parts.size < 5) {
+                onFailure("Invalid file information")
+                return
+            }
+            val originalName = parts[2]
+            val mimeType = parts[3]
+            val absolutePath = parts[4]
+            val file = File(absolutePath)
+            if (!file.exists()) {
+                onFailure("Source file does not exist")
+                return
+            }
+
+            val resolver = context.contentResolver
+            val contentValues = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, originalName)
+                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            }
+
+            val uri = if (mimeType.startsWith("image/")) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    contentValues.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_PICTURES + "/DCIM")
+                }
+                resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+            } else if (mimeType.startsWith("video/")) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    contentValues.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_MOVIES + "/DCIM")
+                }
+                resolver.insert(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)
+            } else {
+                // Documents & others -> Downloads
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    contentValues.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+                }
+                resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+            }
+
+            if (uri != null) {
+                resolver.openOutputStream(uri)?.use { output ->
+                    file.inputStream().use { input ->
+                        input.copyTo(output)
+                    }
+                }
+
+                // Refresh MediaStore immediately
+                android.media.MediaScannerConnection.scanFile(
+                    context,
+                    arrayOf(file.absolutePath),
+                    arrayOf(mimeType)
+                ) { path, scannedUri ->
+                    android.util.Log.d("Vault", "Scanned unhidden file: $path -> $scannedUri")
+                }
+
+                // Delete original encrypted file from app's private filesDir
+                if (file.exists()) {
+                    file.delete()
+                }
+
+                // Remove its metadata from main vault
+                val updatedFiles = _vaultFiles.value - fileSerialized
+                _vaultFiles.value = updatedFiles
+                val isDecoy = _decoyActive.value
+                val filesKey = if (isDecoy) "decoy_files" else "vault_files"
+                prefs.edit().putStringSet(filesKey, updatedFiles.toSet()).apply()
+
+                onSuccess("Media restored successfully.")
+            } else {
+                onFailure("Failed to create MediaStore entry")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            onFailure("Error: ${e.localizedMessage ?: e.toString()}")
         }
     }
 

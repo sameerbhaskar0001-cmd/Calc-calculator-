@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 enum class AppTheme(val id: String, val displayName: String, val flag: String) {
-    CLASSIC_LAVENDER("classic_lavender", "Classic Lavender", "🪻"),
+    CLASSIC_LAVENDER("classic_lavender", "Classic Neon Black", "⚡"),
     SUNSET_ROSE("sunset_rose", "Sunset Rose", "🌅"),
     NORDIC_EMERALD("nordic_emerald", "Nordic Emerald", "🌲"),
     OCEAN_BREEZE("ocean_breeze", "Ocean Breeze", "🌊")
@@ -30,14 +30,14 @@ data class AppThemeColors(
 )
 
 val ClassicLavenderColors = AppThemeColors(
-    brandBg = Color(0xFFFEF7FF),
-    textDark = Color(0xFF1D1B20),
-    textMedium = Color(0xFF49454F),
-    themePurple = Color(0xFF6750A4),
-    themeLightPurple = Color(0xFFE8DEF8),
-    themeContainerBorder = Color(0xFFD0BCFF),
-    keypadBg = Color(0xFFF3EDF7),
-    digitBg = Color(0xFFFFFFFF)
+    brandBg = Color(0xFF030304),
+    textDark = Color(0xFFF5F5FA),
+    textMedium = Color(0xFF8B8B9A),
+    themePurple = Color(0xFFC400FF),
+    themeLightPurple = Color(0xFF230D35),
+    themeContainerBorder = Color(0xFF1F1F26),
+    keypadBg = Color(0xFF0C0C10),
+    digitBg = Color(0xFF13131A)
 )
 
 val SunsetRoseColors = AppThemeColors(

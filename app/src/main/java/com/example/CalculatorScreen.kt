@@ -32,6 +32,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -78,6 +84,8 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.VolumeOff
@@ -105,6 +113,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.key
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.widthIn
@@ -115,6 +127,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -172,6 +185,7 @@ fun CalculatorScreen(
 ) {
     var activeTab by remember { mutableStateOf(ActiveTab.CALCULATOR) }
     var showRateDialog by remember { mutableStateOf(false) }
+    var showThemeDialog by remember { mutableStateOf(false) }
 
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -233,27 +247,24 @@ fun CalculatorScreen(
                         }
                     }
 
-                    // Lock button shown only when Vault is unlocked/active
-                    if (activeTab == ActiveTab.VAULT) {
-                        IconButton(
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                viewModel.lockVault()
-                                activeTab = ActiveTab.CALCULATOR
-                            },
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(Color.Red.copy(alpha = 0.1f))
-                                .testTag("header_lock_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = "Lock & Exit",
-                                tint = Color.Red,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                    // Theme switcher button on top right of home page
+                    IconButton(
+                        onClick = {
+                            viewModel.triggerKeypressEffects(context)
+                            showThemeDialog = true
+                        },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(ThemePurple.copy(alpha = 0.12f))
+                            .testTag("theme_switcher_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Palette,
+                            contentDescription = "Change Theme",
+                            tint = ThemePurple,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
@@ -403,6 +414,108 @@ fun CalculatorScreen(
             }
         )
     }
+
+    // Dynamic Theme Selection Dialog
+    if (showThemeDialog) {
+        val selectedTheme by viewModel.selectedTheme.collectAsState()
+        AlertDialog(
+            onDismissRequest = { showThemeDialog = false },
+            title = {
+                Text(
+                    text = viewModel.t("app_theme"),
+                    color = TextDark,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            containerColor = BrandBg,
+            confirmButton = {
+                TextButton(onClick = { showThemeDialog = false }) {
+                    Text("OK", color = ThemePurple, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)
+                ) {
+                    items(com.example.ui.theme.AppTheme.values()) { theme ->
+                        val isSelected = selectedTheme == theme
+                        val themeColors = when (theme) {
+                            com.example.ui.theme.AppTheme.CLASSIC_LAVENDER -> com.example.ui.theme.ClassicLavenderColors
+                            com.example.ui.theme.AppTheme.SUNSET_ROSE -> com.example.ui.theme.SunsetRoseColors
+                            com.example.ui.theme.AppTheme.NORDIC_EMERALD -> com.example.ui.theme.NordicEmeraldColors
+                            com.example.ui.theme.AppTheme.OCEAN_BREEZE -> com.example.ui.theme.OceanBreezeColors
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) ThemePurple.copy(alpha = 0.15f) else Color.Transparent)
+                                .border(
+                                    1.dp,
+                                    if (isSelected) ThemePurple else Color.Gray.copy(alpha = 0.2f),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .clickable {
+                                    viewModel.triggerKeypressEffects(context)
+                                    viewModel.setSelectedTheme(theme)
+                                    showThemeDialog = false
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(theme.flag, fontSize = 24.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = theme.displayName,
+                                    color = if (isSelected) ThemePurple else TextDark,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                // Swatch circles representing colors
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .background(themeColors.themePurple)
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .background(themeColors.themeLightPurple)
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .background(themeColors.brandBg)
+                                            .border(1.dp, Color.Gray.copy(alpha = 0.3f), CircleShape)
+                                    )
+                                }
+                            }
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = ThemePurple,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -450,6 +563,7 @@ fun CalculatorTabContent(
 ) {
     val expression by viewModel.expression.collectAsState()
     val calcResult by viewModel.calcResult.collectAsState()
+    val isEvaluated by viewModel.isEvaluated.collectAsState()
     val rate by viewModel.exchangeRate.collectAsState()
     val sourceCurrency by viewModel.sourceCurrency.collectAsState()
     val targetCurrency by viewModel.targetCurrency.collectAsState()
@@ -462,6 +576,29 @@ fun CalculatorTabContent(
     val df = DecimalFormat("#,##0.00", DecimalFormatSymbols(Locale.US))
 
     val context = LocalContext.current
+
+    // Smart presentation engine
+    val formulaDisplay = when {
+        isEvaluated -> "$expression ="
+        calcResult.isNotEmpty() -> "= $calcResult"
+        else -> ""
+    }
+
+    val mainDisplay = when {
+        isEvaluated -> calcResult
+        expression.isEmpty() -> "0"
+        else -> expression
+    }
+
+    val mainColor = when {
+        isEvaluated -> ThemePurple
+        else -> TextDark
+    }
+
+    val mainFontSize = when {
+        isEvaluated -> 64.sp
+        else -> 54.sp
+    }
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -476,24 +613,26 @@ fun CalculatorTabContent(
             verticalArrangement = Arrangement.Bottom
         ) {
             // Expression
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(scrollState),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Text(
-                    text = expression.ifEmpty { "0" },
-                    fontSize = 18.sp,
-                    color = TextMedium.copy(alpha = 0.7f),
-                    fontFamily = FontFamily.SansSerif,
-                    textAlign = TextAlign.End,
-                    maxLines = 1,
-                    modifier = Modifier.testTag("expression_display")
-                )
+            if (formulaDisplay.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(scrollState),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Text(
+                        text = formulaDisplay,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isEvaluated) TextMedium.copy(alpha = 0.65f) else ThemePurple.copy(alpha = 0.75f),
+                        fontFamily = FontFamily.SansSerif,
+                        textAlign = TextAlign.End,
+                        maxLines = 1,
+                        modifier = Modifier.testTag("expression_display")
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
             }
-
-            Spacer(modifier = Modifier.height(2.dp))
 
             // Main output
             Row(
@@ -501,10 +640,10 @@ fun CalculatorTabContent(
                 horizontalArrangement = Arrangement.End
             ) {
                 Text(
-                    text = calcResult.ifEmpty { if (expression.isEmpty()) "0" else "" },
-                    fontSize = 42.sp,
-                    fontWeight = FontWeight.Light,
-                    color = TextDark,
+                    text = mainDisplay,
+                    fontSize = mainFontSize,
+                    fontWeight = FontWeight.Bold,
+                    color = mainColor,
                     fontFamily = FontFamily.SansSerif,
                     textAlign = TextAlign.End,
                     maxLines = 1,
@@ -618,56 +757,164 @@ fun CalculatorTabContent(
                         val isUtility = char == "C" || char == "+/-" || char == "%" || char == "⌫"
                         val isEquals = char == "="
 
-                        val containerColor = when {
-                            isEquals -> ThemePurple
-                            isOperator -> ThemeLightPurple
-                            isUtility -> KeypadBg
-                            else -> DigitBg
-                        }
-
-                        val contentColor = when {
-                            isEquals -> Color.White
-                            isOperator -> Color(0xFF21005D)
-                            isUtility -> ThemePurple
-                            else -> TextDark
-                        }
-
-                        Box(
+                        GlassCalculatorKey(
+                            char = char,
+                            isOperator = isOperator,
+                            isUtility = isUtility,
+                            isEquals = isEquals,
+                            themePurple = ThemePurple,
+                            themeLightPurple = ThemeLightPurple,
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                viewModel.onCalcKeyPress(char)
+                            },
                             modifier = Modifier
                                 .weight(1f)
-                                .aspectRatio(1.25f)
-                                .shadow(
-                                    elevation = if (isEquals) 3.dp else if (!isUtility && !isOperator) 1.dp else 0.dp,
-                                    shape = RoundedCornerShape(20.dp)
-                                )
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(containerColor)
-                                .clickable {
-                                    viewModel.triggerKeypressEffects(context)
-                                    viewModel.onCalcKeyPress(char)
-                                }
-                                .testTag("key_$char"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (char == "⌫") {
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardBackspace,
-                                    contentDescription = "Backspace",
-                                    tint = contentColor,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            } else {
-                                Text(
-                                    text = char,
-                                    fontSize = if (isOperator || isEquals) 22.sp else 20.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = contentColor
-                                )
-                            }
-                        }
+                                .testTag("key_$char")
+                        )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun GlassCalculatorKey(
+    char: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isOperator: Boolean = false,
+    isUtility: Boolean = false,
+    isEquals: Boolean = false,
+    themePurple: Color,
+    themeLightPurple: Color
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // Animate glow/inner light alpha
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (isPressed) 1.0f else 0.0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "button_glow"
+    )
+
+    // Button scale animation to give a premium physically responsive "press" feeling!
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1.0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "button_scale"
+    )
+
+    // Glassmorphism properties:
+    // A translucent black glass color that is always dark/black
+    val glassBg = Color(0xD908080A) // Deep frosted black glass (always black!)
+
+    // Choose dynamic content colors for text/icons so the text/icons themselves can subtly adapt
+    // to the active theme accent, while the button bodies remain black glass!
+    val contentColor = when {
+        isEquals -> Color.White
+        isOperator -> themePurple
+        isUtility -> themePurple.copy(alpha = 0.85f)
+        else -> Color.White.copy(alpha = 0.9f)
+    }
+
+    Box(
+        modifier = modifier
+            .aspectRatio(1.25f)
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .shadow(
+                elevation = if (isEquals) 4.dp else 2.dp,
+                shape = RoundedCornerShape(20.dp),
+                ambientColor = Color.Black,
+                spotColor = Color.Black
+            )
+            .clip(RoundedCornerShape(20.dp))
+            .border(
+                width = 1.dp,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.18f), // top glass highlight reflection
+                        Color.White.copy(alpha = 0.05f)  // bottom reflection
+                    )
+                ),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        glassBg,
+                        glassBg.copy(alpha = 0.95f)
+                    )
+                )
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null, // Disable default material ripple to show our custom inner light effect!
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        // Glowing Inner Light Effect!
+        // We draw a radial gradient from the center that becomes visible and glows upon touch/press.
+        if (glowAlpha > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithContent {
+                        // The inner glow center matches the button, emitting a bright theme-colored light or white light
+                        val glowColor = when {
+                            isEquals -> Color.White
+                            isOperator -> themePurple
+                            isUtility -> themeLightPurple
+                            else -> themePurple
+                        }
+
+                        // Layer 1: Soft wide atmospheric glow radiating from center
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    glowColor.copy(alpha = glowAlpha * 0.45f),
+                                    glowColor.copy(alpha = glowAlpha * 0.15f),
+                                    Color.Transparent
+                                ),
+                                radius = size.minDimension * 1.5f
+                            )
+                        )
+                        // Layer 2: Ultra-bright concentrated neon-like center light core
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    glowColor.copy(alpha = glowAlpha * 0.9f),
+                                    glowColor.copy(alpha = glowAlpha * 0.5f),
+                                    Color.Transparent
+                                ),
+                                radius = size.minDimension * 0.7f
+                            )
+                        )
+                        drawContent()
+                    }
+            )
+        }
+
+        if (char == "⌫") {
+            Icon(
+                imageVector = Icons.Default.KeyboardBackspace,
+                contentDescription = "Backspace",
+                tint = contentColor,
+                modifier = Modifier.size(22.dp)
+            )
+        } else {
+            Text(
+                text = char,
+                fontSize = if (isOperator || isEquals) 22.sp else 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
         }
     }
 }
@@ -703,6 +950,7 @@ fun ExchangeTabContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
+                .verticalScroll(rememberScrollState())
                 .padding(vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -785,6 +1033,7 @@ fun ExchangeTabContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -798,9 +1047,12 @@ fun ExchangeTabContent(
                         text = "Rate: 1 ${sourceCurrency.code} = ${String.format(Locale.US, "%.4f", rate)} ${targetCurrency.code}",
                         color = Color(0xFF21005D),
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "EDIT RATE",
                     color = ThemePurple,
@@ -850,7 +1102,14 @@ fun ExchangeTabContent(
                                     Text(sourceCurrency.code, fontWeight = FontWeight.Bold, color = TextDark, fontSize = 15.sp)
                                     Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Source", tint = ThemePurple)
                                 }
-                                Text(sourceCurrency.name, color = TextMedium, fontSize = 10.sp)
+                                Text(
+                                    text = sourceCurrency.name,
+                                    color = TextMedium,
+                                    fontSize = 10.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.widthIn(max = 120.dp)
+                                )
                             }
                         }
 
@@ -944,7 +1203,14 @@ fun ExchangeTabContent(
                                     Text(targetCurrency.code, fontWeight = FontWeight.Bold, color = TextDark, fontSize = 15.sp)
                                     Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Target", tint = ThemePurple)
                                 }
-                                Text(targetCurrency.name, color = TextMedium, fontSize = 10.sp)
+                                Text(
+                                    text = targetCurrency.name,
+                                    color = TextMedium,
+                                    fontSize = 10.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.widthIn(max = 120.dp)
+                                )
                             }
                         }
 
@@ -1945,7 +2211,6 @@ fun VaultTabContent(
     var pinError by remember { mutableStateOf(false) }
 
     var showLanguageDialog by remember { mutableStateOf(false) }
-    var showThemeDialog by remember { mutableStateOf(false) }
 
     var showAddNoteDialog by remember { mutableStateOf(false) }
     var noteTitle by remember { mutableStateOf("") }
@@ -2338,11 +2603,23 @@ fun VaultTabContent(
                 .fillMaxSize()
                 .background(Color(0xFF0B0F19)) // Premium high-security slate dark background
         ) {
-            Column(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
+            if (activeSection == "Private Browser") {
+                PrivateBrowserSection(
+                    modifier = Modifier.fillMaxSize(),
+                    onExit = {
+                        activeSection = "Home"
+                    },
+                    onPanic = {
+                        viewModel.lockVault()
+                        onLockExit()
+                    }
+                )
+            } else {
+                Column(
+                    modifier = modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
                 // Clean and spacious Unlocked Header
                 Row(
                     modifier = Modifier
@@ -2452,9 +2729,9 @@ fun VaultTabContent(
             // Material 3 Filter Chips for Sections
             val decoyActive by viewModel.decoyActive.collectAsState()
             val sections = if (decoyActive) {
-                listOf("Home", "Notes", "Photos & Videos", "Documents", "Private Browser", "Settings")
+                listOf("Home", "Notes", "Photos & Videos", "Documents", "Private Browser", "Recently Deleted", "Settings")
             } else {
-                listOf("Home", "Notes", "Photos & Videos", "Documents", "Private Browser", "Explore", "Settings")
+                listOf("Home", "Notes", "Photos & Videos", "Documents", "Private Browser", "Explore", "Recently Deleted", "Settings")
             }
 
             Row(
@@ -2490,6 +2767,7 @@ fun VaultTabContent(
                                 "Documents" -> viewModel.t("documents")
                                 "Private Browser" -> viewModel.t("private_browser")
                                 "Explore" -> viewModel.t("explore")
+                                "Recently Deleted" -> viewModel.t("recently_deleted")
                                 "Settings" -> viewModel.t("settings")
                                 else -> label
                             },
@@ -2735,6 +3013,27 @@ fun VaultTabContent(
                             onClick = {
                                 viewModel.triggerKeypressEffects(context)
                                 activeSection = "Private Browser"
+                            }
+                        )
+
+                        val recentlyDeletedFiles by viewModel.recentlyDeletedFiles.collectAsState()
+                        FolderCard(
+                            title = "Recently Deleted",
+                            subtitle = "${recentlyDeletedFiles.size} temporary items",
+                            icon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFFE53935).copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Delete, "Recently Deleted", tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
+                                }
+                            },
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                activeSection = "Recently Deleted"
                             }
                         )
                     }
@@ -3033,7 +3332,7 @@ fun VaultTabContent(
                                                     onClick = {
                                                         viewModel.triggerKeypressEffects(context)
                                                         viewModel.deleteVaultFile(fileStr)
-                                                        android.widget.Toast.makeText(context, "File deleted", android.widget.Toast.LENGTH_SHORT).show()
+                                                        android.widget.Toast.makeText(context, "Moved to Recently Deleted!", android.widget.Toast.LENGTH_SHORT).show()
                                                     },
                                                     modifier = Modifier.size(32.dp)
                                                 ) {
@@ -3250,6 +3549,165 @@ fun VaultTabContent(
                                         activeSection = "Settings"
                                     }
                                 )
+                            }
+                        }
+                    }
+                }
+                "Recently Deleted" -> {
+                    val recentlyDeletedFiles by viewModel.recentlyDeletedFiles.collectAsState()
+
+                    if (recentlyDeletedFiles.isEmpty()) {
+                        EmptyVaultSectionState(
+                            title = "No Recently Deleted Files",
+                            description = "Files you delete from the vault will be kept here for 30 days before being permanently removed."
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(recentlyDeletedFiles) { recentStr ->
+                                val parts = recentStr.split("|||")
+                                if (parts.size >= 7) {
+                                    val originalName = parts[2]
+                                    val mimeType = parts[3]
+                                    val path = parts[4]
+                                    val sizeStr = parts[5]
+                                    val deletedTimeMs = parts[6].toLongOrNull() ?: System.currentTimeMillis()
+                                    val deletedDate = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(deletedTimeMs))
+                                    
+                                    val elapsedMillis = System.currentTimeMillis() - deletedTimeMs
+                                    val remainingMillis = (30L * 24 * 60 * 60 * 1000) - elapsedMillis
+                                    val remainingDays = (remainingMillis / (1000 * 60 * 60 * 24)).coerceAtLeast(0L)
+
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(
+                                                width = 1.dp,
+                                                color = ThemeContainerBorder.copy(alpha = 0.2f),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ),
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(12.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(50.dp)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(ThemeLightPurple),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    if (mimeType.startsWith("image/")) {
+                                                        AsyncImage(
+                                                            model = java.io.File(path),
+                                                            contentDescription = originalName,
+                                                            modifier = Modifier.fillMaxSize(),
+                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                        )
+                                                    } else if (mimeType.startsWith("video/")) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Visibility,
+                                                            contentDescription = "Video",
+                                                            tint = ThemePurple,
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
+                                                    } else {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Description,
+                                                            contentDescription = "Document",
+                                                            tint = ThemePurple,
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
+                                                    }
+                                                }
+
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = originalName,
+                                                        fontSize = 13.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    Text(
+                                                        text = "Deleted: $deletedDate • $sizeStr",
+                                                        fontSize = 10.sp,
+                                                        color = Color(0xFF8B92A5)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    Text(
+                                                        text = "$remainingDays days remaining before permanent deletion",
+                                                        fontSize = 9.sp,
+                                                        color = Color(0xFFFF8A80),
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(10.dp))
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            ) {
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.triggerKeypressEffects(context)
+                                                        val restored = viewModel.restoreFromRecent(recentStr)
+                                                        if (restored) {
+                                                            android.widget.Toast.makeText(context, "Restored to Vault", android.widget.Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            android.widget.Toast.makeText(context, "Failed to restore", android.widget.Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                                                    modifier = Modifier.weight(1f),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(vertical = 4.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Restore, contentDescription = "Restore", modifier = Modifier.size(14.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("Restore", fontSize = 11.sp, color = Color.White)
+                                                }
+
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.triggerKeypressEffects(context)
+                                                        val deleted = viewModel.deletePermanentlyFromRecent(recentStr)
+                                                        if (deleted) {
+                                                            android.widget.Toast.makeText(context, "Permanently Deleted", android.widget.Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            android.widget.Toast.makeText(context, "Failed to delete", android.widget.Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
+                                                    modifier = Modifier.weight(1f),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(vertical = 4.dp)
+                                                ) {
+                                                    Icon(Icons.Default.DeleteForever, contentDescription = "Delete Permanently", modifier = Modifier.size(14.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("Delete Permanently", fontSize = 11.sp, color = Color.White)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -3518,20 +3976,6 @@ fun VaultTabContent(
                                     showLanguageDialog = true
                                 }
                             )
-
-                            val currentTheme by viewModel.selectedTheme.collectAsState()
-                            val themeDisplay = "${currentTheme.displayName} ${currentTheme.flag}"
-                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
-                            SettingsActionRow(
-                                title = viewModel.t("app_theme"),
-                                subtitle = themeDisplay,
-                                icon = Icons.Default.Palette,
-                                iconTint = Color(0xFFFF4081),
-                                onClick = {
-                                    viewModel.triggerKeypressEffects(context)
-                                    showThemeDialog = true
-                                }
-                            )
                         }
                     }
                 }
@@ -3615,7 +4059,7 @@ fun VaultTabContent(
                             Button(
                                 onClick = {
                                     viewModel.triggerKeypressEffects(context)
-                                    viewModel.exportVaultFile(
+                                    viewModel.unhideVaultFile(
                                         context = context,
                                         fileSerialized = fileStr,
                                         onSuccess = { msg ->
@@ -3631,16 +4075,16 @@ fun VaultTabContent(
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Icon(Icons.Default.FileDownload, contentDescription = "Export", modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.FileDownload, contentDescription = "Unhide", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Decrypt Export", fontSize = 11.sp)
+                                Text(viewModel.t("unhide"), fontSize = 11.sp)
                             }
 
                             Button(
                                 onClick = {
                                     viewModel.triggerKeypressEffects(context)
                                     viewModel.deleteVaultFile(fileStr)
-                                    android.widget.Toast.makeText(context, "Permanently Deleted!", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, "Moved to Recently Deleted!", android.widget.Toast.LENGTH_SHORT).show()
                                     selectedFileForDetails = null
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
@@ -3664,6 +4108,7 @@ fun VaultTabContent(
                 )
             }
         }
+    }
 
         // Floating Action Button for active media/notes/documents sections!
         if (activeSection == "Notes" || activeSection == "Photos & Videos" || activeSection == "Documents") {
@@ -4169,107 +4614,6 @@ fun VaultTabContent(
         )
     }
 
-    // Dynamic Theme Selection Dialog
-    if (showThemeDialog) {
-        val selectedTheme by viewModel.selectedTheme.collectAsState()
-        AlertDialog(
-            onDismissRequest = { showThemeDialog = false },
-            title = {
-                Text(
-                    text = viewModel.t("app_theme"),
-                    color = TextDark,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
-                )
-            },
-            containerColor = BrandBg,
-            confirmButton = {
-                TextButton(onClick = { showThemeDialog = false }) {
-                    Text("OK", color = ThemePurple, fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)
-                ) {
-                    items(com.example.ui.theme.AppTheme.values()) { theme ->
-                        val isSelected = selectedTheme == theme
-                        val themeColors = when (theme) {
-                            com.example.ui.theme.AppTheme.CLASSIC_LAVENDER -> com.example.ui.theme.ClassicLavenderColors
-                            com.example.ui.theme.AppTheme.SUNSET_ROSE -> com.example.ui.theme.SunsetRoseColors
-                            com.example.ui.theme.AppTheme.NORDIC_EMERALD -> com.example.ui.theme.NordicEmeraldColors
-                            com.example.ui.theme.AppTheme.OCEAN_BREEZE -> com.example.ui.theme.OceanBreezeColors
-                        }
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isSelected) ThemePurple.copy(alpha = 0.15f) else Color.Transparent)
-                                .border(
-                                    1.dp,
-                                    if (isSelected) ThemePurple else Color.Gray.copy(alpha = 0.2f),
-                                    RoundedCornerShape(12.dp)
-                                )
-                                .clickable {
-                                    viewModel.triggerKeypressEffects(context)
-                                    viewModel.setSelectedTheme(theme)
-                                    showThemeDialog = false
-                                }
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text(theme.flag, fontSize = 24.sp)
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = theme.displayName,
-                                    color = if (isSelected) ThemePurple else TextDark,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 14.sp
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                // Swatch circles representing colors
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(14.dp)
-                                            .clip(CircleShape)
-                                            .background(themeColors.themePurple)
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .size(14.dp)
-                                            .clip(CircleShape)
-                                            .background(themeColors.themeLightPurple)
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .size(14.dp)
-                                            .clip(CircleShape)
-                                            .background(themeColors.brandBg)
-                                            .border(1.dp, Color.Gray.copy(alpha = 0.3f), CircleShape)
-                                    )
-                                }
-                            }
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = ThemePurple,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        )
-    }
 }
 
 @Composable
@@ -4310,139 +4654,649 @@ fun EmptyVaultSectionState(
     }
 }
 
-@Composable
-fun PrivateBrowserSection(modifier: Modifier = Modifier) {
-    var urlInput by remember { mutableStateOf("https://www.google.com") }
-    var webViewRef by remember { mutableStateOf<android.webkit.WebView?>(null) }
-    var canGoBack by remember { mutableStateOf(false) }
-    var canGoForward by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
-    val context = LocalContext.current
+data class TabState(
+    val id: String,
+    val title: String = "New Tab",
+    val url: String = "https://duckduckgo.com",
+    val progress: Int = 0,
+    val isLoading: Boolean = false,
+    val canGoBack: Boolean = false,
+    val canGoForward: Boolean = false
+)
 
-    Column(modifier = modifier.fillMaxSize()) {
-        // Address Bar & Controls
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            IconButton(
-                onClick = { webViewRef?.goBack() },
-                enabled = canGoBack,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = if (canGoBack) ThemePurple else Color.Gray
-                )
-            }
-            IconButton(
-                onClick = { webViewRef?.goForward() },
-                enabled = canGoForward,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "Forward",
-                    tint = if (canGoForward) ThemePurple else Color.Gray
-                )
-            }
-            IconButton(
-                onClick = { webViewRef?.reload() },
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = ThemePurple)
-            }
-
-            OutlinedTextField(
-                value = urlInput,
-                onValueChange = { urlInput = it },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                textStyle = TextStyle(fontSize = 11.sp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ThemePurple,
-                    unfocusedBorderColor = ThemeContainerBorder
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(
-                    onSearch = {
-                        var targetUrl = urlInput.trim()
-                        if (targetUrl.isNotEmpty()) {
-                            if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
-                                targetUrl = "https://$targetUrl"
-                            }
-                            webViewRef?.loadUrl(targetUrl)
-                        }
-                    }
-                )
-            )
-
-            IconButton(
-                onClick = {
-                    webViewRef?.loadUrl("https://www.google.com")
-                    urlInput = "https://www.google.com"
-                },
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(Icons.Default.Home, contentDescription = "Home", tint = ThemePurple)
-            }
-        }
-
-        if (isLoading) {
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth().height(2.dp),
-                color = ThemePurple
+fun createPrivateWebView(
+    ctx: android.content.Context,
+    tabId: String,
+    initialUrl: String,
+    onUpdate: ((TabState) -> TabState) -> Unit
+): android.webkit.WebView {
+    return android.webkit.WebView(ctx).apply {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
+            android.webkit.WebView.setWebContentsDebuggingEnabled(
+                (ctx.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
             )
         }
 
-        // WebView Holder
-        Card(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .border(1.dp, ThemeContainerBorder, RoundedCornerShape(12.dp)),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            AndroidView(
-                factory = { ctx ->
-                    android.webkit.WebView(ctx).apply {
-                        webViewClient = object : android.webkit.WebViewClient() {
-                            override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                                isLoading = true
-                                url?.let { urlInput = it }
-                                view?.let {
-                                    canGoBack = it.canGoBack()
-                                    canGoForward = it.canGoForward()
-                                }
-                            }
+        settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = false
+            savePassword = false
+            saveFormData = false
+            cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
+            useWideViewPort = true
+            loadWithOverviewMode = true
+            builtInZoomControls = true
+            displayZoomControls = false
+        }
 
-                            override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
-                                isLoading = false
-                                view?.let {
-                                    canGoBack = it.canGoBack()
-                                    canGoForward = it.canGoForward()
-                                }
-                            }
-                        }
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
-                        clearCache(true)
-                        clearHistory()
-                        loadUrl("https://www.google.com")
-                        webViewRef = this
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-                update = { webView ->
-                    webViewRef = webView
+        val cookieManager = android.webkit.CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(this, false)
+
+        webViewClient = object : android.webkit.WebViewClient() {
+            override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                onUpdate { tab ->
+                    tab.copy(
+                        url = url ?: tab.url,
+                        isLoading = true,
+                        canGoBack = view?.canGoBack() ?: false,
+                        canGoForward = view?.canGoForward() ?: false
+                    )
                 }
-            )
+            }
+
+            override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                onUpdate { tab ->
+                    tab.copy(
+                        url = url ?: tab.url,
+                        title = view?.title?.ifEmpty { null } ?: "Private Tab",
+                        isLoading = false,
+                        canGoBack = view?.canGoBack() ?: false,
+                        canGoForward = view?.canGoForward() ?: false
+                    )
+                }
+            }
+
+            override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): Boolean {
+                return false
+            }
+        }
+
+        webChromeClient = object : android.webkit.WebChromeClient() {
+            override fun onProgressChanged(view: android.webkit.WebView?, newProgress: Int) {
+                super.onProgressChanged(view, newProgress)
+                onUpdate { tab ->
+                    tab.copy(progress = newProgress)
+                }
+            }
+
+            override fun onReceivedTitle(view: android.webkit.WebView?, title: String?) {
+                super.onReceivedTitle(view, title)
+                onUpdate { tab ->
+                    tab.copy(title = title ?: tab.title)
+                }
+            }
+        }
+
+        clearCache(true)
+        clearHistory()
+        loadUrl(initialUrl)
+    }
+}
+
+fun clearAllBrowsingData(
+    context: android.content.Context,
+    tabs: androidx.compose.runtime.snapshots.SnapshotStateList<TabState>,
+    webViews: MutableMap<String, android.webkit.WebView>
+) {
+    webViews.values.forEach { webView ->
+        try {
+            webView.stopLoading()
+            webView.clearHistory()
+            webView.clearCache(true)
+            webView.loadUrl("about:blank")
+            webView.destroy()
+        } catch (e: Exception) {}
+    }
+    webViews.clear()
+    tabs.clear()
+
+    try {
+        val cookieManager = android.webkit.CookieManager.getInstance()
+        cookieManager.removeAllCookies(null)
+        cookieManager.flush()
+        android.webkit.WebStorage.getInstance().deleteAllData()
+    } catch (e: Exception) {}
+
+    try {
+        if (!context.cacheDir.exists()) {
+            context.cacheDir.mkdirs()
+        }
+        if (!context.codeCacheDir.exists()) {
+            context.codeCacheDir.mkdirs()
+        }
+
+        fun deleteCacheContents(dir: java.io.File) {
+            dir.listFiles()?.forEach { file ->
+                if (!file.name.equals("WebView", ignoreCase = true) && 
+                    !file.name.contains("webview", ignoreCase = true)) {
+                    file.deleteRecursively()
+                }
+            }
+        }
+
+        deleteCacheContents(context.cacheDir)
+        deleteCacheContents(context.codeCacheDir)
+    } catch (e: Exception) {}
+}
+
+@Composable
+fun PrivateBrowserSection(
+    modifier: Modifier = Modifier,
+    onExit: () -> Unit = {},
+    onPanic: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    val tabs = remember { mutableStateListOf<TabState>() }
+    val webViews = remember { mutableStateMapOf<String, android.webkit.WebView>() }
+    var activeTabId by remember { mutableStateOf<String?>(null) }
+    var safeSearchOff by remember { mutableStateOf(true) }
+    var showTabSwitcher by remember { mutableStateOf(false) }
+
+    val openNewTab: (String) -> Unit = { url ->
+        val tabId = java.util.UUID.randomUUID().toString()
+        val newTab = TabState(id = tabId, url = url, title = "New Tab")
+        tabs.add(newTab)
+        
+        val webView = createPrivateWebView(context, tabId, url) { transform ->
+            val index = tabs.indexOfFirst { it.id == tabId }
+            if (index != -1) {
+                tabs[index] = transform(tabs[index])
+            }
+        }
+        webViews[tabId] = webView
+        activeTabId = tabId
+    }
+
+    LaunchedEffect(Unit) {
+        if (tabs.isEmpty()) {
+            openNewTab("https://duckduckgo.com")
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            webViews.values.forEach { webView ->
+                try {
+                    webView.stopLoading()
+                    webView.clearHistory()
+                    webView.clearCache(true)
+                    webView.loadUrl("about:blank")
+                    webView.destroy()
+                } catch (e: Exception) {}
+            }
+            webViews.clear()
+            tabs.clear()
+            
+            try {
+                val cookieManager = android.webkit.CookieManager.getInstance()
+                cookieManager.removeAllCookies(null)
+                cookieManager.flush()
+                android.webkit.WebStorage.getInstance().deleteAllData()
+            } catch (e: Exception) {}
+        }
+    }
+
+    val activeTab = tabs.find { it.id == activeTabId }
+    val activeWebView = webViews[activeTabId]
+
+    androidx.activity.compose.BackHandler {
+        if (showTabSwitcher) {
+            showTabSwitcher = false
+        } else if (activeWebView != null && activeWebView.canGoBack()) {
+            activeWebView.goBack()
+        } else {
+            onExit()
+        }
+    }
+
+    var urlInput by remember(activeTabId, activeTab?.url) {
+        mutableStateOf(activeTab?.url ?: "https://duckduckgo.com")
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF030304))
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF0C0C10))
+                    .statusBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    IconButton(
+                        onClick = { onExit() },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Vault",
+                            tint = Color.White
+                        )
+                    }
+
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Shield,
+                                contentDescription = "Incognito Mode Active",
+                                tint = ThemePurple,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "Ghost Private Browser",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = Color.White
+                            )
+                        }
+                        Text(
+                            text = "Zero-Trace • Sandbox Mode",
+                            fontSize = 10.sp,
+                            color = TextMedium
+                        )
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    IconButton(
+                        onClick = {
+                            clearAllBrowsingData(context, tabs, webViews)
+                            openNewTab("https://duckduckgo.com")
+                            android.widget.Toast.makeText(context, "All traces of browsing data wiped!", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .size(38.dp)
+                            .background(Color(0xFF1F1F26), RoundedCornerShape(8.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Clear All Browsing Data",
+                            tint = Color.Red.copy(alpha = 0.85f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            clearAllBrowsingData(context, tabs, webViews)
+                            onPanic()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.height(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Panic Lock",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "PANIC",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF0C0C10))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                IconButton(
+                    onClick = { activeWebView?.goBack() },
+                    enabled = activeTab?.canGoBack == true,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Web Back",
+                        tint = if (activeTab?.canGoBack == true) ThemePurple else Color.Gray
+                    )
+                }
+
+                IconButton(
+                    onClick = { activeWebView?.goForward() },
+                    enabled = activeTab?.canGoForward == true,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Web Forward",
+                        tint = if (activeTab?.canGoForward == true) ThemePurple else Color.Gray
+                    )
+                }
+
+                IconButton(
+                    onClick = { activeWebView?.reload() },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Reload Webpage",
+                        tint = ThemePurple
+                    )
+                }
+
+                OutlinedTextField(
+                    value = urlInput,
+                    onValueChange = { urlInput = it },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    textStyle = TextStyle(fontSize = 11.sp, color = Color.White),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFF13131A),
+                        unfocusedContainerColor = Color(0xFF13131A),
+                        focusedBorderColor = ThemePurple,
+                        unfocusedBorderColor = ThemeContainerBorder,
+                        cursorColor = ThemePurple
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            var target = urlInput.trim()
+                            if (target.isNotEmpty()) {
+                                if (!target.startsWith("http://") && !target.startsWith("https://")) {
+                                    if (target.contains(".") && !target.contains(" ")) {
+                                        target = "https://$target"
+                                    } else {
+                                        val safeParam = if (safeSearchOff) "&kp=-2" else "&kp=1"
+                                        target = "https://duckduckgo.com/?q=${java.net.URLEncoder.encode(target, "UTF-8")}$safeParam"
+                                    }
+                                }
+                                activeWebView?.loadUrl(target)
+                            }
+                        }
+                    )
+                )
+
+                IconButton(
+                    onClick = {
+                        safeSearchOff = !safeSearchOff
+                        android.widget.Toast.makeText(
+                            context,
+                            if (safeSearchOff) "SafeSearch: OFF (Default)" else "SafeSearch: ON",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(
+                            if (safeSearchOff) Color(0xFFE65100).copy(alpha = 0.15f) else Color(0xFF2E7D32).copy(alpha = 0.15f),
+                            RoundedCornerShape(8.dp)
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = "Safe Search",
+                        tint = if (safeSearchOff) Color(0xFFFF9800) else Color(0xFF4CAF50),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clickable { showTabSwitcher = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .border(1.5.dp, ThemePurple, RoundedCornerShape(6.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = tabs.size.toString(),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ThemePurple
+                        )
+                    }
+                }
+            }
+
+            if (activeTab?.isLoading == true) {
+                LinearProgressIndicator(
+                    progress = { (activeTab.progress) / 100f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp),
+                    color = ThemePurple,
+                    trackColor = Color.Transparent
+                )
+            }
+
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                key(activeTabId) {
+                    if (activeWebView != null) {
+                        AndroidView(
+                            factory = { activeWebView },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+            }
+        }
+
+        if (showTabSwitcher) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .clickable { showTabSwitcher = false }
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .padding(16.dp)
+                        .clickable(enabled = false) {},
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0F13)),
+                    border = BorderStroke(1.dp, ThemeContainerBorder)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Active Browser Tabs (${tabs.size})",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+
+                            IconButton(
+                                onClick = { showTabSwitcher = false },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Done",
+                                    tint = ThemePurple
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .heightIn(max = 250.dp)
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(tabs) { tab ->
+                                val isActive = tab.id == activeTabId
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            activeTabId = tab.id
+                                            showTabSwitcher = false
+                                        },
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isActive) Color(0xFF230D35) else Color(0xFF1A1A22)
+                                    ),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (isActive) ThemePurple else ThemeContainerBorder
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = tab.title,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = tab.url,
+                                                fontSize = 10.sp,
+                                                color = TextMedium,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                val wv = webViews[tab.id]
+                                                if (wv != null) {
+                                                    try {
+                                                        wv.stopLoading()
+                                                        wv.clearHistory()
+                                                        wv.clearCache(true)
+                                                        wv.loadUrl("about:blank")
+                                                        wv.destroy()
+                                                    } catch (e: Exception) {}
+                                                    webViews.remove(tab.id)
+                                                }
+                                                
+                                                val tabIndex = tabs.indexOf(tab)
+                                                tabs.remove(tab)
+
+                                                if (activeTabId == tab.id) {
+                                                    if (tabs.isNotEmpty()) {
+                                                        activeTabId = tabs[tabIndex.coerceAtMost(tabs.size - 1)].id
+                                                    } else {
+                                                        openNewTab("https://duckduckgo.com")
+                                                    }
+                                                }
+                                            },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.DeleteForever,
+                                                contentDescription = "Close Tab",
+                                                tint = Color.Red.copy(alpha = 0.7f),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    clearAllBrowsingData(context, tabs, webViews)
+                                    openNewTab("https://duckduckgo.com")
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f))
+                            ) {
+                                Icon(Icons.Default.DeleteForever, contentDescription = "Close All Tabs", modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Close All Tabs", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+
+                            Button(
+                                onClick = {
+                                    openNewTab("https://duckduckgo.com")
+                                    showTabSwitcher = false
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Open New Tab", modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("New Private Tab", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
