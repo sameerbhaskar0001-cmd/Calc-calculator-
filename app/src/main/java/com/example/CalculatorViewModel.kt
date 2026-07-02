@@ -152,8 +152,24 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _pendingDeleteSender = MutableStateFlow<android.content.IntentSender?>(null)
     val pendingDeleteSender: StateFlow<android.content.IntentSender?> = _pendingDeleteSender.asStateFlow()
 
+    var pendingDeleteOriginalPath: String = ""
+
     fun clearPendingDelete() {
         _pendingDeleteSender.value = null
+        pendingDeleteOriginalPath = ""
+    }
+
+    fun onOriginalFileDeleted(context: android.content.Context) {
+        if (pendingDeleteOriginalPath.isNotEmpty()) {
+            android.media.MediaScannerConnection.scanFile(
+                context, 
+                arrayOf(pendingDeleteOriginalPath), 
+                null 
+            ) { path, _ ->
+                android.util.Log.d("Vault", "Scanned $path after deletion")
+            }
+            pendingDeleteOriginalPath = ""
+        }
     }
 
     // --- Multi-Language Localization State ---
@@ -847,39 +863,65 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     } else {
                         android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
                     }
-                    val projection = arrayOf(android.provider.MediaStore.MediaColumns._ID, android.provider.MediaStore.MediaColumns.DATA)
-                    val selection = "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.MediaColumns.SIZE} = ?"
-                    val selectionArgs = arrayOf(originalName, size.toString())
                     
-                    try {
-                        contentResolver.query(collection, projection, selection, selectionArgs, null)?.use { mediaCursor ->
-                            if (mediaCursor.moveToFirst()) {
-                                val idColumn = mediaCursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID)
-                                val mediaId = mediaCursor.getLong(idColumn)
-                                mediaStoreUri = android.content.ContentUris.withAppendedId(collection, mediaId)
-                                
-                                val dataIdx = mediaCursor.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
-                                if (dataIdx != -1) {
-                                    val queriedPath = mediaCursor.getString(dataIdx)
-                                    if (!queriedPath.isNullOrEmpty()) {
-                                        originalPath = queriedPath
+                    var foundMediaId: Long? = null
+                    
+                    // 1. Try to extract ID directly from the picker/document URI
+                    val lastSegment = uri.lastPathSegment
+                    if (lastSegment != null) {
+                        if (lastSegment.matches(Regex("\\d+"))) {
+                            foundMediaId = lastSegment.toLongOrNull()
+                        } else if (lastSegment.contains(":")) {
+                            // Handles "image:12345" from documents provider
+                            val parts = lastSegment.split(":")
+                            if (parts.size == 2 && parts[1].matches(Regex("\\d+"))) {
+                                foundMediaId = parts[1].toLongOrNull()
+                            }
+                        }
+                    }
+                    
+                    // 2. Query MediaStore to get the real path if possible
+                    if (foundMediaId != null) {
+                        mediaStoreUri = android.content.ContentUris.withAppendedId(collection, foundMediaId)
+                        val projection = arrayOf(android.provider.MediaStore.MediaColumns.DATA)
+                        try {
+                            contentResolver.query(mediaStoreUri, projection, null, null, null)?.use { mediaCursor ->
+                                if (mediaCursor.moveToFirst()) {
+                                    val dataIdx = mediaCursor.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
+                                    if (dataIdx != -1) {
+                                        val queriedPath = mediaCursor.getString(dataIdx)
+                                        if (!queriedPath.isNullOrEmpty()) {
+                                            originalPath = queriedPath
+                                        }
                                     }
                                 }
                             }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
                     }
                 }
 
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                     try {
+                        pendingDeleteOriginalPath = originalPath
                         val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, listOf(mediaStoreUri))
                         _pendingDeleteSender.value = pendingIntent.intentSender
                     } catch (e: Exception) {
                         e.printStackTrace()
                         try {
-                            contentResolver.delete(mediaStoreUri, null, null)
+                            val deletedRows = contentResolver.delete(mediaStoreUri, null, null)
+                            if (deletedRows == 0 && originalPath.isNotEmpty()) {
+                                val fileToDelete = File(originalPath)
+                                if (fileToDelete.exists()) {
+                                    fileToDelete.delete()
+                                    pendingDeleteOriginalPath = originalPath
+                                    onOriginalFileDeleted(context)
+                                }
+                            } else if (deletedRows > 0) {
+                                pendingDeleteOriginalPath = originalPath
+                                onOriginalFileDeleted(context)
+                            }
                         } catch (secEx: SecurityException) {
                             secEx.printStackTrace()
                         }
@@ -891,30 +933,27 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                             val fileToDelete = File(originalPath)
                             if (fileToDelete.exists()) {
                                 fileToDelete.delete()
+                                pendingDeleteOriginalPath = originalPath
+                                onOriginalFileDeleted(context)
                             }
+                        } else if (deletedRows > 0) {
+                            pendingDeleteOriginalPath = originalPath
+                            onOriginalFileDeleted(context)
                         }
                     } catch (securityException: SecurityException) {
                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && securityException is android.app.RecoverableSecurityException) {
+                            pendingDeleteOriginalPath = originalPath
                             _pendingDeleteSender.value = securityException.userAction.actionIntent.intentSender
                         } else {
                             if (originalPath.isNotEmpty()) {
                                 val fileToDelete = File(originalPath)
                                 if (fileToDelete.exists()) {
                                     fileToDelete.delete()
+                                    pendingDeleteOriginalPath = originalPath
+                                    onOriginalFileDeleted(context)
                                 }
                             }
                         }
-                    }
-                }
-                
-                // Force Gallery Refresh to remove the thumbnail immediately
-                if (originalPath.isNotEmpty()) {
-                    android.media.MediaScannerConnection.scanFile(
-                        context, 
-                        arrayOf(originalPath), 
-                        null 
-                    ) { path, _ ->
-                        android.util.Log.d("Vault", "Scanned $path after deletion")
                     }
                 }
             } catch (e: Exception) {

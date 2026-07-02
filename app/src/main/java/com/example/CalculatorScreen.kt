@@ -2299,6 +2299,7 @@ fun VaultTabContent(
         ) { result ->
             if (result.resultCode == android.app.Activity.RESULT_OK) {
                 android.widget.Toast.makeText(context, "Original photo hidden successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                viewModel.onOriginalFileDeleted(context)
             }
             viewModel.clearPendingDelete()
         }
