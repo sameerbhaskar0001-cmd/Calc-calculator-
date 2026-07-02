@@ -193,62 +193,64 @@ fun CalculatorScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Header Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            if (activeTab != ActiveTab.VAULT) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(ThemePurple),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(
-                            imageVector = if (activeTab == ActiveTab.VAULT) Icons.Default.Lock else Icons.Default.Calculate,
-                            contentDescription = "Calculator Icon",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ThemePurple),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (activeTab == ActiveTab.VAULT) Icons.Default.Lock else Icons.Default.Calculate,
+                                contentDescription = "Calculator Icon",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = if (activeTab == ActiveTab.VAULT) viewModel.t("secure_vault") else viewModel.t("app_title"),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = TextDark,
+                                letterSpacing = (-0.5).sp
+                            )
+                        }
                     }
-                    Column {
-                        Text(
-                            text = if (activeTab == ActiveTab.VAULT) viewModel.t("secure_vault") else viewModel.t("app_title"),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = TextDark,
-                            letterSpacing = (-0.5).sp
-                        )
-                    }
-                }
 
-                // Lock button shown only when Vault is unlocked/active
-                if (activeTab == ActiveTab.VAULT) {
-                    IconButton(
-                        onClick = {
-                            viewModel.triggerKeypressEffects(context)
-                            viewModel.lockVault()
-                            activeTab = ActiveTab.CALCULATOR
-                        },
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(Color.Red.copy(alpha = 0.1f))
-                            .testTag("header_lock_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Lock & Exit",
-                            tint = Color.Red,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    // Lock button shown only when Vault is unlocked/active
+                    if (activeTab == ActiveTab.VAULT) {
+                        IconButton(
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                viewModel.lockVault()
+                                activeTab = ActiveTab.CALCULATOR
+                            },
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color.Red.copy(alpha = 0.1f))
+                                .testTag("header_lock_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Lock & Exit",
+                                tint = Color.Red,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -258,7 +260,7 @@ fun CalculatorScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = if (activeTab == ActiveTab.VAULT) 0.dp else 24.dp)
             ) {
                 when (activeTab) {
                     ActiveTab.CALCULATOR -> {
@@ -2066,163 +2068,190 @@ fun VaultTabContent(
 
     if (!vaultUnlocked) {
         // Vault Lock Screen
-        Column(
-            modifier = modifier
+        Box(
+            modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .background(Color(0xFF0B0F19)) // Immersive premium high-security dark canvas
         ) {
-            Box(
+            // Back Button to exit to Calculator
+            IconButton(
+                onClick = {
+                    viewModel.triggerKeypressEffects(context)
+                    onLockExit()
+                },
                 modifier = Modifier
-                    .size(80.dp)
+                    .padding(16.dp)
+                    .align(Alignment.TopStart)
+                    .size(40.dp)
                     .clip(CircleShape)
-                    .background(ThemeLightPurple),
-                contentAlignment = Alignment.Center
+                    .background(Color(0xFF1B2031))
             ) {
                 Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = "Secret Vault Lock",
-                    tint = ThemePurple,
-                    modifier = Modifier.size(36.dp)
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back to Calculator",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Secret Calculator Vault",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextDark
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "Enter the secret passcode to unlock your private space.",
-                fontSize = 12.sp,
-                color = TextMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Custom secure PIN Dots
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                for (i in 0 until 4) {
-                    val isFilled = pinInput.length > i
-                    Box(
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clip(CircleShape)
-                            .background(if (isFilled) ThemePurple else ThemeContainerBorder.copy(alpha = 0.5f))
-                            .border(width = 1.dp, color = ThemePurple, shape = CircleShape)
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF635BFF).copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Secret Vault Lock",
+                        tint = Color(0xFF635BFF),
+                        modifier = Modifier.size(36.dp)
                     )
                 }
-            }
 
-            if (pinError) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Text(
-                    text = "Incorrect Passcode! Hint: 7777",
-                    color = Color.Red,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
+                    text = "Secret Calculator Vault",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
                 )
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-            // Grid PIN Pad
-            val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "Clear", "0", "Unlock")
-            Column(
-                modifier = Modifier.width(280.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                keys.chunked(3).forEach { rowKeys ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        rowKeys.forEach { key ->
-                            val isSpecial = key == "Clear" || key == "Unlock"
-                            val buttonColor = if (isSpecial) ThemeLightPurple else KeypadBg
-                            val contentColor = if (isSpecial) ThemePurple else TextDark
+                Text(
+                    text = "Enter the secret passcode to unlock your private space.",
+                    fontSize = 12.sp,
+                    color = Color(0xFF8B92A5),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
 
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(52.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(buttonColor)
-                                    .clickable {
-                                        viewModel.triggerKeypressEffects(context)
-                                        pinError = false
-                                        when (key) {
-                                            "Clear" -> {
-                                                if (pinInput.isNotEmpty()) pinInput = pinInput.dropLast(1)
-                                            }
-                                            "Unlock" -> {
-                                                if (viewModel.tryUnlockVault(pinInput)) {
-                                                    pinInput = ""
-                                                } else {
-                                                    pinError = true
-                                                    pinInput = ""
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Custom secure PIN Dots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (i in 0 until 4) {
+                        val isFilled = pinInput.length > i
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(if (isFilled) Color(0xFF635BFF) else Color(0xFF1B2031))
+                                .border(width = 1.dp, color = Color(0xFF635BFF), shape = CircleShape)
+                        )
+                    }
+                }
+
+                if (pinError) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Incorrect Passcode! Hint: 7777",
+                        color = Color.Red,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Grid PIN Pad
+                val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "Clear", "0", "Unlock")
+                Column(
+                    modifier = Modifier.width(280.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    keys.chunked(3).forEach { rowKeys ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowKeys.forEach { key ->
+                                val isSpecial = key == "Clear" || key == "Unlock"
+                                val buttonColor = if (isSpecial) Color(0xFF635BFF).copy(alpha = 0.2f) else Color(0xFF1B2031)
+                                val contentColor = if (isSpecial) Color(0xFF8C84FF) else Color.White
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(52.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(buttonColor)
+                                        .clickable {
+                                            viewModel.triggerKeypressEffects(context)
+                                            pinError = false
+                                            when (key) {
+                                                "Clear" -> {
+                                                    if (pinInput.isNotEmpty()) pinInput = pinInput.dropLast(1)
                                                 }
-                                            }
-                                            else -> {
-                                                if (pinInput.length < 4) {
-                                                    pinInput += key
-                                                    if (pinInput.length == 4) {
-                                                        // Auto submit when 4 digits are typed
-                                                        if (viewModel.tryUnlockVault(pinInput)) {
-                                                            pinInput = ""
-                                                        } else {
-                                                            pinError = true
-                                                            pinInput = ""
+                                                "Unlock" -> {
+                                                    if (viewModel.tryUnlockVault(pinInput)) {
+                                                        pinInput = ""
+                                                    } else {
+                                                        pinError = true
+                                                        pinInput = ""
+                                                    }
+                                                }
+                                                else -> {
+                                                    if (pinInput.length < 4) {
+                                                        pinInput += key
+                                                        if (pinInput.length == 4) {
+                                                            // Auto submit when 4 digits are typed
+                                                            if (viewModel.tryUnlockVault(pinInput)) {
+                                                                pinInput = ""
+                                                            } else {
+                                                                pinError = true
+                                                                pinInput = ""
+                                                            }
                                                         }
                                                     }
                                                 }
                                             }
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = key,
-                                    fontSize = if (isSpecial) 12.sp else 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = contentColor
-                                )
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = key,
+                                        fontSize = if (isSpecial) 12.sp else 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = contentColor
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            if (biometricEnabled && activity != null) {
-                Spacer(modifier = Modifier.height(20.dp))
-                IconButton(
-                    onClick = {
-                        viewModel.triggerKeypressEffects(context)
-                        triggerBiometric()
-                    },
-                    modifier = Modifier
-                        .size(54.dp)
-                        .background(ThemeLightPurple, CircleShape)
-                        .border(1.dp, ThemePurple.copy(alpha = 0.5f), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Fingerprint,
-                        contentDescription = "Unlock with Biometrics",
-                        tint = ThemePurple,
-                        modifier = Modifier.size(28.dp)
-                    )
+                if (biometricEnabled && activity != null) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    IconButton(
+                        onClick = {
+                            viewModel.triggerKeypressEffects(context)
+                            triggerBiometric()
+                        },
+                        modifier = Modifier
+                            .size(54.dp)
+                            .background(Color(0xFF635BFF).copy(alpha = 0.15f), CircleShape)
+                            .border(1.dp, Color(0xFF635BFF).copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Fingerprint,
+                            contentDescription = "Unlock with Biometrics",
+                            tint = Color(0xFF635BFF),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
         }
@@ -2297,129 +2326,111 @@ fun VaultTabContent(
                     .fillMaxSize()
                     .padding(16.dp)
             ) {
-                // Unlocked Header with Back Navigation
+                // Clean and spacious Unlocked Header
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    IconButton(
-                        onClick = {
-                            viewModel.triggerKeypressEffects(context)
-                            if (activeSection == "Home") {
-                                viewModel.lockVault()
-                                onLockExit()
-                            } else {
-                                activeSection = "Home"
-                            }
-                        },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF1B2031))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (activeSection == "Home") viewModel.t("secure_vault") else viewModel.t(
-                                when(activeSection) {
-                                    "Notes" -> "notes"
-                                    "Photos & Videos" -> "photos_videos"
-                                    "Documents" -> "documents"
-                                    "Private Browser" -> "private_browser"
-                                    "Explore" -> "explore"
-                                    "Settings" -> "settings"
-                                    else -> "secure_vault"
-                                }
-                            ),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "AES Passcode Secured",
-                            fontSize = 10.sp,
-                            color = Color(0xFF4CAF50),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = {
-                            viewModel.triggerKeypressEffects(context)
-                            activeSection = "Settings"
-                        },
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(Color(0xFF1B2031))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Change Passcode",
-                            tint = Color.White
-                        )
-                    }
-
-                    IconButton(
-                        onClick = {
-                            viewModel.triggerKeypressEffects(context)
-                            viewModel.lockVault()
-                        },
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(Color(0xFF1B2031))
-                    ) {
-                        Icon(Icons.Default.Lock, contentDescription = "Lock Vault", tint = Color.White)
-                    }
-
-                    if (activeSection == "Notes" || activeSection == "Photos & Videos" || activeSection == "Documents") {
-                        Button(
+                        IconButton(
                             onClick = {
                                 viewModel.triggerKeypressEffects(context)
-                                when (activeSection) {
-                                    "Notes" -> {
-                                        showAddNoteDialog = true
-                                    }
-                                    "Photos & Videos" -> {
-                                        photoPickerLauncher.launch(
-                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
-                                        )
-                                    }
-                                    "Documents" -> {
-                                        documentPickerLauncher.launch("*/*")
-                                    }
+                                if (activeSection == "Home") {
+                                    viewModel.lockVault()
+                                    onLockExit()
+                                } else {
+                                    activeSection = "Home"
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
-                            shape = RoundedCornerShape(12.dp)
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1B2031))
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Add Item", modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Column {
                             Text(
-                                text = when (activeSection) {
-                                    "Notes" -> "Add Note"
-                                    "Photos & Videos" -> "Import Photo"
-                                    else -> "Import File"
-                                },
-                                fontSize = 11.sp
+                                text = if (activeSection == "Home") viewModel.t("secure_vault") else viewModel.t(
+                                    when(activeSection) {
+                                        "Notes" -> "notes"
+                                        "Photos & Videos" -> "photos_videos"
+                                        "Documents" -> "documents"
+                                        "Private Browser" -> "private_browser"
+                                        "Explore" -> "explore"
+                                        "Settings" -> "settings"
+                                        else -> "secure_vault"
+                                    }
+                                ),
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "AES Passcode Secured",
+                                fontSize = 10.sp,
+                                color = Color(0xFF4CAF50),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                activeSection = "Settings"
+                            },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1B2031))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Change Passcode",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                viewModel.lockVault()
+                            },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1B2031))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Lock Vault",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
                 }
-            }
 
             // Material 3 Filter Chips for Sections
             val decoyActive by viewModel.decoyActive.collectAsState()
@@ -3623,7 +3634,57 @@ fun VaultTabContent(
             }
         }
 
-        // Private Secure Plain Text Viewer Dialog
+        // Floating Action Button for active media/notes/documents sections!
+        if (activeSection == "Notes" || activeSection == "Photos & Videos" || activeSection == "Documents") {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                contentAlignment = Alignment.BottomEnd
+            ) {
+                FloatingActionButton(
+                    onClick = {
+                        viewModel.triggerKeypressEffects(context)
+                        when (activeSection) {
+                            "Notes" -> {
+                                showAddNoteDialog = true
+                            }
+                            "Photos & Videos" -> {
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
+                                )
+                            }
+                            "Documents" -> {
+                                documentPickerLauncher.launch("*/*")
+                            }
+                        }
+                    },
+                    containerColor = ThemePurple,
+                    contentColor = Color.White,
+                    modifier = Modifier.testTag("vault_fab")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add Item"
+                        )
+                        Text(
+                            text = when (activeSection) {
+                                "Notes" -> "Add Note"
+                                "Photos & Videos" -> "Import Media"
+                                else -> "Import File"
+                            },
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        }
+
+    // Private Secure Plain Text Viewer Dialog
         if (textFileContentToRead != null) {
             val (name, content) = textFileContentToRead!!
             AlertDialog(
@@ -3670,6 +3731,7 @@ fun VaultTabContent(
                 }
             )
         }
+
     }
 
     // New Note Dialog// New Note Dialog

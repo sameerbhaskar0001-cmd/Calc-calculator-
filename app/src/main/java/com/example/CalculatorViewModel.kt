@@ -759,6 +759,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             var originalName = "unnamed_file"
             var mimeType = "application/octet-stream"
             var size = 0L
+            var originalPath = ""
             
             val cursor = contentResolver.query(uri, null, null, null, null)
             cursor?.use {
@@ -774,6 +775,11 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     val sizeIdx = it.getColumnIndex(OpenableColumns.SIZE)
                     if (sizeIdx != -1) {
                         size = it.getLong(sizeIdx)
+                    }
+                    
+                    val dataIdx = it.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
+                    if (dataIdx != -1) {
+                        originalPath = it.getString(dataIdx) ?: ""
                     }
                 }
             }
@@ -793,7 +799,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             
             val readableSize = formatFileSize(size)
             val id = System.currentTimeMillis().toString()
-            val timestamp = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(java.util.Date())
+            val timestamp = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
             
             // Create folder
             val vaultDir = File(context.filesDir, "vault_files")
@@ -817,7 +823,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             
             // Copy stream
             contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(destFile).use { output ->
+                java.io.FileOutputStream(destFile).use { output ->
                     input.copyTo(output)
                 }
             }
@@ -832,18 +838,83 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
             // Secure Deletion of Original Media File from System Gallery
             try {
-                contentResolver.delete(uri, null, null)
-            } catch (securityException: SecurityException) {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && securityException is android.app.RecoverableSecurityException) {
-                    _pendingDeleteSender.value = securityException.userAction.actionIntent.intentSender
+                // Try to find the actual MediaStore URI if the provided URI is from a picker
+                var mediaStoreUri = uri
+                
+                if (uri.authority?.contains("picker") == true || uri.authority?.contains("documents") == true) {
+                    val collection = if (mimeType.startsWith("video/")) {
+                        android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                    } else {
+                        android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                    }
+                    val projection = arrayOf(android.provider.MediaStore.MediaColumns._ID, android.provider.MediaStore.MediaColumns.DATA)
+                    val selection = "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.MediaColumns.SIZE} = ?"
+                    val selectionArgs = arrayOf(originalName, size.toString())
+                    
+                    try {
+                        contentResolver.query(collection, projection, selection, selectionArgs, null)?.use { mediaCursor ->
+                            if (mediaCursor.moveToFirst()) {
+                                val idColumn = mediaCursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID)
+                                val mediaId = mediaCursor.getLong(idColumn)
+                                mediaStoreUri = android.content.ContentUris.withAppendedId(collection, mediaId)
+                                
+                                val dataIdx = mediaCursor.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
+                                if (dataIdx != -1) {
+                                    val queriedPath = mediaCursor.getString(dataIdx)
+                                    if (!queriedPath.isNullOrEmpty()) {
+                                        originalPath = queriedPath
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    try {
+                        val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, listOf(mediaStoreUri))
+                        _pendingDeleteSender.value = pendingIntent.intentSender
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        try {
+                            contentResolver.delete(mediaStoreUri, null, null)
+                        } catch (secEx: SecurityException) {
+                            secEx.printStackTrace()
+                        }
+                    }
                 } else {
                     try {
-                        val fileToDelete = File(uri.path ?: "")
-                        if (fileToDelete.exists()) {
-                            fileToDelete.delete()
+                        val deletedRows = contentResolver.delete(mediaStoreUri, null, null)
+                        if (deletedRows == 0 && originalPath.isNotEmpty()) {
+                            val fileToDelete = File(originalPath)
+                            if (fileToDelete.exists()) {
+                                fileToDelete.delete()
+                            }
                         }
-                    } catch (ex: Exception) {
-                        ex.printStackTrace()
+                    } catch (securityException: SecurityException) {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && securityException is android.app.RecoverableSecurityException) {
+                            _pendingDeleteSender.value = securityException.userAction.actionIntent.intentSender
+                        } else {
+                            if (originalPath.isNotEmpty()) {
+                                val fileToDelete = File(originalPath)
+                                if (fileToDelete.exists()) {
+                                    fileToDelete.delete()
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Force Gallery Refresh to remove the thumbnail immediately
+                if (originalPath.isNotEmpty()) {
+                    android.media.MediaScannerConnection.scanFile(
+                        context, 
+                        arrayOf(originalPath), 
+                        null 
+                    ) { path, _ ->
+                        android.util.Log.d("Vault", "Scanned $path after deletion")
                     }
                 }
             } catch (e: Exception) {
