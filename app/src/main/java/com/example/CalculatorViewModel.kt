@@ -854,110 +854,76 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
             // Secure Deletion of Original Media File from System Gallery
             try {
+                android.util.Log.d("Vault", "Selected Uri: $uri")
+                android.util.Log.d("Vault", "Vault copy success: ${destFile.absolutePath}")
+                
                 // Try to find the actual MediaStore URI if the provided URI is from a picker
                 var mediaStoreUri = uri
+                var originalPath = ""
                 
-                if (uri.authority?.contains("picker") == true || uri.authority?.contains("documents") == true) {
-                    val collection = if (mimeType.startsWith("video/")) {
-                        android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-                    } else {
-                        android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-                    }
-                    
-                    var foundMediaId: Long? = null
-                    
-                    // 1. Try to extract ID directly from the picker/document URI
-                    val lastSegment = uri.lastPathSegment
-                    if (lastSegment != null) {
-                        if (lastSegment.matches(Regex("\\d+"))) {
-                            foundMediaId = lastSegment.toLongOrNull()
-                        } else if (lastSegment.contains(":")) {
-                            // Handles "image:12345" from documents provider
-                            val parts = lastSegment.split(":")
-                            if (parts.size == 2 && parts[1].matches(Regex("\\d+"))) {
-                                foundMediaId = parts[1].toLongOrNull()
-                            }
-                        }
-                    }
-                    
-                    // 2. Query MediaStore to get the real path if possible
-                    if (foundMediaId != null) {
-                        mediaStoreUri = android.content.ContentUris.withAppendedId(collection, foundMediaId)
-                        val projection = arrayOf(android.provider.MediaStore.MediaColumns.DATA)
-                        try {
-                            contentResolver.query(mediaStoreUri, projection, null, null, null)?.use { mediaCursor ->
-                                if (mediaCursor.moveToFirst()) {
-                                    val dataIdx = mediaCursor.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
-                                    if (dataIdx != -1) {
-                                        val queriedPath = mediaCursor.getString(dataIdx)
-                                        if (!queriedPath.isNullOrEmpty()) {
-                                            originalPath = queriedPath
-                                        }
-                                    }
-                                }
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
+                val collection = if (mimeType.startsWith("video/")) {
+                    android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                } else if (mimeType.startsWith("image/")) {
+                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                } else {
+                    android.provider.MediaStore.Files.getContentUri("external")
                 }
+                
+                // Find original URI by Display Name and Size
+                val projection = arrayOf(android.provider.MediaStore.MediaColumns._ID, android.provider.MediaStore.MediaColumns.DATA)
+                val selection = "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.MediaColumns.SIZE} = ?"
+                val selectionArgs = arrayOf(originalName, size.toString())
+                
+                try {
+                    contentResolver.query(collection, projection, selection, selectionArgs, null)?.use { mediaCursor ->
+                        if (mediaCursor.moveToFirst()) {
+                            val idColumn = mediaCursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID)
+                            val foundMediaId = mediaCursor.getLong(idColumn)
+                            mediaStoreUri = android.content.ContentUris.withAppendedId(collection, foundMediaId)
+                            
+                            val dataIdx = mediaCursor.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
+                            if (dataIdx != -1) {
+                                originalPath = mediaCursor.getString(dataIdx) ?: ""
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("Vault", "Failed to query original MediaStore Uri", e)
+                }
+
+                android.util.Log.d("Vault", "Original MediaStore Uri: $mediaStoreUri")
 
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                     try {
-                        pendingDeleteOriginalPath = originalPath
+                        android.util.Log.d("Vault", "Delete request created (API 30+)")
                         val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, listOf(mediaStoreUri))
+                        pendingDeleteOriginalPath = originalPath
                         _pendingDeleteSender.value = pendingIntent.intentSender
+                        android.util.Log.d("Vault", "IntentSender launched")
                     } catch (e: Exception) {
-                        e.printStackTrace()
-                        try {
-                            val deletedRows = contentResolver.delete(mediaStoreUri, null, null)
-                            if (deletedRows == 0 && originalPath.isNotEmpty()) {
-                                val fileToDelete = File(originalPath)
-                                if (fileToDelete.exists()) {
-                                    fileToDelete.delete()
-                                    pendingDeleteOriginalPath = originalPath
-                                    onOriginalFileDeleted(context)
-                                }
-                            } else if (deletedRows > 0) {
-                                pendingDeleteOriginalPath = originalPath
-                                onOriginalFileDeleted(context)
-                            }
-                        } catch (secEx: SecurityException) {
-                            secEx.printStackTrace()
-                        }
+                        android.util.Log.e("Vault", "Failed to create delete request", e)
                     }
                 } else {
                     try {
                         val deletedRows = contentResolver.delete(mediaStoreUri, null, null)
-                        if (deletedRows == 0 && originalPath.isNotEmpty()) {
-                            val fileToDelete = File(originalPath)
-                            if (fileToDelete.exists()) {
-                                fileToDelete.delete()
-                                pendingDeleteOriginalPath = originalPath
-                                onOriginalFileDeleted(context)
-                            }
-                        } else if (deletedRows > 0) {
+                        if (deletedRows > 0) {
+                            android.util.Log.d("Vault", "Delete success (API < 30)")
                             pendingDeleteOriginalPath = originalPath
                             onOriginalFileDeleted(context)
+                        } else {
+                            android.util.Log.d("Vault", "Delete failure (API < 30), 0 rows deleted")
                         }
                     } catch (securityException: SecurityException) {
+                        android.util.Log.e("Vault", "SecurityException during delete (API < 30)", securityException)
                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && securityException is android.app.RecoverableSecurityException) {
                             pendingDeleteOriginalPath = originalPath
                             _pendingDeleteSender.value = securityException.userAction.actionIntent.intentSender
-                        } else {
-                            if (originalPath.isNotEmpty()) {
-                                val fileToDelete = File(originalPath)
-                                if (fileToDelete.exists()) {
-                                    fileToDelete.delete()
-                                    pendingDeleteOriginalPath = originalPath
-                                    onOriginalFileDeleted(context)
-                                }
-                            }
+                            android.util.Log.d("Vault", "RecoverableSecurityException IntentSender launched")
                         }
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("Vault", "Exception in deletion flow", e)
             }
 
             true
