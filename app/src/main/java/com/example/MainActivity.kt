@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.ui.theme.MyApplicationTheme
@@ -73,7 +75,8 @@ class MainActivity : FragmentActivity() {
     }
 
     setContent {
-      MyApplicationTheme {
+      val selectedTheme by viewModel.selectedTheme.collectAsState()
+      MyApplicationTheme(theme = selectedTheme) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
           CalculatorScreen(
             viewModel = viewModel,

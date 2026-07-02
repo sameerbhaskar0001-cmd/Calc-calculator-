@@ -77,6 +77,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.VolumeOff
@@ -145,16 +146,18 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Dashboard
 
-// "Professional Polish" Palette (Material 3 Purple/Lavender)
-private val BrandBg = Color(0xFFFEF7FF)              // Primary soft canvas background
-private val TextDark = Color(0xFF1D1B20)              // Primary high-contrast text
-private val TextMedium = Color(0xFF49454F)            // Secondary body / utility text
-private val ThemePurple = Color(0xFF6750A4)           // Brand primary purple
-private val ThemeLightPurple = Color(0xFFE8DEF8)      // Brand secondary container purple
-private val ThemeContainerBorder = Color(0xFFD0BCFF)  // Brand border accent
+import com.example.ui.theme.LocalAppThemeColors
 
-private val KeypadBg = Color(0xFFF3EDF7)              // Light background for utility keys
-private val DigitBg = Color(0xFFFFFFFF)               // Crisp white for digit keys
+// Dynamic Theme-Aware Palette
+private val BrandBg: Color @Composable get() = LocalAppThemeColors.current.brandBg
+private val TextDark: Color @Composable get() = LocalAppThemeColors.current.textDark
+private val TextMedium: Color @Composable get() = LocalAppThemeColors.current.textMedium
+private val ThemePurple: Color @Composable get() = LocalAppThemeColors.current.themePurple
+private val ThemeLightPurple: Color @Composable get() = LocalAppThemeColors.current.themeLightPurple
+private val ThemeContainerBorder: Color @Composable get() = LocalAppThemeColors.current.themeContainerBorder
+
+private val KeypadBg: Color @Composable get() = LocalAppThemeColors.current.keypadBg
+private val DigitBg: Color @Composable get() = LocalAppThemeColors.current.digitBg
 
 enum class ActiveTab {
     CALCULATOR,
@@ -1252,6 +1255,9 @@ fun InteractiveBezierChart(
                 )
             }
 
+            val drawPurple = ThemePurple
+            val drawLightPurple = ThemeLightPurple
+
             Spacer(modifier = Modifier.height(8.dp))
 
             Canvas(
@@ -1326,7 +1332,7 @@ fun InteractiveBezierChart(
                 drawPath(
                     path = fillPath,
                     brush = Brush.verticalGradient(
-                        colors = listOf(ThemeLightPurple.copy(alpha = 0.4f), Color.Transparent),
+                        colors = listOf(drawLightPurple.copy(alpha = 0.4f), Color.Transparent),
                         startY = points.map { it.y }.minOrNull() ?: 0f,
                         endY = height - padding
                     )
@@ -1335,7 +1341,7 @@ fun InteractiveBezierChart(
                 // Draw curve stroke line
                 drawPath(
                     path = path,
-                    color = ThemePurple,
+                    color = drawPurple,
                     style = Stroke(width = 3.dp.toPx())
                 )
 
@@ -1343,13 +1349,13 @@ fun InteractiveBezierChart(
                 scrubIndex?.let { index ->
                     val pt = points[index]
                     drawLine(
-                        color = ThemePurple.copy(alpha = 0.4f),
+                        color = drawPurple.copy(alpha = 0.4f),
                         start = androidx.compose.ui.geometry.Offset(pt.x, padding),
                         end = androidx.compose.ui.geometry.Offset(pt.x, height - padding),
                         strokeWidth = 1.5.dp.toPx(),
                         pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
                     )
-                    drawCircle(color = ThemePurple, radius = 6.dp.toPx(), center = pt)
+                    drawCircle(color = drawPurple, radius = 6.dp.toPx(), center = pt)
                     drawCircle(color = Color.White, radius = 3.dp.toPx(), center = pt)
                 }
             }
@@ -1939,6 +1945,7 @@ fun VaultTabContent(
     var pinError by remember { mutableStateOf(false) }
 
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showThemeDialog by remember { mutableStateOf(false) }
 
     var showAddNoteDialog by remember { mutableStateOf(false) }
     var noteTitle by remember { mutableStateOf("") }
@@ -2264,14 +2271,17 @@ fun VaultTabContent(
 
         // Photo/Video Picker launcher
         val photoPickerLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.PickVisualMedia(),
-            onResult = { uri ->
-                if (uri != null) {
-                    val success = viewModel.addVaultFile(context, uri)
-                    if (success) {
-                        android.widget.Toast.makeText(context, "Photo/Video secured in Vault!", android.widget.Toast.LENGTH_SHORT).show()
-                    } else {
-                        android.widget.Toast.makeText(context, "Failed to secure photo/video", android.widget.Toast.LENGTH_SHORT).show()
+            contract = androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+            onResult = { result ->
+                if (result.resultCode == android.app.Activity.RESULT_OK) {
+                    val uri = result.data?.data
+                    if (uri != null) {
+                        val success = viewModel.addVaultFile(context, uri)
+                        if (success) {
+                            android.widget.Toast.makeText(context, "Photo/Video secured in Vault!", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            android.widget.Toast.makeText(context, "Failed to secure photo/video", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }
@@ -2295,11 +2305,16 @@ fun VaultTabContent(
         // Secure Original File Gallery Deletion confirmation flow
         val pendingDeleteSender by viewModel.pendingDeleteSender.collectAsState()
         val deleteSenderLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.StartIntentSenderForResult()
+            contract = androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
         ) { result ->
             if (result.resultCode == android.app.Activity.RESULT_OK) {
+                android.util.Log.d("Vault", "User accepted/cancelled: User accepted")
+                android.util.Log.d("Vault", "Delete success/failure: Delete success")
                 android.widget.Toast.makeText(context, "Original photo hidden successfully!", android.widget.Toast.LENGTH_SHORT).show()
                 viewModel.onOriginalFileDeleted(context)
+            } else {
+                android.util.Log.d("Vault", "User accepted/cancelled: User cancelled")
+                android.util.Log.d("Vault", "Delete success/failure: Delete failure")
             }
             viewModel.clearPendingDelete()
         }
@@ -2307,11 +2322,12 @@ fun VaultTabContent(
         LaunchedEffect(pendingDeleteSender) {
             pendingDeleteSender?.let { sender ->
                 try {
+                    android.util.Log.d("Vault", "IntentSender launched")
                     deleteSenderLauncher.launch(
                         androidx.activity.result.IntentSenderRequest.Builder(sender).build()
                     )
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    android.util.Log.e("Vault", "Any exception with full stack trace", e)
                     viewModel.clearPendingDelete()
                 }
             }
@@ -3502,6 +3518,20 @@ fun VaultTabContent(
                                     showLanguageDialog = true
                                 }
                             )
+
+                            val currentTheme by viewModel.selectedTheme.collectAsState()
+                            val themeDisplay = "${currentTheme.displayName} ${currentTheme.flag}"
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                            SettingsActionRow(
+                                title = viewModel.t("app_theme"),
+                                subtitle = themeDisplay,
+                                icon = Icons.Default.Palette,
+                                iconTint = Color(0xFFFF4081),
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    showThemeDialog = true
+                                }
+                            )
                         }
                     }
                 }
@@ -3649,9 +3679,14 @@ fun VaultTabContent(
                                 showAddNoteDialog = true
                             }
                             "Photos & Videos" -> {
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
-                                )
+                                val intent = android.content.Intent(
+                                    android.content.Intent.ACTION_PICK,
+                                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                                ).apply {
+                                    type = "image/* video/*"
+                                    putExtra(android.content.Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
+                                }
+                                photoPickerLauncher.launch(intent)
                             }
                             "Documents" -> {
                                 documentPickerLauncher.launch("*/*")
@@ -4119,6 +4154,108 @@ fun VaultTabContent(
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 modifier = Modifier.weight(1f)
                             )
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = ThemePurple,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    // Dynamic Theme Selection Dialog
+    if (showThemeDialog) {
+        val selectedTheme by viewModel.selectedTheme.collectAsState()
+        AlertDialog(
+            onDismissRequest = { showThemeDialog = false },
+            title = {
+                Text(
+                    text = viewModel.t("app_theme"),
+                    color = TextDark,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            containerColor = BrandBg,
+            confirmButton = {
+                TextButton(onClick = { showThemeDialog = false }) {
+                    Text("OK", color = ThemePurple, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)
+                ) {
+                    items(com.example.ui.theme.AppTheme.values()) { theme ->
+                        val isSelected = selectedTheme == theme
+                        val themeColors = when (theme) {
+                            com.example.ui.theme.AppTheme.CLASSIC_LAVENDER -> com.example.ui.theme.ClassicLavenderColors
+                            com.example.ui.theme.AppTheme.SUNSET_ROSE -> com.example.ui.theme.SunsetRoseColors
+                            com.example.ui.theme.AppTheme.NORDIC_EMERALD -> com.example.ui.theme.NordicEmeraldColors
+                            com.example.ui.theme.AppTheme.OCEAN_BREEZE -> com.example.ui.theme.OceanBreezeColors
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) ThemePurple.copy(alpha = 0.15f) else Color.Transparent)
+                                .border(
+                                    1.dp,
+                                    if (isSelected) ThemePurple else Color.Gray.copy(alpha = 0.2f),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .clickable {
+                                    viewModel.triggerKeypressEffects(context)
+                                    viewModel.setSelectedTheme(theme)
+                                    showThemeDialog = false
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(theme.flag, fontSize = 24.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = theme.displayName,
+                                    color = if (isSelected) ThemePurple else TextDark,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                // Swatch circles representing colors
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .background(themeColors.themePurple)
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .background(themeColors.themeLightPurple)
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .background(themeColors.brandBg)
+                                            .border(1.dp, Color.Gray.copy(alpha = 0.3f), CircleShape)
+                                    )
+                                }
+                            }
                             if (isSelected) {
                                 Icon(
                                     imageVector = Icons.Default.Check,

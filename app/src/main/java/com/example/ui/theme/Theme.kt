@@ -8,45 +8,95 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme =
-  darkColorScheme(primary = Purple80, secondary = PurpleGrey80, tertiary = Pink80)
+enum class AppTheme(val id: String, val displayName: String, val flag: String) {
+    CLASSIC_LAVENDER("classic_lavender", "Classic Lavender", "🪻"),
+    SUNSET_ROSE("sunset_rose", "Sunset Rose", "🌅"),
+    NORDIC_EMERALD("nordic_emerald", "Nordic Emerald", "🌲"),
+    OCEAN_BREEZE("ocean_breeze", "Ocean Breeze", "🌊")
+}
 
-private val LightColorScheme =
-  lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
+data class AppThemeColors(
+    val brandBg: Color,
+    val textDark: Color,
+    val textMedium: Color,
+    val themePurple: Color,
+    val themeLightPurple: Color,
+    val themeContainerBorder: Color,
+    val keypadBg: Color,
+    val digitBg: Color
+)
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
-  )
+val ClassicLavenderColors = AppThemeColors(
+    brandBg = Color(0xFFFEF7FF),
+    textDark = Color(0xFF1D1B20),
+    textMedium = Color(0xFF49454F),
+    themePurple = Color(0xFF6750A4),
+    themeLightPurple = Color(0xFFE8DEF8),
+    themeContainerBorder = Color(0xFFD0BCFF),
+    keypadBg = Color(0xFFF3EDF7),
+    digitBg = Color(0xFFFFFFFF)
+)
+
+val SunsetRoseColors = AppThemeColors(
+    brandBg = Color(0xFFFFF7F6),
+    textDark = Color(0xFF3E2723),
+    textMedium = Color(0xFF795548),
+    themePurple = Color(0xFFD84315),
+    themeLightPurple = Color(0xFFFFE0B2),
+    themeContainerBorder = Color(0xFFFFB74D),
+    keypadBg = Color(0xFFFFF3E0),
+    digitBg = Color(0xFFFFFFFF)
+)
+
+val NordicEmeraldColors = AppThemeColors(
+    brandBg = Color(0xFFF4F9F6),
+    textDark = Color(0xFF1B2E24),
+    textMedium = Color(0xFF4E6B5A),
+    themePurple = Color(0xFF00796B),
+    themeLightPurple = Color(0xFFE0F2F1),
+    themeContainerBorder = Color(0xFFB2DFDB),
+    keypadBg = Color(0xFFE8F5E9),
+    digitBg = Color(0xFFFFFFFF)
+)
+
+val OceanBreezeColors = AppThemeColors(
+    brandBg = Color(0xFFF0F4F8),
+    textDark = Color(0xFF102A43),
+    textMedium = Color(0xFF486581),
+    themePurple = Color(0xFF0F60FF),
+    themeLightPurple = Color(0xFFDCEFFC),
+    themeContainerBorder = Color(0xFFBAC7E8),
+    keypadBg = Color(0xFFF0F4FA),
+    digitBg = Color(0xFFFFFFFF)
+)
+
+val LocalAppThemeColors = androidx.compose.runtime.staticCompositionLocalOf { ClassicLavenderColors }
 
 @Composable
 fun MyApplicationTheme(
-  darkTheme: Boolean = isSystemInDarkTheme(),
-  // Dynamic color is available on Android 12+
-  dynamicColor: Boolean = true,
+  theme: AppTheme = AppTheme.CLASSIC_LAVENDER,
   content: @Composable () -> Unit,
 ) {
-  val colorScheme =
-    when {
-      dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-        val context = LocalContext.current
-        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-      }
+  val colors = when (theme) {
+    AppTheme.CLASSIC_LAVENDER -> ClassicLavenderColors
+    AppTheme.SUNSET_ROSE -> SunsetRoseColors
+    AppTheme.NORDIC_EMERALD -> NordicEmeraldColors
+    AppTheme.OCEAN_BREEZE -> OceanBreezeColors
+  }
 
-      darkTheme -> DarkColorScheme
-      else -> LightColorScheme
-    }
+  val colorScheme = lightColorScheme(
+    primary = colors.themePurple,
+    secondary = colors.themeLightPurple,
+    tertiary = colors.themeContainerBorder,
+    background = colors.brandBg,
+    surface = colors.brandBg
+  )
 
-  MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  androidx.compose.runtime.CompositionLocalProvider(LocalAppThemeColors provides colors) {
+    MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  }
 }
+
