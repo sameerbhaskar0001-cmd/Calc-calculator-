@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import com.example.ui.theme.AppTheme
 import java.io.FileOutputStream
@@ -125,11 +127,237 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _vaultFiles = MutableStateFlow<List<String>>(emptyList())
     val vaultFiles: StateFlow<List<String>> = _vaultFiles.asStateFlow()
 
+    // --- Advanced Vault Folder, Favorite and Recent States ---
+    private val _vaultFolders = MutableStateFlow<List<String>>(emptyList())
+    val vaultFolders: StateFlow<List<String>> = _vaultFolders.asStateFlow()
+
+    private val _fileFolders = MutableStateFlow<Map<String, String>>(emptyMap())
+    val fileFolders: StateFlow<Map<String, String>> = _fileFolders.asStateFlow()
+
+    private val _noteFolders = MutableStateFlow<Map<String, String>>(emptyMap())
+    val noteFolders: StateFlow<Map<String, String>> = _noteFolders.asStateFlow()
+
+    private val _favoriteFiles = MutableStateFlow<Set<String>>(emptySet())
+    val favoriteFiles: StateFlow<Set<String>> = _favoriteFiles.asStateFlow()
+
+    private val _favoriteNotes = MutableStateFlow<Set<String>>(emptySet())
+    val favoriteNotes: StateFlow<Set<String>> = _favoriteNotes.asStateFlow()
+
+    private val _recentlyOpened = MutableStateFlow<List<RecentItem>>(emptyList())
+    val recentlyOpened: StateFlow<List<RecentItem>> = _recentlyOpened.asStateFlow()
+
+    fun loadFolders() {
+        val saved = prefs.getStringSet("vault_folders", setOf("Personal", "Work", "Finance")) ?: setOf("Personal", "Work", "Finance")
+        _vaultFolders.value = saved.toList().sorted()
+    }
+
+    fun addFolder(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        val current = _vaultFolders.value.toSet() + trimmed
+        _vaultFolders.value = current.toList().sorted()
+        prefs.edit().putStringSet("vault_folders", current).apply()
+    }
+
+    fun deleteFolder(name: String) {
+        val current = _vaultFolders.value.toSet() - name
+        _vaultFolders.value = current.toList().sorted()
+        prefs.edit().putStringSet("vault_folders", current).apply()
+
+        // Clean up associations
+        val currentFiles = _fileFolders.value.toMutableMap()
+        val toRemoveFiles = currentFiles.filter { it.value == name }.keys
+        toRemoveFiles.forEach { id ->
+            currentFiles.remove(id)
+            prefs.edit().remove("folder_file_$id").apply()
+        }
+        _fileFolders.value = currentFiles
+
+        val currentNotes = _noteFolders.value.toMutableMap()
+        val toRemoveNotes = currentNotes.filter { it.value == name }.keys
+        toRemoveNotes.forEach { noteStr ->
+            currentNotes.remove(noteStr)
+            prefs.edit().remove("folder_note_$noteStr").apply()
+        }
+        _noteFolders.value = currentNotes
+    }
+
+    fun setFolderForFile(id: String, folder: String) {
+        val current = _fileFolders.value.toMutableMap()
+        if (folder.isEmpty() || folder == "Default") {
+            current.remove(id)
+            prefs.edit().remove("folder_file_$id").apply()
+        } else {
+            current[id] = folder
+            prefs.edit().putString("folder_file_$id", folder).apply()
+        }
+        _fileFolders.value = current
+    }
+
+    fun setFolderForNote(noteStr: String, folder: String) {
+        val current = _noteFolders.value.toMutableMap()
+        if (folder.isEmpty() || folder == "Default") {
+            current.remove(noteStr)
+            prefs.edit().remove("folder_note_$noteStr").apply()
+        } else {
+            current[noteStr] = folder
+            prefs.edit().putString("folder_note_$noteStr", folder).apply()
+        }
+        _noteFolders.value = current
+    }
+
+    fun loadFolderAssociations() {
+        val fileMap = mutableMapOf<String, String>()
+        _vaultFiles.value.forEach { fileStr ->
+            val parts = fileStr.split("|||")
+            if (parts.isNotEmpty()) {
+                val id = parts[0]
+                val folder = prefs.getString("folder_file_$id", "") ?: ""
+                if (folder.isNotEmpty()) {
+                    fileMap[id] = folder
+                }
+            }
+        }
+        _fileFolders.value = fileMap
+
+        val noteMap = mutableMapOf<String, String>()
+        _vaultNotes.value.forEach { noteStr ->
+            val folder = prefs.getString("folder_note_$noteStr", "") ?: ""
+            if (folder.isNotEmpty()) {
+                noteMap[noteStr] = folder
+            }
+        }
+        _noteFolders.value = noteMap
+    }
+
+    fun loadFavorites() {
+        _favoriteFiles.value = prefs.getStringSet("favorite_files", emptySet()) ?: emptySet()
+        _favoriteNotes.value = prefs.getStringSet("favorite_notes", emptySet()) ?: emptySet()
+    }
+
+    fun toggleFavoriteFile(id: String) {
+        val current = _favoriteFiles.value.toMutableSet()
+        if (current.contains(id)) {
+            current.remove(id)
+        } else {
+            current.add(id)
+        }
+        _favoriteFiles.value = current
+        prefs.edit().putStringSet("favorite_files", current).apply()
+    }
+
+    fun toggleFavoriteNote(noteStr: String) {
+        val current = _favoriteNotes.value.toMutableSet()
+        if (current.contains(noteStr)) {
+            current.remove(noteStr)
+        } else {
+            current.add(noteStr)
+        }
+        _favoriteNotes.value = current
+        prefs.edit().putStringSet("favorite_notes", current).apply()
+    }
+
+    fun loadRecentlyOpened() {
+        val saved = prefs.getStringSet("recently_opened_items", emptySet()) ?: emptySet()
+        val list = saved.mapNotNull { itemStr ->
+            val parts = itemStr.split("|||")
+            if (parts.size >= 5) {
+                RecentItem(
+                    type = parts[0],
+                    id = parts[1],
+                    name = parts[2],
+                    extra = parts[3],
+                    timestamp = parts[4].toLongOrNull() ?: 0L
+                )
+            } else null
+        }.sortedByDescending { it.timestamp }
+        _recentlyOpened.value = list
+    }
+
+    fun recordOpenedItem(id: String, type: String, name: String, extra: String = "") {
+        val timestamp = System.currentTimeMillis()
+        val newItem = RecentItem(id, type, name, timestamp, extra)
+        val currentList = _recentlyOpened.value.filterNot { it.id == id && it.type == type }
+        val updatedList = (listOf(newItem) + currentList).take(10)
+        _recentlyOpened.value = updatedList
+
+        val serialized = updatedList.map { "${it.type}|||${it.id}|||${it.name}|||${it.extra}|||${it.timestamp}" }.toSet()
+        prefs.edit().putStringSet("recently_opened_items", serialized).apply()
+    }
+
+    fun getVaultStorageDetails(): StorageDetails {
+        var photosSize = 0L
+        var photosCount = 0
+        var videosSize = 0L
+        var videosCount = 0
+        var documentsSize = 0L
+        var documentsCount = 0
+
+        _vaultFiles.value.forEach { fileStr ->
+            val parts = fileStr.split("|||")
+            if (parts.size >= 5) {
+                val mimeType = parts[3]
+                val path = parts[4]
+                val file = java.io.File(path)
+                val size = if (file.exists()) file.length() else 0L
+
+                if (mimeType.startsWith("image/")) {
+                    photosSize += size
+                    photosCount++
+                } else if (mimeType.startsWith("video/")) {
+                    videosSize += size
+                    videosCount++
+                } else {
+                    documentsSize += size
+                    documentsCount++
+                }
+            }
+        }
+
+        var notesSize = 0L
+        val notesCount = _vaultNotes.value.size
+        _vaultNotes.value.forEach { noteStr ->
+            notesSize += noteStr.toByteArray().size
+        }
+
+        val totalSize = photosSize + videosSize + documentsSize + notesSize
+
+        return StorageDetails(
+            photosSize = photosSize,
+            photosCount = photosCount,
+            videosSize = videosSize,
+            videosCount = videosCount,
+            documentsSize = documentsSize,
+            documentsCount = documentsCount,
+            notesSize = notesSize,
+            notesCount = notesCount,
+            totalSize = totalSize
+        )
+    }
+
     private val _recentlyDeletedFiles = MutableStateFlow<List<String>>(emptyList())
     val recentlyDeletedFiles: StateFlow<List<String>> = _recentlyDeletedFiles.asStateFlow()
 
     private val _intruderAttempts = MutableStateFlow<List<String>>(emptyList())
     val intruderAttempts: StateFlow<List<String>> = _intruderAttempts.asStateFlow()
+
+    private val _intruderDetectionEnabled = MutableStateFlow(prefs.getBoolean("intruder_detection_enabled", true))
+    val intruderDetectionEnabled: StateFlow<Boolean> = _intruderDetectionEnabled.asStateFlow()
+
+    private val _autoLockDuration = MutableStateFlow(prefs.getInt("auto_lock_duration", -1))
+    val autoLockDuration: StateFlow<Int> = _autoLockDuration.asStateFlow()
+
+    private val _blurThumbnails = MutableStateFlow(prefs.getBoolean("blur_thumbnails", false))
+    val blurThumbnails: StateFlow<Boolean> = _blurThumbnails.asStateFlow()
+
+    private val _lockedFolders = MutableStateFlow(prefs.getStringSet("locked_folders", emptySet()) ?: emptySet())
+    val lockedFolders: StateFlow<Set<String>> = _lockedFolders.asStateFlow()
+
+    private val _tempUnlockedFolders = MutableStateFlow<Set<String>>(emptySet())
+    val tempUnlockedFolders: StateFlow<Set<String>> = _tempUnlockedFolders.asStateFlow()
+
+    private val _lastInteractionTime = MutableStateFlow(System.currentTimeMillis())
+    val lastInteractionTime: StateFlow<Long> = _lastInteractionTime.asStateFlow()
 
     // --- Advanced Stealth & Vault States ---
     private val _biometricEnabled = MutableStateFlow(prefs.getBoolean("biometric_enabled", false))
@@ -228,6 +456,20 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         // Load intruder attempts
         val savedIntruders = prefs.getStringSet("intruder_attempts", emptySet()) ?: emptySet()
         _intruderAttempts.value = savedIntruders.toList().sortedByDescending { it }
+
+        // Auto Lock loop
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(2000)
+                if (_vaultUnlocked.value && _autoLockDuration.value != -1) {
+                    val idleMillis = System.currentTimeMillis() - _lastInteractionTime.value
+                    val limitMillis = _autoLockDuration.value * 1000L
+                    if (idleMillis >= limitMillis) {
+                        lockVault()
+                    }
+                }
+            }
+        }
     }
 
     fun fetchLatestRates() {
@@ -760,62 +1002,69 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun loadVaultData() {
-        val isDecoy = _decoyActive.value
-        val notesKey = if (isDecoy) "decoy_notes" else "vault_notes"
-        val filesKey = if (isDecoy) "decoy_files" else "vault_files"
+        viewModelScope.launch(Dispatchers.IO) {
+            val isDecoy = _decoyActive.value
+            val notesKey = if (isDecoy) "decoy_notes" else "vault_notes"
+            val filesKey = if (isDecoy) "decoy_files" else "vault_files"
 
-        val savedNotes = prefs.getStringSet(notesKey, emptySet()) ?: emptySet()
-        _vaultNotes.value = savedNotes.toList().sortedByDescending { it }
+            val savedNotes = prefs.getStringSet(notesKey, emptySet()) ?: emptySet()
+            _vaultNotes.value = savedNotes.toList().sortedByDescending { it }
 
-        val savedFiles = prefs.getStringSet(filesKey, emptySet()) ?: emptySet()
-        _vaultFiles.value = savedFiles.toList().sortedByDescending { it }
+            val savedFiles = prefs.getStringSet(filesKey, emptySet()) ?: emptySet()
+            _vaultFiles.value = savedFiles.toList().sortedByDescending { it }
 
-        // --- Load & Auto-cleanup Recently Deleted Files ---
-        val recentKey = if (isDecoy) "recently_deleted_decoy_files" else "recently_deleted_files"
-        val savedRecent = prefs.getStringSet(recentKey, emptySet()) ?: emptySet()
-        
-        val currentMillis = System.currentTimeMillis()
-        val thirtyDaysMillis = 30L * 24 * 60 * 60 * 1000
-        val validRecent = mutableListOf<String>()
-        val toDeleteFiles = mutableListOf<String>()
+            // --- Load & Auto-cleanup Recently Deleted Files ---
+            val recentKey = if (isDecoy) "recently_deleted_decoy_files" else "recently_deleted_files"
+            val savedRecent = prefs.getStringSet(recentKey, emptySet()) ?: emptySet()
+            
+            val currentMillis = System.currentTimeMillis()
+            val thirtyDaysMillis = 30L * 24 * 60 * 60 * 1000
+            val validRecent = mutableListOf<String>()
+            val toDeleteFiles = mutableListOf<String>()
 
-        for (item in savedRecent) {
-            val parts = item.split("|||")
-            if (parts.size >= 7) {
-                val deletedTime = parts[6].toLongOrNull() ?: 0L
-                if (currentMillis - deletedTime >= thirtyDaysMillis) {
-                    toDeleteFiles.add(item)
+            for (item in savedRecent) {
+                val parts = item.split("|||")
+                if (parts.size >= 7) {
+                    val deletedTime = parts[6].toLongOrNull() ?: 0L
+                    if (currentMillis - deletedTime >= thirtyDaysMillis) {
+                        toDeleteFiles.add(item)
+                    } else {
+                        validRecent.add(item)
+                    }
                 } else {
+                    // Default fallback
                     validRecent.add(item)
                 }
-            } else {
-                // Default fallback
-                validRecent.add(item)
             }
-        }
 
-        // Permanently delete expired files from disk
-        for (item in toDeleteFiles) {
-            try {
-                val parts = item.split("|||")
-                if (parts.size >= 5) {
-                    val file = File(parts[4])
-                    if (file.exists()) {
-                        file.delete()
+            // Permanently delete expired files from disk
+            for (item in toDeleteFiles) {
+                try {
+                    val parts = item.split("|||")
+                    if (parts.size >= 5) {
+                        val file = File(parts[4])
+                        if (file.exists()) {
+                            file.delete()
+                        }
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
-        }
 
-        if (toDeleteFiles.isNotEmpty()) {
-            prefs.edit().putStringSet(recentKey, validRecent.toSet()).apply()
-        }
+            if (toDeleteFiles.isNotEmpty()) {
+                prefs.edit().putStringSet(recentKey, validRecent.toSet()).apply()
+            }
 
-        _recentlyDeletedFiles.value = validRecent.sortedByDescending {
-            val parts = it.split("|||")
-            if (parts.size >= 7) parts[6].toLongOrNull() ?: 0L else 0L
+            _recentlyDeletedFiles.value = validRecent.sortedByDescending {
+                val parts = it.split("|||")
+                if (parts.size >= 7) parts[6].toLongOrNull() ?: 0L else 0L
+            }
+
+            loadFolders()
+            loadFolderAssociations()
+            loadFavorites()
+            loadRecentlyOpened()
         }
     }
 
@@ -828,15 +1077,23 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             return true
         } else {
             if (pin.all { it.isDigit() } && pin.length >= 4) {
-                logFailedUnlockAttempt(pin)
+                if (_intruderDetectionEnabled.value) {
+                    logFailedUnlockAttempt(pin)
+                }
             }
         }
         return false
     }
 
+    fun verifyFolderPin(pin: String): Boolean {
+        val expectedPin = if (_decoyActive.value) getDecoyPin() else getVaultPin()
+        return pin == expectedPin
+    }
+
     fun unlockVault(isDecoy: Boolean) {
         _decoyActive.value = isDecoy
         loadVaultData()
+        updateLastInteraction()
         _vaultUnlocked.value = true
     }
 
@@ -846,6 +1103,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         _expression.value = ""
         _calcResult.value = ""
         _isEvaluated.value = false
+        clearTempUnlockedFolders()
         loadVaultData()
     }
 
@@ -883,7 +1141,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     // --- Option 4: Secret Vault File Management ---
-    private fun formatFileSize(size: Long): String {
+    fun formatFileSize(size: Long): String {
         if (size <= 0) return "0 B"
         val units = arrayOf("B", "KB", "MB", "GB", "TB")
         val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
@@ -1133,6 +1391,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    @android.annotation.SuppressLint("NewApi")
     fun unhideVaultFile(
         context: Context,
         fileSerialized: String,
@@ -1160,28 +1419,56 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mimeType)
             }
 
-            val uri = if (mimeType.startsWith("image/")) {
+            var uri: android.net.Uri? = null
+            var writeSuccessful = false
+
+            if (mimeType.startsWith("image/")) {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                     contentValues.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_PICTURES + "/DCIM")
                 }
-                resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                uri = resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
             } else if (mimeType.startsWith("video/")) {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                     contentValues.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_MOVIES + "/DCIM")
                 }
-                resolver.insert(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)
+                uri = resolver.insert(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)
             } else {
                 // Documents & others -> Downloads
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                     contentValues.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+                    uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                } else {
+                    // pre-Q: Save directly to the public Downloads folder via File API
+                    val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                    if (!downloadsDir.exists()) {
+                        downloadsDir.mkdirs()
+                    }
+                    var destFile = File(downloadsDir, originalName)
+                    if (destFile.exists()) {
+                        val baseName = File(originalName).nameWithoutExtension
+                        val ext = File(originalName).extension
+                        destFile = File(downloadsDir, "${baseName}_${System.currentTimeMillis()}.$ext")
+                    }
+                    try {
+                        file.inputStream().use { input ->
+                            FileOutputStream(destFile).use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        writeSuccessful = true
+                        uri = android.net.Uri.fromFile(destFile)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
-                resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
             }
 
             if (uri != null) {
-                resolver.openOutputStream(uri)?.use { output ->
-                    file.inputStream().use { input ->
-                        input.copyTo(output)
+                if (!writeSuccessful) {
+                    resolver.openOutputStream(uri)?.use { output ->
+                        file.inputStream().use { input ->
+                            input.copyTo(output)
+                        }
                     }
                 }
 
@@ -1216,6 +1503,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    @android.annotation.SuppressLint("NewApi")
     fun exportVaultFile(
         context: Context,
         fileSerialized: String,
@@ -1316,8 +1604,237 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         _screenDownLock.value = enabled
     }
 
+    fun setIntruderDetectionEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("intruder_detection_enabled", enabled).apply()
+        _intruderDetectionEnabled.value = enabled
+    }
+
+    fun setAutoLockDuration(seconds: Int) {
+        prefs.edit().putInt("auto_lock_duration", seconds).apply()
+        _autoLockDuration.value = seconds
+    }
+
+    fun setBlurThumbnails(enabled: Boolean) {
+        prefs.edit().putBoolean("blur_thumbnails", enabled).apply()
+        _blurThumbnails.value = enabled
+    }
+
+    fun toggleFolderLock(folderName: String) {
+        val current = _lockedFolders.value.toMutableSet()
+        if (current.contains(folderName)) {
+            current.remove(folderName)
+        } else {
+            current.add(folderName)
+        }
+        prefs.edit().putStringSet("locked_folders", current).apply()
+        _lockedFolders.value = current
+    }
+
+    fun tempUnlockFolder(folderName: String) {
+        _tempUnlockedFolders.value = _tempUnlockedFolders.value + folderName
+    }
+
+    fun clearTempUnlockedFolders() {
+        _tempUnlockedFolders.value = emptySet()
+    }
+
+    fun updateLastInteraction() {
+        _lastInteractionTime.value = System.currentTimeMillis()
+    }
+
     fun setFileLossProtection(enabled: Boolean) {
         prefs.edit().putBoolean("file_loss_protection", enabled).apply()
         _fileLossProtection.value = enabled
     }
+
+    // --- Private Browser Downloads Engine ---
+    private val _downloads = MutableStateFlow<List<DownloadTask>>(emptyList())
+    val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
+
+    fun clearDownloads() {
+        _downloads.value = emptyList()
+    }
+
+    fun removeDownload(taskId: String) {
+        _downloads.value = _downloads.value.filter { it.id != taskId }
+    }
+
+    fun addDownloadedFileToVault(context: Context, filename: String, mimeType: String, bytes: ByteArray): Boolean {
+        return try {
+            val size = bytes.size.toLong()
+            val readableSize = formatFileSize(size)
+            val id = System.currentTimeMillis().toString()
+            val timestamp = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+            
+            val vaultDir = File(context.filesDir, "vault_files")
+            if (!vaultDir.exists()) {
+                vaultDir.mkdirs()
+            }
+            
+            val ext = File(filename).extension.ifEmpty {
+                when {
+                    mimeType.startsWith("image/") -> "jpg"
+                    mimeType.startsWith("video/") -> "mp4"
+                    mimeType.contains("pdf") -> "pdf"
+                    mimeType.contains("text") -> "txt"
+                    else -> "dat"
+                }
+            }
+            
+            val destFileName = "$id.$ext"
+            val destFile = File(vaultDir, destFileName)
+            destFile.writeBytes(bytes)
+            
+            val fileSerialized = "$id|||$timestamp|||$filename|||$mimeType|||${destFile.absolutePath}|||$readableSize"
+            val updatedFiles = _vaultFiles.value + fileSerialized
+            _vaultFiles.value = updatedFiles.sortedByDescending { it }
+            
+            val isDecoy = _decoyActive.value
+            val filesKey = if (isDecoy) "decoy_files" else "vault_files"
+            prefs.edit().putStringSet(filesKey, updatedFiles.toSet()).apply()
+            
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("Vault", "Failed to add downloaded file to vault", e)
+            false
+        }
+    }
+
+    fun startVaultDownload(context: Context, url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long) {
+        val taskId = java.util.UUID.randomUUID().toString()
+        var filename = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType)
+        if (filename.isNullOrEmpty() || filename == "downloadfile.bin") {
+            val lastPathSegment = Uri.parse(url).lastPathSegment
+            if (!lastPathSegment.isNullOrEmpty()) {
+                filename = lastPathSegment
+            } else {
+                filename = "downloaded_file"
+            }
+        }
+        
+        val newTask = DownloadTask(
+            id = taskId,
+            url = url,
+            filename = filename,
+            progress = 0f,
+            status = "Downloading",
+            sizeString = formatFileSize(contentLength),
+            mimeType = mimeType
+        )
+        _downloads.value = _downloads.value + newTask
+        
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val urlObj = java.net.URL(url)
+                val connection = urlObj.openConnection() as java.net.HttpURLConnection
+                connection.setRequestProperty("User-Agent", userAgent)
+                connection.connect()
+                
+                if (connection.responseCode in 200..299) {
+                    val totalLength = if (contentLength > 0) contentLength else connection.contentLength.toLong()
+                    val inputStream = connection.inputStream
+                    val outputStream = java.io.ByteArrayOutputStream()
+                    val buffer = ByteArray(4096)
+                    var bytesRead: Int
+                    var totalBytesRead = 0L
+                    
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        outputStream.write(buffer, 0, bytesRead)
+                        totalBytesRead += bytesRead
+                        if (totalLength > 0) {
+                            val progressValue = totalBytesRead.toFloat() / totalLength.toFloat()
+                            _downloads.value = _downloads.value.map { task ->
+                                if (task.id == taskId) task.copy(progress = progressValue) else task
+                            }
+                        }
+                    }
+                    
+                    inputStream.close()
+                    val fileBytes = outputStream.toByteArray()
+                    outputStream.close()
+                    
+                    val finalMime = connection.contentType ?: mimeType
+                    val success = addDownloadedFileToVault(context, filename, finalMime, fileBytes)
+                    
+                    withContext(Dispatchers.Main) {
+                        _downloads.value = _downloads.value.map { task ->
+                            if (task.id == taskId) {
+                                task.copy(
+                                    progress = 1f,
+                                    status = if (success) "Completed" else "Failed",
+                                    mimeType = finalMime
+                                )
+                            } else task
+                        }
+                        if (success) {
+                            android.widget.Toast.makeText(context, "$filename downloaded directly to Vault!", android.widget.Toast.LENGTH_LONG).show()
+                        } else {
+                            android.widget.Toast.makeText(context, "Failed to save downloaded file $filename", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        _downloads.value = _downloads.value.map { task ->
+                            if (task.id == taskId) task.copy(status = "Failed") else task
+                        }
+                        android.widget.Toast.makeText(context, "HTTP error: ${connection.responseCode}", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("VaultDownload", "Error downloading file", e)
+                withContext(Dispatchers.Main) {
+                    _downloads.value = _downloads.value.map { task ->
+                        if (task.id == taskId) task.copy(status = "Failed") else task
+                    }
+                    android.widget.Toast.makeText(context, "Download error: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    fun registerDirectVaultFile(context: Context, file: File, originalName: String, mimeType: String) {
+        val size = file.length()
+        val readableSize = formatFileSize(size)
+        val id = file.nameWithoutExtension
+        val timestamp = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+        
+        val fileSerialized = "$id|||$timestamp|||$originalName|||$mimeType|||${file.absolutePath}|||$readableSize"
+        val updatedFiles = _vaultFiles.value + fileSerialized
+        _vaultFiles.value = updatedFiles.sortedByDescending { it }
+        
+        val isDecoy = _decoyActive.value
+        val filesKey = if (isDecoy) "decoy_files" else "vault_files"
+        prefs.edit().putStringSet(filesKey, updatedFiles.toSet()).apply()
+    }
 }
+
+data class DownloadTask(
+    val id: String,
+    val url: String,
+    val filename: String,
+    val progress: Float, // 0.0f to 1.0f
+    val status: String, // "Downloading", "Completed", "Failed"
+    val sizeString: String = "0 B",
+    val mimeType: String = ""
+)
+
+data class RecentItem(
+    val id: String,
+    val type: String,
+    val name: String,
+    val timestamp: Long,
+    val extra: String = ""
+)
+
+data class StorageDetails(
+    val photosSize: Long,
+    val photosCount: Int,
+    val videosSize: Long,
+    val videosCount: Int,
+    val documentsSize: Long,
+    val documentsCount: Int,
+    val notesSize: Long,
+    val notesCount: Int,
+    val totalSize: Long
+)
+

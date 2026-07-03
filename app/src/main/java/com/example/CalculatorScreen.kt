@@ -53,12 +53,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -79,6 +81,10 @@ import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardBackspace
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
@@ -90,6 +96,14 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.UploadFile
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.BlurOn
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -104,6 +118,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -117,12 +132,22 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.key
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -158,6 +183,21 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.VolumeDown
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.Canvas
 
 import com.example.ui.theme.LocalAppThemeColors
 
@@ -202,7 +242,16 @@ fun CalculatorScreen(
     }
 
     Surface(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                        viewModel.updateLastInteraction()
+                    }
+                }
+            },
         color = BrandBg
     ) {
         Column(
@@ -2215,6 +2264,12 @@ fun VaultTabContent(
     var showAddNoteDialog by remember { mutableStateOf(false) }
     var noteTitle by remember { mutableStateOf("") }
     var noteContent by remember { mutableStateOf("") }
+    
+    var pendingUnlockAction by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
+
+    var activeCameraMode by remember { mutableStateOf<String?>(null) } // null, "camera", "scanner"
+    var showMediaAddOptions by remember { mutableStateOf(false) }
+    var showDocAddOptions by remember { mutableStateOf(false) }
 
     var showChangePasscodeDialog by remember { mutableStateOf(false) }
     var realPasscodeInput by remember { mutableStateOf("") }
@@ -2226,6 +2281,9 @@ fun VaultTabContent(
     val panicEnabled by viewModel.panicEnabled.collectAsState()
     val panicAction by viewModel.panicAction.collectAsState()
     val screenDownLock by viewModel.screenDownLock.collectAsState()
+    val blurThumbnails by viewModel.blurThumbnails.collectAsState()
+    val lockedFolders by viewModel.lockedFolders.collectAsState()
+    val tempUnlockedFolders by viewModel.tempUnlockedFolders.collectAsState()
     val activity = context as? androidx.fragment.app.FragmentActivity
 
     fun triggerBiometric() {
@@ -2534,6 +2592,25 @@ fun VaultTabContent(
         var selectedFileForDetails by remember { mutableStateOf<String?>(null) }
         var textFileContentToRead by remember { mutableStateOf<Pair<String, String>?>(null) } // Pair(Name, Content)
 
+        var selectedMediaFolder by remember { mutableStateOf("All") }
+        var selectedDocFolder by remember { mutableStateOf("All") }
+        var selectedNotesFolder by remember { mutableStateOf("All") }
+        var selectedMusicFolder by remember { mutableStateOf("All") }
+        
+        var isMediaGridView by remember { mutableStateOf(true) }
+        var isDocGridView by remember { mutableStateOf(false) }
+        var isMusicGridView by remember { mutableStateOf(false) }
+        
+        var activeViewerFiles by remember { mutableStateOf<List<String>>(emptyList()) }
+        var activeViewerIndex by remember { mutableStateOf<Int>(-1) }
+
+        var showCreateFolderDialog by remember { mutableStateOf(false) }
+        var newFolderName by remember { mutableStateOf("") }
+        var showMoveToFolderDialog by remember { mutableStateOf<Pair<String, String>?>(null) } // Pair(itemId, type: "file"/"note")
+        var showSearchDialog by remember { mutableStateOf(false) }
+        var viewNoteToShow by remember { mutableStateOf<String?>(null) }
+
+
         // Photo/Video Picker launcher
         val photoPickerLauncher = rememberLauncherForActivityResult(
             contract = androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
@@ -2562,6 +2639,21 @@ fun VaultTabContent(
                         android.widget.Toast.makeText(context, "Document secured in Vault!", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         android.widget.Toast.makeText(context, "Failed to secure document", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        )
+
+        // Audio File Picker launcher
+        val audioPickerLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent(),
+            onResult = { uri ->
+                if (uri != null) {
+                    val success = viewModel.addVaultFile(context, uri)
+                    if (success) {
+                        android.widget.Toast.makeText(context, "Audio secured in Vault!", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        android.widget.Toast.makeText(context, "Failed to secure audio", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -2688,6 +2780,54 @@ fun VaultTabContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (activeSection == "Photos & Videos" || activeSection == "Documents" || activeSection == "Music & Audio") {
+                            val isCurrentGrid = when (activeSection) {
+                                "Photos & Videos" -> isMediaGridView
+                                "Documents" -> isDocGridView
+                                "Music & Audio" -> isMusicGridView
+                                else -> true
+                            }
+                            IconButton(
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    when (activeSection) {
+                                        "Photos & Videos" -> isMediaGridView = !isMediaGridView
+                                        "Documents" -> isDocGridView = !isDocGridView
+                                        "Music & Audio" -> isMusicGridView = !isMusicGridView
+                                    }
+                                },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF1B2031))
+                            ) {
+                                Icon(
+                                    imageVector = if (isCurrentGrid) Icons.Default.List else Icons.Default.GridView,
+                                    contentDescription = "Toggle Grid/List View",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                showSearchDialog = true
+                            },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1B2031))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Global Search",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
                         IconButton(
                             onClick = {
                                 viewModel.triggerKeypressEffects(context)
@@ -2895,6 +3035,224 @@ fun VaultTabContent(
                             }
                         }
 
+                        // 1. Vault Storage Analyzer Card
+                        val storageDetails = viewModel.getVaultStorageDetails()
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(
+                                    width = 1.dp,
+                                    color = ThemeContainerBorder.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(16.dp)
+                                ),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Vault Storage Analyzer",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = "Total: ${viewModel.formatFileSize(storageDetails.totalSize)}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ThemePurple
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                
+                                val totalBytes = storageDetails.totalSize.coerceAtLeast(1L)
+                                val photoRatio = storageDetails.photosSize.toFloat() / totalBytes
+                                val videoRatio = storageDetails.videosSize.toFloat() / totalBytes
+                                val docRatio = storageDetails.documentsSize.toFloat() / totalBytes
+                                val noteRatio = storageDetails.notesSize.toFloat() / totalBytes
+                                
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color(0xFF2C3145))
+                                ) {
+                                    if (photoRatio > 0) {
+                                        Box(modifier = Modifier.weight(photoRatio.coerceAtLeast(0.01f)).fillMaxHeight().background(Color(0xFF2979FF)))
+                                    }
+                                    if (videoRatio > 0) {
+                                        Box(modifier = Modifier.weight(videoRatio.coerceAtLeast(0.01f)).fillMaxHeight().background(Color(0xFFFF9100)))
+                                    }
+                                    if (docRatio > 0) {
+                                        Box(modifier = Modifier.weight(docRatio.coerceAtLeast(0.01f)).fillMaxHeight().background(Color(0xFF00E676)))
+                                    }
+                                    if (noteRatio > 0) {
+                                        Box(modifier = Modifier.weight(noteRatio.coerceAtLeast(0.01f)).fillMaxHeight().background(Color(0xFFFFD600)))
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    StorageCategoryItem(
+                                        color = Color(0xFF2979FF),
+                                        label = "Photos",
+                                        sizeStr = viewModel.formatFileSize(storageDetails.photosSize),
+                                        count = storageDetails.photosCount
+                                    )
+                                    StorageCategoryItem(
+                                        color = Color(0xFFFF9100),
+                                        label = "Videos",
+                                        sizeStr = viewModel.formatFileSize(storageDetails.videosSize),
+                                        count = storageDetails.videosCount
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    StorageCategoryItem(
+                                        color = Color(0xFF00E676),
+                                        label = "Docs",
+                                        sizeStr = viewModel.formatFileSize(storageDetails.documentsSize),
+                                        count = storageDetails.documentsCount
+                                    )
+                                    StorageCategoryItem(
+                                        color = Color(0xFFFFD600),
+                                        label = "Notes",
+                                        sizeStr = viewModel.formatFileSize(storageDetails.notesSize),
+                                        count = storageDetails.notesCount
+                                    )
+                                }
+                            }
+                        }
+
+                        // 2. Recently Opened Row (Horizontal Scroll)
+                        val recentlyOpened by viewModel.recentlyOpened.collectAsState()
+                        if (recentlyOpened.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = "Recently Opened",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF8B92A5),
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    items(recentlyOpened) { item ->
+                                        Card(
+                                            modifier = Modifier
+                                                .width(130.dp)
+                                                .height(70.dp)
+                                                .clickable {
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    if (item.type == "note") {
+                                                        activeSection = "Notes"
+                                                        viewNoteToShow = item.extra
+                                                    } else {
+                                                        val fileStr = item.extra
+                                                        if (fileStr.isNotEmpty()) {
+                                                            val parts = fileStr.split("|||")
+                                                            if (parts.size >= 4) {
+                                                                if (parts[3].startsWith("image/") || parts[3].startsWith("video/")) {
+                                                                    selectedFileForDetails = fileStr
+                                                                } else if (parts[3].startsWith("text/plain")) {
+                                                                    try {
+                                                                        val txt = java.io.File(parts[4]).readText()
+                                                                        textFileContentToRead = Pair(parts[2], txt)
+                                                                    } catch (e: Exception) {}
+                                                                } else {
+                                                                    selectedFileForDetails = fileStr
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
+                                            shape = RoundedCornerShape(10.dp),
+                                            border = BorderStroke(1.dp, ThemeContainerBorder.copy(alpha = 0.15f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxSize().padding(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(32.dp)
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(
+                                                            when (item.type) {
+                                                                "note" -> Color(0xFFFFD600).copy(alpha = 0.15f)
+                                                                else -> {
+                                                                    val parts = item.extra.split("|||")
+                                                                    val mime = if (parts.size >= 4) parts[3] else ""
+                                                                    if (mime.startsWith("image/")) Color(0xFF2979FF).copy(alpha = 0.15f)
+                                                                    else if (mime.startsWith("video/")) Color(0xFFFF9100).copy(alpha = 0.15f)
+                                                                    else Color(0xFF00E676).copy(alpha = 0.15f)
+                                                                }
+                                                            }
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = when (item.type) {
+                                                            "note" -> Icons.Default.Article
+                                                            else -> {
+                                                                val parts = item.extra.split("|||")
+                                                                val mime = if (parts.size >= 4) parts[3] else ""
+                                                                if (mime.startsWith("image/")) Icons.Default.Image
+                                                                else if (mime.startsWith("video/")) Icons.Default.PlayArrow
+                                                                else Icons.Default.Description
+                                                            }
+                                                        },
+                                                        contentDescription = null,
+                                                        tint = when (item.type) {
+                                                            "note" -> Color(0xFFFFD600)
+                                                            else -> {
+                                                                val parts = item.extra.split("|||")
+                                                                val mime = if (parts.size >= 4) parts[3] else ""
+                                                                if (mime.startsWith("image/")) Color(0xFF2979FF)
+                                                                else if (mime.startsWith("video/")) Color(0xFFFF9100)
+                                                                else Color(0xFF00E676)
+                                                            }
+                                                        },
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                                Column(verticalArrangement = Arrangement.Center) {
+                                                    Text(
+                                                        text = item.name,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Text(
+                                                        text = if (item.type == "note") "Note" else "File",
+                                                        fontSize = 8.sp,
+                                                        color = Color(0xFF8B92A5)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // Folder items header
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
@@ -2978,7 +3336,7 @@ fun VaultTabContent(
 
                         FolderCard(
                             title = "Private Documents",
-                            subtitle = "${vaultFiles.filter { !it.contains("image/") && !it.contains("video/") }.size} locked assets",
+                            subtitle = "${vaultFiles.filter { !it.contains("image/") && !it.contains("video/") && !it.contains("audio/") && !it.contains("music/") }.size} locked assets",
                             icon = {
                                 Box(
                                     modifier = Modifier
@@ -2993,6 +3351,26 @@ fun VaultTabContent(
                             onClick = {
                                 viewModel.triggerKeypressEffects(context)
                                 activeSection = "Documents"
+                            }
+                        )
+
+                        FolderCard(
+                            title = "Private Music & Audio",
+                            subtitle = "${vaultFiles.filter { it.contains("audio/") || it.contains("music/") }.size} secure audio tracks",
+                            icon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFFE040FB).copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.MusicNote, "Music", tint = Color(0xFFE040FB), modifier = Modifier.size(20.dp))
+                                }
+                            },
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                activeSection = "Music & Audio"
                             }
                         )
 
@@ -3039,78 +3417,235 @@ fun VaultTabContent(
                     }
                 }
                 "Notes" -> {
-                    if (vaultNotes.isEmpty()) {
-                        EmptyVaultSectionState(
-                            title = "No Secure Notes",
-                            description = "Tap 'Add Note' to save password credentials or personal journals safely."
-                        )
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            items(vaultNotes) { noteStr ->
-                                val parts = noteStr.split("|||")
-                                if (parts.size == 3) {
-                                    val timestamp = parts[0]
-                                    val title = parts[1]
-                                    val body = parts[2]
+                    val favoriteNotes by viewModel.favoriteNotes.collectAsState()
+                    val noteFolders by viewModel.noteFolders.collectAsState()
+                    val vaultFolders by viewModel.vaultFolders.collectAsState()
 
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .border(
-                                                width = 1.dp,
-                                                color = ThemeContainerBorder.copy(alpha = 0.2f),
-                                                shape = RoundedCornerShape(12.dp)
-                                            ),
-                                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Column(modifier = Modifier.padding(14.dp)) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.Top
-                                            ) {
-                                                Text(
-                                                    text = title,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 14.sp,
-                                                    color = Color.White,
-                                                    modifier = Modifier.weight(1f)
+                    val filteredNotes = vaultNotes.filter { noteStr ->
+                        val parts = noteStr.split("|||")
+                        val isFav = favoriteNotes.contains(noteStr)
+                        val assocFolder = noteFolders[noteStr] ?: ""
+                        
+                        when (selectedNotesFolder) {
+                            "All" -> true
+                            "Favorites" -> isFav
+                            "Default" -> assocFolder.isEmpty()
+                            else -> assocFolder == selectedNotesFolder
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        // Custom folder chip row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CustomFolderChip(
+                                selected = selectedNotesFolder == "All",
+                                label = "All",
+                                onClick = { selectedNotesFolder = "All" }
+                            )
+                            CustomFolderChip(
+                                selected = selectedNotesFolder == "Favorites",
+                                label = "Favorites ⭐",
+                                onClick = { selectedNotesFolder = "Favorites" }
+                            )
+                            CustomFolderChip(
+                                selected = selectedNotesFolder == "Default",
+                                label = "Uncategorized",
+                                onClick = { selectedNotesFolder = "Default" }
+                            )
+                            vaultFolders.forEach { folderName ->
+                                CustomFolderChip(
+                                    selected = selectedNotesFolder == folderName,
+                                    label = folderName,
+                                    isLocked = lockedFolders.contains(folderName),
+                                    onClick = { 
+                                        if (lockedFolders.contains(folderName) && !tempUnlockedFolders.contains(folderName)) {
+                                            pendingUnlockAction = Pair(folderName) { 
+                                                viewModel.tempUnlockFolder(folderName)
+                                                selectedNotesFolder = folderName 
+                                            }
+                                        } else {
+                                            selectedNotesFolder = folderName 
+                                        }
+                                    },
+                                    onLongClick = {
+                                        if (lockedFolders.contains(folderName)) {
+                                            pendingUnlockAction = Pair(folderName) { viewModel.toggleFolderLock(folderName) }
+                                        } else {
+                                            viewModel.toggleFolderLock(folderName)
+                                        }
+                                    },
+                                    onDelete = {
+                                        viewModel.deleteFolder(folderName)
+                                        if (selectedNotesFolder == folderName) {
+                                            selectedNotesFolder = "All"
+                                        }
+                                    }
+                                )
+                            }
+                            TextButton(onClick = { showCreateFolderDialog = true }) {
+                                Icon(Icons.Default.Add, contentDescription = "Add Folder", modifier = Modifier.size(16.dp), tint = ThemePurple)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("New Folder", fontSize = 12.sp, color = ThemePurple)
+                            }
+                        }
+
+                        if (filteredNotes.isEmpty()) {
+                            EmptyVaultSectionState(
+                                title = "No Secure Notes",
+                                description = "Tap 'Add Note' to save password credentials or personal journals safely."
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                items(filteredNotes) { noteStr ->
+                                    val parts = noteStr.split("|||")
+                                    if (parts.size == 3) {
+                                        val timestamp = parts[0]
+                                        val title = parts[1]
+                                        val body = parts[2]
+                                        val isFav = favoriteNotes.contains(noteStr)
+                                        val assocFolder = noteFolders[noteStr] ?: ""
+
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = ThemeContainerBorder.copy(alpha = 0.2f),
+                                                    shape = RoundedCornerShape(12.dp)
                                                 )
-                                                IconButton(
-                                                    onClick = {
-                                                        viewModel.triggerKeypressEffects(context)
-                                                        viewModel.deleteVaultNote(noteStr)
-                                                    },
-                                                    modifier = Modifier.size(24.dp)
+                                                .clickable {
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    viewModel.recordOpenedItem(noteStr, "note", title, noteStr)
+                                                    viewNoteToShow = noteStr
+                                                },
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Column(modifier = Modifier.padding(14.dp)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.Top
                                                 ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Delete,
-                                                        contentDescription = "Delete Note",
-                                                        tint = Color.Red.copy(alpha = 0.7f),
-                                                        modifier = Modifier.size(16.dp)
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        Text(
+                                                            text = title,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 14.sp,
+                                                            color = Color.White,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier.weight(1f, fill = false)
+                                                        )
+                                                        if (isFav) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Star,
+                                                                contentDescription = "Favorite",
+                                                                tint = Color(0xFFFFD600),
+                                                                modifier = Modifier.size(14.dp)
+                                                            )
+                                                        }
+                                                        if (assocFolder.isNotEmpty()) {
+                                                            Surface(
+                                                                color = ThemePurple.copy(alpha = 0.15f),
+                                                                shape = RoundedCornerShape(4.dp),
+                                                                modifier = Modifier.padding(horizontal = 4.dp)
+                                                            ) {
+                                                                Text(
+                                                                    text = assocFolder,
+                                                                    color = ThemePurple,
+                                                                    fontSize = 8.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                    IconButton(
+                                                        onClick = {
+                                                            viewModel.triggerKeypressEffects(context)
+                                                            viewModel.deleteVaultNote(noteStr)
+                                                        },
+                                                        modifier = Modifier.size(24.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Delete,
+                                                            contentDescription = "Delete Note",
+                                                            tint = Color.Red.copy(alpha = 0.7f),
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = body,
+                                                    fontSize = 12.sp,
+                                                    color = Color(0xFF8B92A5),
+                                                    lineHeight = 16.sp,
+                                                    maxLines = 3,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = timestamp,
+                                                        fontSize = 9.sp,
+                                                        color = TextMedium.copy(alpha = 0.6f),
+                                                        fontWeight = FontWeight.Medium,
+                                                        modifier = Modifier.weight(1f)
                                                     )
+                                                    
+                                                    IconButton(
+                                                        onClick = {
+                                                            viewModel.triggerKeypressEffects(context)
+                                                            viewModel.toggleFavoriteNote(noteStr)
+                                                        },
+                                                        modifier = Modifier.size(24.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = if (isFav) Icons.Default.Star else Icons.Default.StarBorder,
+                                                            contentDescription = "Toggle Favorite",
+                                                            tint = if (isFav) Color(0xFFFFD600) else Color(0xFF8B92A5),
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+
+                                                    IconButton(
+                                                        onClick = {
+                                                            viewModel.triggerKeypressEffects(context)
+                                                            showMoveToFolderDialog = Pair(noteStr, "note")
+                                                        },
+                                                        modifier = Modifier.size(24.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Folder,
+                                                            contentDescription = "Move to Folder",
+                                                            tint = Color(0xFF2979FF),
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
                                                 }
                                             }
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Text(
-                                                text = body,
-                                                fontSize = 12.sp,
-                                                color = Color(0xFF8B92A5),
-                                                lineHeight = 16.sp
-                                            )
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Text(
-                                                text = timestamp,
-                                                fontSize = 9.sp,
-                                                color = TextMedium.copy(alpha = 0.6f),
-                                                fontWeight = FontWeight.Medium
-                                            )
                                         }
                                     }
                                 }
@@ -3120,83 +3655,364 @@ fun VaultTabContent(
                 }
 
                 "Photos & Videos" -> {
-                    val mediaFiles = vaultFiles.filter {
+                    val favoriteFiles by viewModel.favoriteFiles.collectAsState()
+                    val fileFolders by viewModel.fileFolders.collectAsState()
+                    val vaultFolders by viewModel.vaultFolders.collectAsState()
+
+                    val allMediaFiles = vaultFiles.filter {
                         val parts = it.split("|||")
                         parts.size >= 4 && (parts[3].startsWith("image/") || parts[3].startsWith("video/"))
                     }
 
-                    if (mediaFiles.isEmpty()) {
-                        EmptyVaultSectionState(
-                            title = "No Secure Photos or Videos",
-                            description = "Tap 'Import Photo' to transfer visual media into this secure sandboxed directory."
-                        )
-                    } else {
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(3),
+                    val filteredMediaFiles = allMediaFiles.filter { fileStr ->
+                        val parts = fileStr.split("|||")
+                        val id = parts[0]
+                        val isFav = favoriteFiles.contains(id)
+                        val assocFolder = fileFolders[id] ?: ""
+                        
+                        when (selectedMediaFolder) {
+                            "All" -> true
+                            "Favorites" -> isFav
+                            "Default" -> assocFolder.isEmpty()
+                            else -> assocFolder == selectedMediaFolder
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        // Custom folder chip row
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(vertical = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            items(mediaFiles) { fileStr ->
-                                val parts = fileStr.split("|||")
-                                if (parts.size >= 6) {
-                                    val originalName = parts[2]
-                                    val mimeType = parts[3]
-                                    val path = parts[4]
-
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .aspectRatio(1f)
-                                            .clickable {
-                                                viewModel.triggerKeypressEffects(context)
-                                                selectedFileForDetails = fileStr
-                                            },
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = CardDefaults.cardColors(containerColor = KeypadBg)
-                                    ) {
-                                        Box(modifier = Modifier.fillMaxSize()) {
-                                            if (mimeType.startsWith("image/")) {
-                                                AsyncImage(
-                                                    model = java.io.File(path),
-                                                    contentDescription = originalName,
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                                )
-                                            } else {
-                                                // Video Placeholder thumbnail
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .background(Color.Black.copy(alpha = 0.7f)),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Visibility,
-                                                        contentDescription = "Video",
-                                                        tint = Color.White.copy(alpha = 0.8f),
-                                                        modifier = Modifier.size(28.dp)
-                                                    )
-                                                }
+                            CustomFolderChip(
+                                selected = selectedMediaFolder == "All",
+                                label = "All",
+                                onClick = { selectedMediaFolder = "All" }
+                            )
+                            CustomFolderChip(
+                                selected = selectedMediaFolder == "Favorites",
+                                label = "Favorites ⭐",
+                                onClick = { selectedMediaFolder = "Favorites" }
+                            )
+                            CustomFolderChip(
+                                selected = selectedMediaFolder == "Default",
+                                label = "Uncategorized",
+                                onClick = { selectedMediaFolder = "Default" }
+                            )
+                            vaultFolders.forEach { folderName ->
+                                CustomFolderChip(
+                                    selected = selectedMediaFolder == folderName,
+                                    label = folderName,
+                                    isLocked = lockedFolders.contains(folderName),
+                                    onClick = { 
+                                        if (lockedFolders.contains(folderName) && !tempUnlockedFolders.contains(folderName)) {
+                                            pendingUnlockAction = Pair(folderName) { 
+                                                viewModel.tempUnlockFolder(folderName)
+                                                selectedMediaFolder = folderName 
                                             }
+                                        } else {
+                                            selectedMediaFolder = folderName 
+                                        }
+                                    },
+                                    onLongClick = {
+                                        if (lockedFolders.contains(folderName)) {
+                                            pendingUnlockAction = Pair(folderName) { viewModel.toggleFolderLock(folderName) }
+                                        } else {
+                                            viewModel.toggleFolderLock(folderName)
+                                        }
+                                    },
+                                    onDelete = {
+                                        viewModel.deleteFolder(folderName)
+                                        if (selectedMediaFolder == folderName) {
+                                            selectedMediaFolder = "All"
+                                        }
+                                    }
+                                )
+                            }
+                            TextButton(onClick = { showCreateFolderDialog = true }) {
+                                Icon(Icons.Default.Add, contentDescription = "Add Folder", modifier = Modifier.size(16.dp), tint = ThemePurple)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("New Folder", fontSize = 12.sp, color = ThemePurple)
+                            }
+                        }
 
-                                            // Tiny tag or details
-                                            Box(
+                        if (filteredMediaFiles.isEmpty()) {
+                            EmptyVaultSectionState(
+                                title = "No Secure Photos or Videos",
+                                description = "Tap 'Import Photo' to transfer visual media into this secure sandboxed directory."
+                            )
+                        } else {
+                            if (isMediaGridView) {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(3),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(filteredMediaFiles) { fileStr ->
+                                        val parts = fileStr.split("|||")
+                                        if (parts.size >= 6) {
+                                            val id = parts[0]
+                                            val originalName = parts[2]
+                                            val mimeType = parts[3]
+                                            val path = parts[4]
+                                            val isFav = favoriteFiles.contains(id)
+
+                                            Card(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .background(Color.Black.copy(alpha = 0.4f))
-                                                    .padding(4.dp)
-                                                    .align(Alignment.BottomStart)
+                                                    .aspectRatio(1f)
+                                                    .clickable {
+                                                        viewModel.triggerKeypressEffects(context)
+                                                        viewModel.recordOpenedItem(id, "file", originalName, fileStr)
+                                                        activeViewerFiles = filteredMediaFiles
+                                                        activeViewerIndex = filteredMediaFiles.indexOf(fileStr)
+                                                    },
+                                                shape = RoundedCornerShape(12.dp),
+                                                colors = CardDefaults.cardColors(containerColor = KeypadBg)
                                             ) {
-                                                Text(
-                                                    text = if (mimeType.startsWith("video/")) "VIDEO" else "IMAGE",
-                                                    color = Color.White,
-                                                    fontSize = 8.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.align(Alignment.Center)
-                                                )
+                                                Box(modifier = Modifier.fillMaxSize()) {
+                                                    if (mimeType.startsWith("image/")) {
+                                                        AsyncImage(
+                                                            model = java.io.File(path),
+                                                            contentDescription = originalName,
+                                                            modifier = Modifier.fillMaxSize().then(if (blurThumbnails) Modifier.blur(16.dp) else Modifier),
+                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                        )
+                                                    } else {
+                                                        // Video Placeholder thumbnail
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .fillMaxSize()
+                                                                .background(Color.Black.copy(alpha = 0.7f)),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Visibility,
+                                                                contentDescription = "Video",
+                                                                tint = Color.White.copy(alpha = 0.8f),
+                                                                modifier = Modifier.size(28.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                    if (blurThumbnails) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .fillMaxSize()
+                                                                .background(Color.Black.copy(alpha = 0.4f)),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.BlurOn,
+                                                                contentDescription = "Blurred",
+                                                                tint = Color.White.copy(alpha = 0.8f),
+                                                                modifier = Modifier.size(24.dp)
+                                                            )
+                                                        }
+                                                    }
+
+                                                    // Favorite star in top right corner
+                                                    if (isFav) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Star,
+                                                            contentDescription = "Favorite",
+                                                            tint = Color(0xFFFFD600),
+                                                            modifier = Modifier
+                                                                .size(18.dp)
+                                                                .align(Alignment.TopEnd)
+                                                                .padding(4.dp)
+                                                        )
+                                                    }
+
+                                                    // Tiny tag or details
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .background(Color.Black.copy(alpha = 0.4f))
+                                                            .padding(4.dp)
+                                                            .align(Alignment.BottomStart)
+                                                    ) {
+                                                        Text(
+                                                            text = if (mimeType.startsWith("video/")) "VIDEO" else "IMAGE",
+                                                            color = Color.White,
+                                                            fontSize = 8.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            modifier = Modifier.align(Alignment.Center)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    items(filteredMediaFiles) { fileStr ->
+                                        val parts = fileStr.split("|||")
+                                        if (parts.size >= 6) {
+                                            val id = parts[0]
+                                            val timestamp = parts[1]
+                                            val originalName = parts[2]
+                                            val mimeType = parts[3]
+                                            val path = parts[4]
+                                            val sizeStr = parts[5]
+                                            val isFav = favoriteFiles.contains(id)
+                                            val assocFolder = fileFolders[id] ?: ""
+
+                                            Card(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .border(
+                                                        width = 1.dp,
+                                                        color = ThemeContainerBorder.copy(alpha = 0.2f),
+                                                        shape = RoundedCornerShape(12.dp)
+                                                    )
+                                                    .clickable {
+                                                        viewModel.triggerKeypressEffects(context)
+                                                        viewModel.recordOpenedItem(id, "file", originalName, fileStr)
+                                                        activeViewerFiles = filteredMediaFiles
+                                                        activeViewerIndex = filteredMediaFiles.indexOf(fileStr)
+                                                    },
+                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(50.dp)
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(Color.Black),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        if (mimeType.startsWith("image/")) {
+                                                            AsyncImage(
+                                                                model = java.io.File(path),
+                                                                contentDescription = originalName,
+                                                                modifier = Modifier.fillMaxSize().then(if (blurThumbnails) Modifier.blur(16.dp) else Modifier),
+                                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                            )
+                                                        } else {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Visibility,
+                                                                contentDescription = "Video",
+                                                                tint = Color.White.copy(alpha = 0.8f),
+                                                                modifier = Modifier.size(24.dp)
+                                                            )
+                                                        }
+                                                        if (blurThumbnails) {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .fillMaxSize()
+                                                                    .background(Color.Black.copy(alpha = 0.4f)),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.BlurOn,
+                                                                    contentDescription = "Blurred",
+                                                                    tint = Color.White.copy(alpha = 0.8f),
+                                                                    modifier = Modifier.size(16.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = originalName,
+                                                                fontSize = 13.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color.White,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis,
+                                                                modifier = Modifier.weight(1f, fill = false)
+                                                            )
+                                                            if (isFav) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.Star,
+                                                                    contentDescription = "Favorite",
+                                                                    tint = Color(0xFFFFD600),
+                                                                    modifier = Modifier.size(14.dp)
+                                                                )
+                                                            }
+                                                            if (assocFolder.isNotEmpty()) {
+                                                                Surface(
+                                                                    color = ThemePurple.copy(alpha = 0.15f),
+                                                                    shape = RoundedCornerShape(4.dp),
+                                                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                                                ) {
+                                                                    Text(
+                                                                        text = assocFolder,
+                                                                        color = ThemePurple,
+                                                                        fontSize = 8.sp,
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+                                                        Text(
+                                                            text = "$sizeStr • $timestamp",
+                                                            fontSize = 10.sp,
+                                                            color = Color(0xFF8B92A5)
+                                                        )
+                                                    }
+
+                                                    Row(
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        IconButton(
+                                                            onClick = {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                viewModel.toggleFavoriteFile(id)
+                                                            },
+                                                            modifier = Modifier.size(32.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = if (isFav) Icons.Default.Star else Icons.Default.StarBorder,
+                                                                contentDescription = "Toggle Favorite",
+                                                                tint = if (isFav) Color(0xFFFFD600) else Color(0xFF8B92A5),
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+
+                                                        IconButton(
+                                                            onClick = {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                showMoveToFolderDialog = Pair(id, "file")
+                                                            },
+                                                            modifier = Modifier.size(32.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Folder,
+                                                                contentDescription = "Move to Folder",
+                                                                tint = Color(0xFF2979FF),
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -3207,141 +4023,726 @@ fun VaultTabContent(
                 }
 
                 "Documents" -> {
-                    val docFiles = vaultFiles.filter {
+                    val favoriteFiles by viewModel.favoriteFiles.collectAsState()
+                    val fileFolders by viewModel.fileFolders.collectAsState()
+                    val vaultFolders by viewModel.vaultFolders.collectAsState()
+
+                    val allDocFiles = vaultFiles.filter {
                         val parts = it.split("|||")
                         parts.size >= 4 && !parts[3].startsWith("image/") && !parts[3].startsWith("video/")
                     }
 
-                    if (docFiles.isEmpty()) {
-                        EmptyVaultSectionState(
-                            title = "No Private Documents",
-                            description = "Tap 'Import File' to secure any PDF, TXT, or binary document from local storage."
-                        )
-                    } else {
-                        LazyColumn(
+                    val filteredDocFiles = allDocFiles.filter { fileStr ->
+                        val parts = fileStr.split("|||")
+                        val id = parts[0]
+                        val isFav = favoriteFiles.contains(id)
+                        val assocFolder = fileFolders[id] ?: ""
+                        
+                        when (selectedDocFolder) {
+                            "All" -> true
+                            "Favorites" -> isFav
+                            "Default" -> assocFolder.isEmpty()
+                            else -> assocFolder == selectedDocFolder
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        // Custom folder chip row
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            items(docFiles) { fileStr ->
-                                val parts = fileStr.split("|||")
-                                if (parts.size >= 6) {
-                                    val timestamp = parts[1]
-                                    val originalName = parts[2]
-                                    val mimeType = parts[3]
-                                    val path = parts[4]
-                                    val sizeStr = parts[5]
+                            CustomFolderChip(
+                                selected = selectedDocFolder == "All",
+                                label = "All",
+                                onClick = { selectedDocFolder = "All" }
+                            )
+                            CustomFolderChip(
+                                selected = selectedDocFolder == "Favorites",
+                                label = "Favorites ⭐",
+                                onClick = { selectedDocFolder = "Favorites" }
+                            )
+                            CustomFolderChip(
+                                selected = selectedDocFolder == "Default",
+                                label = "Uncategorized",
+                                onClick = { selectedDocFolder = "Default" }
+                            )
+                            vaultFolders.forEach { folderName ->
+                                CustomFolderChip(
+                                    selected = selectedDocFolder == folderName,
+                                    label = folderName,
+                                    isLocked = lockedFolders.contains(folderName),
+                                    onClick = { 
+                                        if (lockedFolders.contains(folderName) && !tempUnlockedFolders.contains(folderName)) {
+                                            pendingUnlockAction = Pair(folderName) { 
+                                                viewModel.tempUnlockFolder(folderName)
+                                                selectedDocFolder = folderName 
+                                            }
+                                        } else {
+                                            selectedDocFolder = folderName 
+                                        }
+                                    },
+                                    onLongClick = {
+                                        if (lockedFolders.contains(folderName)) {
+                                            pendingUnlockAction = Pair(folderName) { viewModel.toggleFolderLock(folderName) }
+                                        } else {
+                                            viewModel.toggleFolderLock(folderName)
+                                        }
+                                    },
+                                    onDelete = {
+                                        viewModel.deleteFolder(folderName)
+                                        if (selectedDocFolder == folderName) {
+                                            selectedDocFolder = "All"
+                                        }
+                                    }
+                                )
+                            }
+                            TextButton(onClick = { showCreateFolderDialog = true }) {
+                                Icon(Icons.Default.Add, contentDescription = "Add Folder", modifier = Modifier.size(16.dp), tint = ThemePurple)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("New Folder", fontSize = 12.sp, color = ThemePurple)
+                            }
+                        }
 
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .border(
-                                                width = 1.dp,
-                                                color = ThemeContainerBorder.copy(alpha = 0.2f),
-                                                shape = RoundedCornerShape(12.dp)
-                                            ),
-                                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                        ) {
-                                            Box(
+                        if (filteredDocFiles.isEmpty()) {
+                            EmptyVaultSectionState(
+                                title = "No Private Documents",
+                                description = "Tap 'Import File' to secure any PDF, TXT, or binary document from local storage."
+                            )
+                        } else {
+                            if (isDocGridView) {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(3),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(filteredDocFiles) { fileStr ->
+                                        val parts = fileStr.split("|||")
+                                        if (parts.size >= 6) {
+                                            val id = parts[0]
+                                            val originalName = parts[2]
+                                            val mimeType = parts[3]
+                                            val path = parts[4]
+                                            val sizeStr = parts[5]
+                                            val isFav = favoriteFiles.contains(id)
+
+                                            Card(
                                                 modifier = Modifier
-                                                    .size(40.dp)
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(ThemeLightPurple),
-                                                contentAlignment = Alignment.Center
+                                                    .fillMaxWidth()
+                                                    .aspectRatio(1f)
+                                                    .clickable {
+                                                        viewModel.triggerKeypressEffects(context)
+                                                        viewModel.recordOpenedItem(id, "file", originalName, fileStr)
+                                                        activeViewerFiles = filteredDocFiles
+                                                        activeViewerIndex = filteredDocFiles.indexOf(fileStr)
+                                                    },
+                                                shape = RoundedCornerShape(12.dp),
+                                                colors = CardDefaults.cardColors(containerColor = KeypadBg)
                                             ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Description,
-                                                    contentDescription = "Document",
-                                                    tint = ThemePurple,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                            }
-
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = originalName,
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color.White,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                                Text(
-                                                    text = "$sizeStr • $timestamp",
-                                                    fontSize = 10.sp,
-                                                    color = Color(0xFF8B92A5)
-                                                )
-                                            }
-
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                if (mimeType.startsWith("text/plain")) {
-                                                    IconButton(
-                                                        onClick = {
-                                                            viewModel.triggerKeypressEffects(context)
-                                                            try {
-                                                                val txt = java.io.File(path).readText()
-                                                                textFileContentToRead = Pair(originalName, txt)
-                                                            } catch (e: Exception) {
-                                                                android.widget.Toast.makeText(context, "Cannot read text file", android.widget.Toast.LENGTH_SHORT).show()
-                                                            }
-                                                        },
-                                                        modifier = Modifier.size(32.dp)
+                                                Box(modifier = Modifier.fillMaxSize()) {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .padding(8.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        verticalArrangement = Arrangement.Center
                                                     ) {
                                                         Icon(
-                                                            imageVector = Icons.Default.Visibility,
-                                                            contentDescription = "Read File",
+                                                            imageVector = Icons.Default.Description,
+                                                            contentDescription = "Document",
                                                             tint = ThemePurple,
-                                                            modifier = Modifier.size(18.dp)
+                                                            modifier = Modifier.size(32.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Text(
+                                                            text = originalName,
+                                                            color = Color.White,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                        )
+                                                        Text(
+                                                            text = sizeStr,
+                                                            color = Color(0xFF8B92A5),
+                                                            fontSize = 9.sp
+                                                        )
+                                                    }
+
+                                                    if (isFav) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Star,
+                                                            contentDescription = "Favorite",
+                                                            tint = Color(0xFFFFD600),
+                                                            modifier = Modifier
+                                                                .size(16.dp)
+                                                                .align(Alignment.TopEnd)
+                                                                .padding(4.dp)
                                                         )
                                                     }
                                                 }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    items(filteredDocFiles) { fileStr ->
+                                        val parts = fileStr.split("|||")
+                                        if (parts.size >= 6) {
+                                            val id = parts[0]
+                                            val timestamp = parts[1]
+                                            val originalName = parts[2]
+                                            val mimeType = parts[3]
+                                            val path = parts[4]
+                                            val sizeStr = parts[5]
+                                            val isFav = favoriteFiles.contains(id)
+                                            val assocFolder = fileFolders[id] ?: ""
 
-                                                IconButton(
-                                                    onClick = {
+                                            Card(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .border(
+                                                        width = 1.dp,
+                                                        color = ThemeContainerBorder.copy(alpha = 0.2f),
+                                                        shape = RoundedCornerShape(12.dp)
+                                                    )
+                                                    .clickable {
                                                         viewModel.triggerKeypressEffects(context)
-                                                        viewModel.exportVaultFile(
-                                                            context = context,
-                                                            fileSerialized = fileStr,
-                                                            onSuccess = { msg -> android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show() },
-                                                            onFailure = { err -> android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show() }
+                                                        viewModel.recordOpenedItem(id, "file", originalName, fileStr)
+                                                        activeViewerFiles = filteredDocFiles
+                                                        activeViewerIndex = filteredDocFiles.indexOf(fileStr)
+                                                    },
+                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(40.dp)
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(ThemeLightPurple),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Description,
+                                                            contentDescription = "Document",
+                                                            tint = ThemePurple,
+                                                            modifier = Modifier.size(20.dp)
                                                         )
-                                                    },
-                                                    modifier = Modifier.size(32.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.FileDownload,
-                                                        contentDescription = "Export File",
-                                                        tint = Color(0xFF4CAF50),
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                }
+                                                    }
 
-                                                IconButton(
-                                                    onClick = {
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = originalName,
+                                                                fontSize = 13.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color.White,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis,
+                                                                modifier = Modifier.weight(1f, fill = false)
+                                                            )
+                                                            if (isFav) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.Star,
+                                                                    contentDescription = "Favorite",
+                                                                    tint = Color(0xFFFFD600),
+                                                                    modifier = Modifier.size(14.dp)
+                                                                )
+                                                            }
+                                                            if (assocFolder.isNotEmpty()) {
+                                                                Surface(
+                                                                    color = ThemePurple.copy(alpha = 0.15f),
+                                                                    shape = RoundedCornerShape(4.dp),
+                                                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                                                ) {
+                                                                    Text(
+                                                                        text = assocFolder,
+                                                                        color = ThemePurple,
+                                                                        fontSize = 8.sp,
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+                                                        Text(
+                                                            text = "$sizeStr • $timestamp",
+                                                            fontSize = 10.sp,
+                                                            color = Color(0xFF8B92A5)
+                                                        )
+                                                    }
+
+                                                    Row(
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        // Favorite Toggle Icon Button
+                                                        IconButton(
+                                                            onClick = {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                viewModel.toggleFavoriteFile(id)
+                                                            },
+                                                            modifier = Modifier.size(32.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = if (isFav) Icons.Default.Star else Icons.Default.StarBorder,
+                                                                contentDescription = "Toggle Favorite",
+                                                                tint = if (isFav) Color(0xFFFFD600) else Color(0xFF8B92A5),
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+
+                                                        // Folder Association Icon Button
+                                                        IconButton(
+                                                            onClick = {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                showMoveToFolderDialog = Pair(id, "file")
+                                                            },
+                                                            modifier = Modifier.size(32.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Folder,
+                                                                contentDescription = "Move to Folder",
+                                                                tint = Color(0xFF2979FF),
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+
+                                                        if (mimeType.startsWith("text/plain")) {
+                                                            IconButton(
+                                                                onClick = {
+                                                                    viewModel.triggerKeypressEffects(context)
+                                                                    try {
+                                                                        val txt = java.io.File(path).readText()
+                                                                        textFileContentToRead = Pair(originalName, txt)
+                                                                    } catch (e: Exception) {
+                                                                        android.widget.Toast.makeText(context, "Cannot read text file", android.widget.Toast.LENGTH_SHORT).show()
+                                                                    }
+                                                                },
+                                                                modifier = Modifier.size(32.dp)
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.Visibility,
+                                                                    contentDescription = "Read File",
+                                                                    tint = ThemePurple,
+                                                                    modifier = Modifier.size(18.dp)
+                                                                )
+                                                            }
+                                                        }
+
+                                                        IconButton(
+                                                            onClick = {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                viewModel.exportVaultFile(
+                                                                    context = context,
+                                                                    fileSerialized = fileStr,
+                                                                    onSuccess = { msg -> android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show() },
+                                                                    onFailure = { err -> android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show() }
+                                                                )
+                                                            },
+                                                            modifier = Modifier.size(32.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.FileDownload,
+                                                                contentDescription = "Export File",
+                                                                tint = Color(0xFF4CAF50),
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+
+                                                        IconButton(
+                                                            onClick = {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                viewModel.deleteVaultFile(fileStr)
+                                                                android.widget.Toast.makeText(context, "Moved to Recently Deleted!", android.widget.Toast.LENGTH_SHORT).show()
+                                                            },
+                                                            modifier = Modifier.size(32.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Delete,
+                                                                contentDescription = "Delete File",
+                                                                tint = Color(0xFFEF5350),
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                "Music & Audio" -> {
+                    val favoriteFiles by viewModel.favoriteFiles.collectAsState()
+                    val fileFolders by viewModel.fileFolders.collectAsState()
+                    val vaultFolders by viewModel.vaultFolders.collectAsState()
+
+                    val allMusicFiles = vaultFiles.filter {
+                        val parts = it.split("|||")
+                        parts.size >= 4 && (parts[3].startsWith("audio/") || parts[3].startsWith("music/"))
+                    }
+
+                    val filteredMusicFiles = allMusicFiles.filter { fileStr ->
+                        val parts = fileStr.split("|||")
+                        val id = parts[0]
+                        val isFav = favoriteFiles.contains(id)
+                        val assocFolder = fileFolders[id] ?: ""
+
+                        when (selectedMusicFolder) {
+                            "All" -> true
+                            "Favorites" -> isFav
+                            "Default" -> assocFolder.isEmpty()
+                            else -> assocFolder == selectedMusicFolder
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        // Custom folder chip row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CustomFolderChip(
+                                selected = selectedMusicFolder == "All",
+                                label = "All",
+                                onClick = { selectedMusicFolder = "All" }
+                            )
+                            CustomFolderChip(
+                                selected = selectedMusicFolder == "Favorites",
+                                label = "Favorites ⭐",
+                                onClick = { selectedMusicFolder = "Favorites" }
+                            )
+                            CustomFolderChip(
+                                selected = selectedMusicFolder == "Default",
+                                label = "Uncategorized",
+                                onClick = { selectedMusicFolder = "Default" }
+                            )
+                            vaultFolders.forEach { folderName ->
+                                CustomFolderChip(
+                                    selected = selectedMusicFolder == folderName,
+                                    label = folderName,
+                                    isLocked = lockedFolders.contains(folderName),
+                                    onClick = { 
+                                        if (lockedFolders.contains(folderName) && !tempUnlockedFolders.contains(folderName)) {
+                                            pendingUnlockAction = Pair(folderName) { 
+                                                viewModel.tempUnlockFolder(folderName)
+                                                selectedMusicFolder = folderName 
+                                            }
+                                        } else {
+                                            selectedMusicFolder = folderName 
+                                        }
+                                    },
+                                    onLongClick = {
+                                        if (lockedFolders.contains(folderName)) {
+                                            pendingUnlockAction = Pair(folderName) { viewModel.toggleFolderLock(folderName) }
+                                        } else {
+                                            viewModel.toggleFolderLock(folderName)
+                                        }
+                                    },
+                                    onDelete = {
+                                        viewModel.deleteFolder(folderName)
+                                        if (selectedMusicFolder == folderName) {
+                                            selectedMusicFolder = "All"
+                                        }
+                                    }
+                                )
+                            }
+                            TextButton(onClick = { showCreateFolderDialog = true }) {
+                                Icon(Icons.Default.Add, contentDescription = "Add Folder", modifier = Modifier.size(16.dp), tint = ThemePurple)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("New Folder", fontSize = 12.sp, color = ThemePurple)
+                            }
+                        }
+
+                        if (filteredMusicFiles.isEmpty()) {
+                            EmptyVaultSectionState(
+                                title = "No Private Music & Audio",
+                                description = "Tap 'Import Audio' to transfer your sensitive voice records or audio files into the vault."
+                            )
+                        } else {
+                            if (isMusicGridView) {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(3),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(filteredMusicFiles) { fileStr ->
+                                        val parts = fileStr.split("|||")
+                                        if (parts.size >= 6) {
+                                            val id = parts[0]
+                                            val originalName = parts[2]
+                                            val mimeType = parts[3]
+                                            val path = parts[4]
+                                            val sizeStr = parts[5]
+                                            val isFav = favoriteFiles.contains(id)
+
+                                            Card(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .aspectRatio(1f)
+                                                    .clickable {
                                                         viewModel.triggerKeypressEffects(context)
-                                                        viewModel.deleteVaultFile(fileStr)
-                                                        android.widget.Toast.makeText(context, "Moved to Recently Deleted!", android.widget.Toast.LENGTH_SHORT).show()
+                                                        viewModel.recordOpenedItem(id, "file", originalName, fileStr)
+                                                        activeViewerFiles = filteredMusicFiles
+                                                        activeViewerIndex = filteredMusicFiles.indexOf(fileStr)
                                                     },
-                                                    modifier = Modifier.size(32.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Delete,
-                                                        contentDescription = "Delete File",
-                                                        tint = Color.Red.copy(alpha = 0.7f),
-                                                        modifier = Modifier.size(18.dp)
+                                                shape = RoundedCornerShape(12.dp),
+                                                colors = CardDefaults.cardColors(containerColor = KeypadBg)
+                                            ) {
+                                                Box(modifier = Modifier.fillMaxSize()) {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .padding(8.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        verticalArrangement = Arrangement.Center
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.MusicNote,
+                                                            contentDescription = "Audio file",
+                                                            tint = ThemePurple,
+                                                            modifier = Modifier.size(32.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Text(
+                                                            text = originalName,
+                                                            color = Color.White,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                        )
+                                                        Text(
+                                                            text = sizeStr,
+                                                            color = Color(0xFF8B92A5),
+                                                            fontSize = 9.sp
+                                                        )
+                                                    }
+
+                                                    if (isFav) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Star,
+                                                            contentDescription = "Favorite",
+                                                            tint = Color(0xFFFFD600),
+                                                            modifier = Modifier
+                                                                .size(16.dp)
+                                                                .align(Alignment.TopEnd)
+                                                                .padding(4.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    items(filteredMusicFiles) { fileStr ->
+                                        val parts = fileStr.split("|||")
+                                        if (parts.size >= 6) {
+                                            val id = parts[0]
+                                            val timestamp = parts[1]
+                                            val originalName = parts[2]
+                                            val mimeType = parts[3]
+                                            val path = parts[4]
+                                            val sizeStr = parts[5]
+                                            val isFav = favoriteFiles.contains(id)
+                                            val assocFolder = fileFolders[id] ?: ""
+
+                                            Card(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .border(
+                                                        width = 1.dp,
+                                                        color = ThemeContainerBorder.copy(alpha = 0.2f),
+                                                        shape = RoundedCornerShape(12.dp)
                                                     )
+                                                    .clickable {
+                                                        viewModel.triggerKeypressEffects(context)
+                                                        viewModel.recordOpenedItem(id, "file", originalName, fileStr)
+                                                        activeViewerFiles = filteredMusicFiles
+                                                        activeViewerIndex = filteredMusicFiles.indexOf(fileStr)
+                                                    },
+                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(40.dp)
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(ThemeLightPurple),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.MusicNote,
+                                                            contentDescription = "Audio file",
+                                                            tint = ThemePurple,
+                                                            modifier = Modifier.size(20.dp)
+                                                        )
+                                                    }
+
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = originalName,
+                                                                fontSize = 13.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color.White,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis,
+                                                                modifier = Modifier.weight(1f, fill = false)
+                                                            )
+                                                            if (isFav) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.Star,
+                                                                    contentDescription = "Favorite",
+                                                                    tint = Color(0xFFFFD600),
+                                                                    modifier = Modifier.size(14.dp)
+                                                                )
+                                                            }
+                                                            if (assocFolder.isNotEmpty()) {
+                                                                Surface(
+                                                                    color = ThemePurple.copy(alpha = 0.15f),
+                                                                    shape = RoundedCornerShape(4.dp),
+                                                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                                                ) {
+                                                                    Text(
+                                                                        text = assocFolder,
+                                                                        color = ThemePurple,
+                                                                        fontSize = 8.sp,
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+                                                        Text(
+                                                            text = "$sizeStr • $timestamp",
+                                                            fontSize = 10.sp,
+                                                            color = Color(0xFF8B92A5)
+                                                        )
+                                                    }
+
+                                                    Row(
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        IconButton(
+                                                            onClick = {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                viewModel.toggleFavoriteFile(id)
+                                                            },
+                                                            modifier = Modifier.size(32.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = if (isFav) Icons.Default.Star else Icons.Default.StarBorder,
+                                                                contentDescription = "Toggle Favorite",
+                                                                tint = if (isFav) Color(0xFFFFD600) else Color(0xFF8B92A5),
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+
+                                                        IconButton(
+                                                            onClick = {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                showMoveToFolderDialog = Pair(id, "file")
+                                                            },
+                                                            modifier = Modifier.size(32.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Folder,
+                                                                contentDescription = "Move to Folder",
+                                                                tint = Color(0xFF2979FF),
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+
+                                                        IconButton(
+                                                            onClick = {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                viewModel.exportVaultFile(
+                                                                    context = context,
+                                                                    fileSerialized = fileStr,
+                                                                    onSuccess = { msg -> android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show() },
+                                                                    onFailure = { err -> android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show() }
+                                                                )
+                                                            },
+                                                            modifier = Modifier.size(32.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.FileDownload,
+                                                                contentDescription = "Export File",
+                                                                tint = Color(0xFF4CAF50),
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+
+                                                        IconButton(
+                                                            onClick = {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                viewModel.deleteVaultFile(fileStr)
+                                                                android.widget.Toast.makeText(context, "Moved to Recently Deleted!", android.widget.Toast.LENGTH_SHORT).show()
+                                                            },
+                                                            modifier = Modifier.size(32.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Delete,
+                                                                contentDescription = "Delete File",
+                                                                tint = Color(0xFFEF5350),
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -3876,6 +5277,115 @@ fun VaultTabContent(
                                 checked = panicEnabled,
                                 onCheckedChange = { viewModel.setPanicEnabled(it) }
                             )
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+
+                            val intruderDetectionEnabled by viewModel.intruderDetectionEnabled.collectAsState()
+                            SettingsSwitchRow(
+                                title = "Intruder Detection",
+                                subtitle = "Log incorrect passcode attempts & keys entered",
+                                icon = Icons.Default.Warning,
+                                iconTint = Color(0xFFFF9100),
+                                checked = intruderDetectionEnabled,
+                                onCheckedChange = { viewModel.setIntruderDetectionEnabled(it) }
+                            )
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+
+                            val blurThumbnails by viewModel.blurThumbnails.collectAsState()
+                            SettingsSwitchRow(
+                                title = "Blur Thumbnails",
+                                subtitle = "Blurs media previews to prevent shoulder-surfing",
+                                icon = Icons.Default.BlurOn,
+                                iconTint = Color(0xFF00E5FF),
+                                checked = blurThumbnails,
+                                onCheckedChange = { viewModel.setBlurThumbnails(it) }
+                            )
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+
+                            val autoLockDuration by viewModel.autoLockDuration.collectAsState()
+                            var showAutoLockDialog by remember { mutableStateOf(false) }
+                            val currentDurationLabel = when (autoLockDuration) {
+                                30 -> "30 seconds"
+                                60 -> "1 minute"
+                                120 -> "2 minutes"
+                                300 -> "5 minutes"
+                                600 -> "10 minutes"
+                                else -> "Never"
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showAutoLockDialog = true }
+                                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Timer,
+                                    contentDescription = "Auto Lock Timer",
+                                    tint = Color(0xFFFFD600),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Auto Lock Timer", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text("Instantly locks vault after inactivity", color = TextMedium, fontSize = 11.sp)
+                                }
+                                Surface(
+                                    color = ThemePurple.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = currentDurationLabel,
+                                        color = ThemePurple,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+
+                            if (showAutoLockDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showAutoLockDialog = false },
+                                    title = { Text("Select Auto Lock Timer", color = TextDark) },
+                                    text = {
+                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            listOf(
+                                                -1 to "Never (Disable)",
+                                                30 to "30 seconds",
+                                                60 to "1 minute",
+                                                120 to "2 minutes",
+                                                300 to "5 minutes",
+                                                600 to "10 minutes"
+                                            ).forEach { (seconds, label) ->
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable {
+                                                            viewModel.setAutoLockDuration(seconds)
+                                                            showAutoLockDialog = false
+                                                        }
+                                                        .padding(vertical = 12.dp, horizontal = 8.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(label, color = TextDark, fontSize = 14.sp)
+                                                    if (autoLockDuration == seconds) {
+                                                        Icon(Icons.Default.Check, contentDescription = "Selected", tint = ThemePurple, modifier = Modifier.size(18.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    confirmButton = {
+                                        TextButton(onClick = { showAutoLockDialog = false }) {
+                                            Text("Close", color = ThemePurple)
+                                        }
+                                    },
+                                    containerColor = Color.White,
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                            }
                         }
 
                         // Panic actions directly visible if panic is enabled
@@ -4108,6 +5618,810 @@ fun VaultTabContent(
                 )
             }
         }
+
+        // Full-Screen Interactive Media & Document Viewer
+        if (activeViewerFiles.isNotEmpty() && activeViewerIndex >= 0 && activeViewerIndex < activeViewerFiles.size) {
+            key(activeViewerFiles) {
+                val favoriteFiles by viewModel.favoriteFiles.collectAsState()
+                val pagerState = rememberPagerState(
+                    initialPage = activeViewerIndex,
+                    pageCount = { activeViewerFiles.size }
+                )
+                // Sync activeViewerIndex with pagerState.currentPage
+                LaunchedEffect(pagerState.currentPage) {
+                    activeViewerIndex = pagerState.currentPage
+                }
+
+                androidx.compose.ui.window.Dialog(
+                    onDismissRequest = {
+                        activeViewerFiles = emptyList()
+                        activeViewerIndex = -1
+                    },
+                    properties = androidx.compose.ui.window.DialogProperties(
+                        usePlatformDefaultWidth = false,
+                        dismissOnBackPress = true,
+                        dismissOnClickOutside = false
+                    )
+                ) {
+                    val formatDuration = remember {
+                        { ms: Int ->
+                            val sec = (ms / 1000) % 60
+                            val min = (ms / 1000) / 60
+                            String.format("%02d:%02d", min, sec)
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF0A0C16))
+                    ) {
+                        // HorizontalPager for left/right swipe
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize()
+                        ) { page ->
+                            val currentFileStr = activeViewerFiles[page]
+                            val parts = currentFileStr.split("|||")
+                            if (parts.size >= 6) {
+                                val id = parts[0]
+                                val timestamp = parts[1]
+                                val originalName = parts[2]
+                                val mimeType = parts[3]
+                                val path = parts[4]
+                                val sizeStr = parts[5]
+
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (mimeType.startsWith("image/")) {
+                                        // Dynamic Pinch-to-Zoom
+                                        var scale by remember { mutableStateOf(1f) }
+                                        var offset by remember { mutableStateOf(Offset.Zero) }
+                                        val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
+                                            scale = (scale * zoomChange).coerceIn(1f, 5f)
+                                            offset += offsetChange
+                                        }
+
+                                        AsyncImage(
+                                            model = java.io.File(path),
+                                            contentDescription = originalName,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .transformable(state = transformState)
+                                                .graphicsLayer(
+                                                    scaleX = scale,
+                                                    scaleY = scale,
+                                                    translationX = offset.x,
+                                                    translationY = offset.y
+                                                ),
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                                        )
+                                    } else if (mimeType.startsWith("video/")) {
+                                        // Video Player
+                                        AndroidView(
+                                            factory = { ctx ->
+                                                android.widget.VideoView(ctx).apply {
+                                                    setVideoPath(path)
+                                                    val mediaController = android.widget.MediaController(ctx)
+                                                    mediaController.setAnchorView(this)
+                                                    setMediaController(mediaController)
+                                                    setOnPreparedListener { mp ->
+                                                        mp.isLooping = true
+                                                        start()
+                                                    }
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(16 / 9f)
+                                        )
+                                    } else if (mimeType.equals("application/pdf", ignoreCase = true) || originalName.endsWith(".pdf", ignoreCase = true)) {
+                                        // PDF Viewer
+                                        val bitmaps = remember(path) {
+                                            val list = mutableListOf<android.graphics.Bitmap>()
+                                            try {
+                                                val file = java.io.File(path)
+                                                val pfd = android.os.ParcelFileDescriptor.open(file, android.os.ParcelFileDescriptor.MODE_READ_ONLY)
+                                                val renderer = android.graphics.pdf.PdfRenderer(pfd)
+                                                val count = minOf(renderer.pageCount, 15) // Renders up to 15 pages safely
+                                                for (i in 0 until count) {
+                                                    val page = renderer.openPage(i)
+                                                    val bitmap = android.graphics.Bitmap.createBitmap(page.width * 2, page.height * 2, android.graphics.Bitmap.Config.ARGB_8888)
+                                                    val canvas = android.graphics.Canvas(bitmap)
+                                                    canvas.drawColor(android.graphics.Color.WHITE)
+                                                    page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                                                    list.add(bitmap)
+                                                    page.close()
+                                                }
+                                                renderer.close()
+                                                pfd.close()
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
+                                            list
+                                        }
+
+                                        if (bitmaps.isNotEmpty()) {
+                                            LazyColumn(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(top = 80.dp, bottom = 80.dp),
+                                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                items(bitmaps) { bitmap ->
+                                                    Card(
+                                                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(horizontal = 16.dp)
+                                                    ) {
+                                                        androidx.compose.foundation.Image(
+                                                            bitmap = bitmap.asImageBitmap(),
+                                                            contentDescription = "PDF Page",
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            contentScale = androidx.compose.ui.layout.ContentScale.FillWidth
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            Column(
+                                                modifier = Modifier.fillMaxSize(),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.PictureAsPdf,
+                                                    contentDescription = null,
+                                                    tint = ThemePurple,
+                                                    modifier = Modifier.size(64.dp)
+                                                )
+                                                Spacer(modifier = Modifier.height(16.dp))
+                                                Text("Secure PDF Document", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                                Text("$sizeStr • $timestamp", color = Color.Gray, fontSize = 12.sp)
+                                            }
+                                        }
+                                    } else if (mimeType.startsWith("audio/") || mimeType.startsWith("music/")) {
+                                        // Audio Player with beautiful Vinyl Record Layout
+                                        var isPlaying by remember { mutableStateOf(false) }
+                                        var currentPosition by remember { mutableStateOf(0f) }
+                                        var duration by remember { mutableStateOf(1f) }
+                                        val mediaPlayer = remember(path) {
+                                            android.media.MediaPlayer().apply {
+                                                setDataSource(path)
+                                                prepare()
+                                                duration = this.duration.toFloat()
+                                            }
+                                        }
+
+                                        LaunchedEffect(isPlaying) {
+                                            while (isPlaying) {
+                                                currentPosition = mediaPlayer.currentPosition.toFloat()
+                                                kotlinx.coroutines.delay(250)
+                                            }
+                                        }
+
+                                        DisposableEffect(path) {
+                                            onDispose {
+                                                mediaPlayer.release()
+                                            }
+                                        }
+
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(24.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            var rotationAngle by remember { mutableStateOf(0f) }
+                                            LaunchedEffect(isPlaying) {
+                                                while (isPlaying) {
+                                                    rotationAngle = (rotationAngle + 2f) % 360f
+                                                    kotlinx.coroutines.delay(16)
+                                                }
+                                            }
+
+                                            // Visual Vinyl disc representation
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(200.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFF101424))
+                                                    .border(4.dp, ThemePurple.copy(alpha = 0.5f), CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(180.dp)
+                                                        .graphicsLayer(rotationZ = rotationAngle)
+                                                        .background(Color.Black, CircleShape)
+                                                        .border(8.dp, Color(0xFF1A1A1A), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(60.dp)
+                                                            .background(ThemePurple, CircleShape),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.MusicNote,
+                                                            contentDescription = null,
+                                                            tint = Color.White,
+                                                            modifier = Modifier.size(28.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(32.dp))
+
+                                            Text(
+                                                text = originalName,
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 18.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+
+                                            Spacer(modifier = Modifier.height(24.dp))
+
+                                            Slider(
+                                                value = currentPosition,
+                                                onValueChange = {
+                                                    currentPosition = it
+                                                    mediaPlayer.seekTo(it.toInt())
+                                                },
+                                                valueRange = 0f..duration,
+                                                colors = SliderDefaults.colors(
+                                                    thumbColor = ThemePurple,
+                                                    activeTrackColor = ThemePurple,
+                                                    inactiveTrackColor = ThemePurple.copy(alpha = 0.24f)
+                                                ),
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = formatDuration(currentPosition.toInt()),
+                                                    color = Color.Gray,
+                                                    fontSize = 12.sp
+                                                )
+                                                Text(
+                                                    text = formatDuration(duration.toInt()),
+                                                    color = Color.Gray,
+                                                    fontSize = 12.sp
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.height(24.dp))
+
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                IconButton(
+                                                    onClick = {
+                                                        viewModel.triggerKeypressEffects(context)
+                                                        val prev = activeViewerIndex - 1
+                                                        if (prev >= 0) {
+                                                            activeViewerIndex = prev
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(48.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                                        contentDescription = "Previous",
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(32.dp)
+                                                    )
+                                                }
+
+                                                IconButton(
+                                                    onClick = {
+                                                        viewModel.triggerKeypressEffects(context)
+                                                        if (isPlaying) {
+                                                            mediaPlayer.pause()
+                                                            isPlaying = false
+                                                        } else {
+                                                            mediaPlayer.start()
+                                                            isPlaying = true
+                                                        }
+                                                    },
+                                                    modifier = Modifier
+                                                        .size(64.dp)
+                                                        .background(ThemePurple, CircleShape)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                        contentDescription = if (isPlaying) "Pause" else "Play",
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(36.dp)
+                                                    )
+                                                }
+
+                                                IconButton(
+                                                    onClick = {
+                                                        viewModel.triggerKeypressEffects(context)
+                                                        val next = activeViewerIndex + 1
+                                                        if (next < activeViewerFiles.size) {
+                                                            activeViewerIndex = next
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(48.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                                        contentDescription = "Next",
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(32.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        // Generic file presentation
+                                        Column(
+                                            modifier = Modifier.fillMaxSize(),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Description,
+                                                contentDescription = null,
+                                                tint = ThemePurple,
+                                                modifier = Modifier.size(64.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Text(originalName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                            Text("$sizeStr • $mimeType", color = Color.Gray, fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Top Action Bar overlaying everything
+                        val activeFile = activeViewerFiles[activeViewerIndex]
+                        val activeParts = activeFile.split("|||")
+                        if (activeParts.size >= 6) {
+                            val activeId = activeParts[0]
+                            val activeName = activeParts[2]
+                            val activeIsFav = favoriteFiles.contains(activeId)
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color.Black.copy(alpha = 0.6f))
+                                    .statusBarsPadding()
+                                    .padding(horizontal = 8.dp, vertical = 12.dp)
+                                    .align(Alignment.TopCenter),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeViewerFiles = emptyList()
+                                        activeViewerIndex = -1
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Close Viewer",
+                                        tint = Color.White
+                                    )
+                                }
+
+                                Text(
+                                    text = activeName,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        viewModel.toggleFavoriteFile(activeId)
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = if (activeIsFav) Icons.Default.Star else Icons.Default.StarBorder,
+                                        contentDescription = "Toggle Favorite",
+                                        tint = if (activeIsFav) Color(0xFFFFD600) else Color.White
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        showMoveToFolderDialog = Pair(activeId, "file")
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Folder,
+                                        contentDescription = "Move to Folder",
+                                        tint = Color(0xFF2979FF)
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        viewModel.exportVaultFile(
+                                            context = context,
+                                            fileSerialized = activeFile,
+                                            onSuccess = { msg -> android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show() },
+                                            onFailure = { err -> android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show() }
+                                        )
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.FileDownload,
+                                        contentDescription = "Export File",
+                                        tint = Color(0xFF4CAF50)
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        viewModel.deleteVaultFile(activeFile)
+                                        android.widget.Toast.makeText(context, "Moved to Recently Deleted!", android.widget.Toast.LENGTH_SHORT).show()
+                                        val nextIndex = if (activeViewerIndex < activeViewerFiles.size - 1) activeViewerIndex else activeViewerIndex - 1
+                                        val remainingList = activeViewerFiles.toMutableList().apply { removeAt(activeViewerIndex) }
+                                        if (remainingList.isNotEmpty() && nextIndex >= 0) {
+                                            activeViewerFiles = remainingList
+                                            activeViewerIndex = nextIndex
+                                        } else {
+                                            activeViewerFiles = emptyList()
+                                            activeViewerIndex = -1
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete File",
+                                        tint = Color(0xFFEF5350)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 1. Create Folder Dialog
+        if (showCreateFolderDialog) {
+            AlertDialog(
+                onDismissRequest = { showCreateFolderDialog = false },
+                containerColor = BrandBg,
+                title = { Text("Create New Folder", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Enter a unique folder name to organize your vault content:", color = Color(0xFF8B92A5), fontSize = 12.sp)
+                        OutlinedTextField(
+                            value = newFolderName,
+                            onValueChange = { newFolderName = it },
+                            placeholder = { Text("Folder Name", color = Color.Gray) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = ThemePurple,
+                                unfocusedBorderColor = ThemeContainerBorder.copy(alpha = 0.2f),
+                                focusedContainerColor = Color(0xFF1B2031),
+                                unfocusedContainerColor = Color(0xFF1B2031)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.triggerKeypressEffects(context)
+                            if (newFolderName.trim().isNotEmpty()) {
+                                viewModel.addFolder(newFolderName.trim())
+                                newFolderName = ""
+                                showCreateFolderDialog = false
+                            } else {
+                                android.widget.Toast.makeText(context, "Please enter a folder name", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
+                    ) {
+                        Text("Create", color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        viewModel.triggerKeypressEffects(context)
+                        showCreateFolderDialog = false
+                        newFolderName = ""
+                    }) {
+                        Text("Cancel", color = Color.Gray)
+                    }
+                }
+            )
+        }
+
+        // 2. Move To Folder Dialog
+        if (showMoveToFolderDialog != null) {
+            val (itemId, type) = showMoveToFolderDialog!!
+            val vaultFolders by viewModel.vaultFolders.collectAsState()
+            
+            AlertDialog(
+                onDismissRequest = { showMoveToFolderDialog = null },
+                containerColor = BrandBg,
+                title = { Text("Move to Folder", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Select a destination folder or remove from current folder:", color = Color(0xFF8B92A5), fontSize = 12.sp)
+                        
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.heightIn(max = 240.dp)) {
+                            item {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            viewModel.triggerKeypressEffects(context)
+                                            if (type == "file") {
+                                                viewModel.setFolderForFile(itemId, "")
+                                            } else {
+                                                viewModel.setFolderForNote(itemId, "")
+                                            }
+                                            showMoveToFolderDialog = null
+                                            android.widget.Toast.makeText(context, "Removed from folder", android.widget.Toast.LENGTH_SHORT).show()
+                                        },
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.FolderOpen, contentDescription = null, tint = Color.Gray)
+                                        Text("[ Uncategorized / Default ]", color = Color.White, fontSize = 13.sp)
+                                    }
+                                }
+                            }
+                            
+                            items(vaultFolders) { fName ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            viewModel.triggerKeypressEffects(context)
+                                            if (type == "file") {
+                                                viewModel.setFolderForFile(itemId, fName)
+                                            } else {
+                                                viewModel.setFolderForNote(itemId, fName)
+                                            }
+                                            showMoveToFolderDialog = null
+                                            android.widget.Toast.makeText(context, "Moved to $fName", android.widget.Toast.LENGTH_SHORT).show()
+                                        },
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Folder, contentDescription = null, tint = ThemePurple)
+                                        Text(fName, color = Color.White, fontSize = 13.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = {
+                        viewModel.triggerKeypressEffects(context)
+                        showMoveToFolderDialog = null
+                    }) {
+                        Text("Close", color = Color.Gray)
+                    }
+                }
+            )
+        }
+
+        // 3. Global Search Dialog
+        if (showSearchDialog) {
+            var searchQuery by remember { mutableStateOf("") }
+            val favoriteNotes by viewModel.favoriteNotes.collectAsState()
+            val favoriteFiles by viewModel.favoriteFiles.collectAsState()
+            
+            val matchedNotes = if (searchQuery.trim().isEmpty()) emptyList() else vaultNotes.filter {
+                val parts = it.split("|||")
+                parts.size == 3 && (parts[1].contains(searchQuery, ignoreCase = true) || parts[2].contains(searchQuery, ignoreCase = true))
+            }
+            val matchedFiles = if (searchQuery.trim().isEmpty()) emptyList() else vaultFiles.filter {
+                val parts = it.split("|||")
+                parts.size >= 6 && parts[2].contains(searchQuery, ignoreCase = true)
+            }
+            
+            AlertDialog(
+                onDismissRequest = { showSearchDialog = false },
+                containerColor = BrandBg,
+                title = {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Global Vault Search", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Locate any photo, video, document, or note instantly", color = Color(0xFF8B92A5), fontSize = 11.sp)
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Search title, body, original filename...", color = Color.Gray, fontSize = 12.sp) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 13.sp),
+                            singleLine = true,
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = ThemePurple,
+                                unfocusedBorderColor = ThemeContainerBorder.copy(alpha = 0.2f),
+                                focusedContainerColor = Color(0xFF1B2031),
+                                unfocusedContainerColor = Color(0xFF1B2031)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        
+                        if (searchQuery.trim().isNotEmpty() && matchedNotes.isEmpty() && matchedFiles.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                Text("No matching records found", color = Color(0xFF8B92A5), fontSize = 12.sp)
+                            }
+                        } else {
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.heightIn(max = 300.dp)
+                            ) {
+                                if (matchedNotes.isNotEmpty()) {
+                                    item {
+                                        Text("Matched Notes (${matchedNotes.size})", color = ThemePurple, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    }
+                                    items(matchedNotes) { noteStr ->
+                                        val parts = noteStr.split("|||")
+                                        val title = parts[1]
+                                        val body = parts[2]
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    viewModel.recordOpenedItem(noteStr, "note", title, noteStr)
+                                                    showSearchDialog = false
+                                                    activeSection = "Notes"
+                                                    viewNoteToShow = noteStr
+                                                },
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
+                                        ) {
+                                            Column(modifier = Modifier.padding(10.dp)) {
+                                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(Icons.Default.Article, contentDescription = null, tint = Color(0xFFFFD600), modifier = Modifier.size(14.dp))
+                                                    Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                }
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(body, color = Color(0xFF8B92A5), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                if (matchedFiles.isNotEmpty()) {
+                                    item {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Matched Media & Files (${matchedFiles.size})", color = ThemePurple, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    }
+                                    items(matchedFiles) { fileStr ->
+                                        val parts = fileStr.split("|||")
+                                        val id = parts[0]
+                                        val originalName = parts[2]
+                                        val mime = parts[3]
+                                        val sizeStr = parts[5]
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    viewModel.recordOpenedItem(id, "file", originalName, fileStr)
+                                                    showSearchDialog = false
+                                                    if (mime.startsWith("image/") || mime.startsWith("video/")) {
+                                                        activeSection = "Photos & Videos"
+                                                    } else {
+                                                        activeSection = "Documents"
+                                                    }
+                                                    selectedFileForDetails = fileStr
+                                                },
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(10.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (mime.startsWith("image/")) Icons.Default.Image else if (mime.startsWith("video/")) Icons.Default.PlayArrow else Icons.Default.Description,
+                                                    contentDescription = null,
+                                                    tint = if (mime.startsWith("image/")) Color(0xFF2979FF) else if (mime.startsWith("video/")) Color(0xFFFF9100) else Color(0xFF00E676),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(originalName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    Text(sizeStr, color = Color(0xFF8B92A5), fontSize = 10.sp)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = {
+                        viewModel.triggerKeypressEffects(context)
+                        showSearchDialog = false
+                    }) {
+                        Text("Close", color = Color.Gray)
+                    }
+                }
+            )
+        }
+
+        // 4. View Note Dialog
+        if (viewNoteToShow != null) {
+            val noteStr = viewNoteToShow!!
+            val parts = noteStr.split("|||")
+            if (parts.size == 3) {
+                val timestamp = parts[0]
+                val title = parts[1]
+                val body = parts[2]
+                
+                AlertDialog(
+                    onDismissRequest = { viewNoteToShow = null },
+                    containerColor = BrandBg,
+                    title = {
+                        Text(text = title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                    },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+                            Text(text = body, fontSize = 13.sp, color = Color(0xFFE2E4E9), lineHeight = 18.sp)
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(text = "Created At: $timestamp", fontSize = 10.sp, color = Color(0xFF8B92A5))
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                viewNoteToShow = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
+                        ) {
+                            Text("OK", color = Color.White)
+                        }
+                    }
+                )
+            }
+        }
     }
 
         // Floating Action Button for active media/notes/documents sections!
@@ -4124,17 +6438,10 @@ fun VaultTabContent(
                                 showAddNoteDialog = true
                             }
                             "Photos & Videos" -> {
-                                val intent = android.content.Intent(
-                                    android.content.Intent.ACTION_PICK,
-                                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-                                ).apply {
-                                    type = "image/* video/*"
-                                    putExtra(android.content.Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
-                                }
-                                photoPickerLauncher.launch(intent)
+                                showMediaAddOptions = true
                             }
                             "Documents" -> {
-                                documentPickerLauncher.launch("*/*")
+                                showDocAddOptions = true
                             }
                         }
                     },
@@ -4154,8 +6461,8 @@ fun VaultTabContent(
                         Text(
                             text = when (activeSection) {
                                 "Notes" -> "Add Note"
-                                "Photos & Videos" -> "Import Media"
-                                else -> "Import File"
+                                "Photos & Videos" -> "Add Media"
+                                else -> "Add Document"
                             },
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
@@ -4163,6 +6470,115 @@ fun VaultTabContent(
                     }
                 }
             }
+        }
+
+        if (showMediaAddOptions) {
+            AlertDialog(
+                onDismissRequest = { showMediaAddOptions = false },
+                title = { Text("Secure Media", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Choose how you want to secure media into your vault:", color = TextMedium, fontSize = 13.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        // Option 1: Built-in Camera
+                        Button(
+                            onClick = {
+                                showMediaAddOptions = false
+                                activeCameraMode = "camera"
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = "Camera")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Use Built-in Camera", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+
+                        // Option 2: Gallery import
+                        OutlinedButton(
+                            onClick = {
+                                showMediaAddOptions = false
+                                val intent = android.content.Intent(
+                                    android.content.Intent.ACTION_PICK,
+                                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                                ).apply {
+                                    type = "image/* video/*"
+                                    putExtra(android.content.Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
+                                }
+                                photoPickerLauncher.launch(intent)
+                            },
+                            border = BorderStroke(1.dp, ThemePurple),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Icon(Icons.Default.PhotoLibrary, contentDescription = "Gallery", tint = ThemePurple)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Import from Gallery", fontWeight = FontWeight.Bold, color = ThemePurple)
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showMediaAddOptions = false }) {
+                        Text("Cancel", color = TextMedium)
+                    }
+                },
+                containerColor = Color(0xFF0F1322),
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+
+        if (showDocAddOptions) {
+            AlertDialog(
+                onDismissRequest = { showDocAddOptions = false },
+                title = { Text("Secure Document", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Choose how you want to secure documents into your vault:", color = TextMedium, fontSize = 13.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        // Option 1: Document Scanner
+                        Button(
+                            onClick = {
+                                showDocAddOptions = false
+                                activeCameraMode = "scanner"
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Icon(Icons.Default.DocumentScanner, contentDescription = "Scanner")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Use Document Scanner", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+
+                        // Option 2: Document file import
+                        OutlinedButton(
+                            onClick = {
+                                showDocAddOptions = false
+                                documentPickerLauncher.launch("*/*")
+                            },
+                            border = BorderStroke(1.dp, ThemePurple),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Icon(Icons.Default.UploadFile, contentDescription = "Import", tint = ThemePurple)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Import Document File", fontWeight = FontWeight.Bold, color = ThemePurple)
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showDocAddOptions = false }) {
+                        Text("Cancel", color = TextMedium)
+                    }
+                },
+                containerColor = Color(0xFF0F1322),
+                shape = RoundedCornerShape(16.dp)
+            )
         }
 
     // Private Secure Plain Text Viewer Dialog
@@ -4213,6 +6629,58 @@ fun VaultTabContent(
             )
         }
 
+    }
+
+    if (pendingUnlockAction != null) {
+        var folderPin by remember { mutableStateOf("") }
+        var folderPinError by remember { mutableStateOf(false) }
+        val folderName = pendingUnlockAction!!.first
+        val action = pendingUnlockAction!!.second
+        AlertDialog(
+            onDismissRequest = { pendingUnlockAction = null },
+            title = { Text("Unlock Folder", color = TextDark) },
+            text = {
+                Column {
+                    Text("Enter vault passcode to access '$folderName'", color = TextMedium, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = folderPin,
+                        onValueChange = { folderPin = it; folderPinError = false },
+                        isError = folderPinError,
+                        keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextDark,
+                            unfocusedTextColor = TextDark,
+                            focusedBorderColor = ThemePurple,
+                            cursorColor = ThemePurple
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (viewModel.verifyFolderPin(folderPin)) {
+                            action()
+                            pendingUnlockAction = null
+                        } else {
+                            folderPinError = true
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
+                ) {
+                    Text("Unlock")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingUnlockAction = null }) {
+                    Text("Cancel", color = ThemePurple)
+                }
+            },
+            containerColor = Color.White
+        )
     }
 
     // New Note Dialog// New Note Dialog
@@ -4614,6 +7082,17 @@ fun VaultTabContent(
         )
     }
 
+    if (activeCameraMode == "camera") {
+        SecureCameraView(
+            viewModel = viewModel,
+            onDismiss = { activeCameraMode = null }
+        )
+    } else if (activeCameraMode == "scanner") {
+        SecureScannerView(
+            viewModel = viewModel,
+            onDismiss = { activeCameraMode = null }
+        )
+    }
 }
 
 @Composable
@@ -4668,6 +7147,7 @@ fun createPrivateWebView(
     ctx: android.content.Context,
     tabId: String,
     initialUrl: String,
+    onDownloadRequested: (url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long) -> Unit,
     onUpdate: ((TabState) -> TabState) -> Unit
 ): android.webkit.WebView {
     return android.webkit.WebView(ctx).apply {
@@ -4688,6 +7168,10 @@ fun createPrivateWebView(
             loadWithOverviewMode = true
             builtInZoomControls = true
             displayZoomControls = false
+        }
+
+        setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+            onDownloadRequested(url, userAgent, contentDisposition, mimetype, contentLength)
         }
 
         val cookieManager = android.webkit.CookieManager.getInstance()
@@ -4796,6 +7280,7 @@ fun clearAllBrowsingData(
 @Composable
 fun PrivateBrowserSection(
     modifier: Modifier = Modifier,
+    viewModel: CalculatorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     onExit: () -> Unit = {},
     onPanic: () -> Unit = {}
 ) {
@@ -4805,13 +7290,22 @@ fun PrivateBrowserSection(
     var activeTabId by remember { mutableStateOf<String?>(null) }
     var safeSearchOff by remember { mutableStateOf(true) }
     var showTabSwitcher by remember { mutableStateOf(false) }
+    var showDownloadsDialog by remember { mutableStateOf(false) }
 
     val openNewTab: (String) -> Unit = { url ->
         val tabId = java.util.UUID.randomUUID().toString()
         val newTab = TabState(id = tabId, url = url, title = "New Tab")
         tabs.add(newTab)
         
-        val webView = createPrivateWebView(context, tabId, url) { transform ->
+        val webView = createPrivateWebView(
+            ctx = context,
+            tabId = tabId,
+            initialUrl = url,
+            onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+                viewModel.startVaultDownload(context, downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                showDownloadsDialog = true
+            }
+        ) { transform ->
             val index = tabs.indexOfFirst { it.id == tabId }
             if (index != -1) {
                 tabs[index] = transform(tabs[index])
@@ -4822,6 +7316,12 @@ fun PrivateBrowserSection(
     }
 
     LaunchedEffect(Unit) {
+        try {
+            val cookieManager = android.webkit.CookieManager.getInstance()
+            cookieManager.removeAllCookies(null)
+            cookieManager.flush()
+            android.webkit.WebStorage.getInstance().deleteAllData()
+        } catch (e: Exception) {}
         if (tabs.isEmpty()) {
             openNewTab("https://duckduckgo.com")
         }
@@ -4883,6 +7383,7 @@ fun PrivateBrowserSection(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -4897,7 +7398,7 @@ fun PrivateBrowserSection(
                         )
                     }
 
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -4909,29 +7410,34 @@ fun PrivateBrowserSection(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "Ghost Private Browser",
+                                text = "Ghost Browser",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = Color.White
+                                fontSize = 13.sp,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                         Text(
-                            text = "Zero-Trace • Sandbox Mode",
-                            fontSize = 10.sp,
-                            color = TextMedium
+                            text = "Zero-Trace Sandbox",
+                            fontSize = 9.sp,
+                            color = TextMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(start = 4.dp)
                 ) {
                     IconButton(
                         onClick = {
                             clearAllBrowsingData(context, tabs, webViews)
                             openNewTab("https://duckduckgo.com")
-                            android.widget.Toast.makeText(context, "All traces of browsing data wiped!", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(context, "All cookies and browsing cache wiped!", android.widget.Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier
                             .size(38.dp)
@@ -5070,6 +7576,46 @@ fun PrivateBrowserSection(
                         tint = if (safeSearchOff) Color(0xFFFF9800) else Color(0xFF4CAF50),
                         modifier = Modifier.size(18.dp)
                     )
+                }
+
+                // Secure Downloads Manager Badge Button
+                val downloadsList by viewModel.downloads.collectAsState()
+                val activeDownloadsCount = downloadsList.count { it.status == "Downloading" }
+                
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0xFF1F1F26), RoundedCornerShape(8.dp))
+                        .clickable { showDownloadsDialog = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FileDownload,
+                        contentDescription = "Downloads Manager",
+                        tint = if (activeDownloadsCount > 0) ThemePurple else Color.LightGray,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    
+                    if (downloadsList.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 2.dp, y = (-2).dp)
+                                .size(14.dp)
+                                .background(
+                                    if (activeDownloadsCount > 0) ThemePurple else Color(0xFF4CAF50),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = downloadsList.size.toString(),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
                 }
 
                 Box(
@@ -5298,6 +7844,179 @@ fun PrivateBrowserSection(
                 }
             }
         }
+
+        // --- SECURE DOWNLOADS MANAGER DIALOG ---
+        if (showDownloadsDialog) {
+            val downloadsList by viewModel.downloads.collectAsState()
+            
+            AlertDialog(
+                onDismissRequest = { showDownloadsDialog = false },
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FileDownload,
+                            contentDescription = "Downloads",
+                            tint = ThemePurple
+                        )
+                        Text(
+                            text = "Private Vault Downloads",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "All files are downloaded directly into your encrypted Vault. No trace is left in your device's public download directories.",
+                            fontSize = 11.sp,
+                            color = TextMedium
+                        )
+                        
+                        if (downloadsList.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(140.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CloudQueue,
+                                        contentDescription = "No downloads",
+                                        tint = Color.Gray.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(40.dp)
+                                    )
+                                    Text(
+                                        text = "No downloads in this session",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .heightIn(max = 280.dp)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(downloadsList) { task ->
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFF141419)),
+                                        border = BorderStroke(1.dp, ThemeContainerBorder)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(10.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = task.filename,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Text(
+                                                        text = "${task.sizeString} • ${task.status}",
+                                                        fontSize = 10.sp,
+                                                        color = if (task.status == "Completed") Color(0xFF4CAF50) else if (task.status == "Failed") Color.Red else TextMedium
+                                                    )
+                                                }
+                                                
+                                                IconButton(
+                                                    onClick = { viewModel.removeDownload(task.id) },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Close,
+                                                        contentDescription = "Remove task",
+                                                        tint = Color.Gray,
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                }
+                                            }
+                                            
+                                            if (task.status == "Downloading") {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    LinearProgressIndicator(
+                                                        progress = { task.progress },
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .height(4.dp)
+                                                            .clip(RoundedCornerShape(2.dp)),
+                                                        color = ThemePurple,
+                                                        trackColor = Color(0xFF22222A)
+                                                    )
+                                                    Text(
+                                                        text = "${(task.progress * 100).toInt()}%",
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = ThemePurple
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (downloadsList.isNotEmpty()) {
+                            Button(
+                                onClick = { viewModel.clearDownloads() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.15f), contentColor = Color.Red),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Clear All", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Button(
+                            onClick = { showDownloadsDialog = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Dismiss", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                },
+                containerColor = Color(0xFF0C0C10),
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
     }
 }
 
@@ -5436,3 +8155,70 @@ fun AppLockSection(viewModel: CalculatorViewModel) {
         }
     }
 }
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun CustomFolderChip(
+    selected: Boolean,
+    label: String,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    isLocked: Boolean = false,
+    onDelete: (() -> Unit)? = null
+) {
+    Surface(
+        color = if (selected) ThemePurple else Color(0xFF1B2031),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, if (selected) ThemePurple else ThemeContainerBorder.copy(alpha = 0.2f)),
+        modifier = Modifier.combinedClickable(
+            onClick = onClick,
+            onLongClick = onLongClick
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            if (isLocked) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Locked",
+                    tint = Color(0xFFFFD600),
+                    modifier = Modifier.size(11.dp)
+                )
+            }
+            Text(
+                text = label,
+                color = Color.White,
+                fontSize = 11.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+            )
+            if (onDelete != null) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Delete",
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clickable { onDelete() }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StorageCategoryItem(color: Color, label: String, sizeStr: String, count: Int) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
+        Column {
+            Text(text = label, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+            Text(text = "$sizeStr ($count items)", fontSize = 9.sp, color = Color(0xFF8B92A5))
+        }
+    }
+}
+
