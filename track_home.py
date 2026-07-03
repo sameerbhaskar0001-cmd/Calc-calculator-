@@ -1,0 +1,11 @@
+with open("app/src/main/java/com/example/CalculatorScreen.kt", "r") as f:
+    lines = f.readlines()
+
+depth = 6
+for i in range(2925, 3434):
+    line = lines[i]
+    depth += line.count("{")
+    depth -= line.count("}")
+    if depth < 6:
+        print(f"Depth dropped to {depth} at line {i+1}: {line.strip()}")
+        break

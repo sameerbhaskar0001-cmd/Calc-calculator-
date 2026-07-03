@@ -37,7 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -81,7 +81,7 @@ fun SecureCameraView(
     var videoCapture: VideoCapture<Recorder>? by remember { mutableStateOf(null) }
     var camera: androidx.camera.core.Camera? by remember { mutableStateOf(null) }
 
-    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    val cameraProviderFuture = remember { try { CameraInitializer.initAndGetProvider(context) } catch (e: Exception) { null } }
 
     // Handle permissions natively
     val permissionsLauncher = rememberLauncherForActivityResult(
@@ -146,7 +146,7 @@ fun SecureCameraView(
             modifier = Modifier.fillMaxSize(),
             update = { previewView ->
                 val cameraProvider = try {
-                    cameraProviderFuture.get()
+                    cameraProviderFuture?.get() ?: return@AndroidView
                 } catch (e: Exception) {
                     return@AndroidView
                 }
@@ -450,7 +450,7 @@ fun SecureScannerView(
 
     // Use cases references
     var imageCapture: ImageCapture? by remember { mutableStateOf(null) }
-    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    val cameraProviderFuture = remember { try { CameraInitializer.initAndGetProvider(context) } catch (e: Exception) { null } }
 
     // Handle permissions natively
     val permissionsLauncher = rememberLauncherForActivityResult(
@@ -498,7 +498,7 @@ fun SecureScannerView(
                 modifier = Modifier.fillMaxSize(),
                 update = { previewView ->
                     val cameraProvider = try {
-                        cameraProviderFuture.get()
+                        cameraProviderFuture?.get() ?: return@AndroidView
                     } catch (e: Exception) {
                         return@AndroidView
                     }

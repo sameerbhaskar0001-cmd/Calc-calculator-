@@ -1,0 +1,11 @@
+with open("app/src/main/java/com/example/CalculatorScreen.kt", "r") as f:
+    lines = f.readlines()
+
+depth = 0
+for i in range(2688, 7250):
+    line = lines[i]
+    depth += line.count("{")
+    depth -= line.count("}")
+    if depth == 0:
+        print(f"Box depth hits 0 at line {i+1}: {line.strip()}")
+        break

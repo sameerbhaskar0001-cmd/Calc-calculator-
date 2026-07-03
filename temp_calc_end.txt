@@ -1,0 +1,150 @@
+  8233	                text = "${lockedApps.size} Locked",
+  8234	                fontSize = 12.sp,
+  8235	                fontWeight = FontWeight.Bold,
+  8236	                color = Color.Red
+  8237	            )
+  8238	        }
+  8239	
+  8240	        Spacer(modifier = Modifier.height(8.dp))
+  8241	
+  8242	        if (appsList.isEmpty()) {
+  8243	            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+  8244	                Text("No dynamic launcher apps found on device", fontSize = 11.sp, color = TextMedium)
+  8245	            }
+  8246	        } else {
+  8247	            LazyColumn(
+  8248	                modifier = Modifier
+  8249	                    .fillMaxWidth()
+  8250	                    .weight(1f),
+  8251	                verticalArrangement = Arrangement.spacedBy(8.dp)
+  8252	            ) {
+  8253	                items(appsList) { (label, pkgName, icon) ->
+  8254	                    val isLocked = lockedApps.contains(pkgName)
+  8255	                    Card(
+  8256	                        modifier = Modifier.fillMaxWidth(),
+  8257	                        shape = RoundedCornerShape(12.dp),
+  8258	                        colors = CardDefaults.cardColors(containerColor = Color.White),
+  8259	                        border = BorderStroke(1.dp, if (isLocked) Color.Red.copy(alpha = 0.3f) else ThemeContainerBorder)
+  8260	                    ) {
+  8261	                        Row(
+  8262	                            modifier = Modifier
+  8263	                                .fillMaxWidth()
+  8264	                                .padding(12.dp),
+  8265	                            verticalAlignment = Alignment.CenterVertically,
+  8266	                            horizontalArrangement = Arrangement.SpaceBetween
+  8267	                        ) {
+  8268	                            Row(
+  8269	                                verticalAlignment = Alignment.CenterVertically,
+  8270	                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+  8271	                                modifier = Modifier.weight(1f)
+  8272	                            ) {
+  8273	                                AndroidView(
+  8274	                                    factory = { ctx ->
+  8275	                                        android.widget.ImageView(ctx).apply {
+  8276	                                            setImageDrawable(icon)
+  8277	                                        }
+  8278	                                    },
+  8279	                                    modifier = Modifier.size(36.dp)
+  8280	                                )
+  8281	                                Column {
+  8282	                                    Text(
+  8283	                                        text = label,
+  8284	                                        fontWeight = FontWeight.Bold,
+  8285	                                        fontSize = 13.sp,
+  8286	                                        color = TextDark
+  8287	                                    )
+  8288	                                    Text(
+  8289	                                        text = pkgName,
+  8290	                                        fontSize = 10.sp,
+  8291	                                        color = TextMedium
+  8292	                                    )
+  8293	                                }
+  8294	                            }
+  8295	
+  8296	                            Switch(
+  8297	                                checked = isLocked,
+  8298	                                onCheckedChange = {
+  8299	                                    viewModel.triggerKeypressEffects(context)
+  8300	                                    viewModel.toggleAppLock(pkgName)
+  8301	                                },
+  8302	                                colors = SwitchDefaults.colors(
+  8303	                                    checkedThumbColor = Color.White,
+  8304	                                    checkedTrackColor = Color.Red,
+  8305	                                    uncheckedThumbColor = Color.White,
+  8306	                                    uncheckedTrackColor = Color.LightGray
+  8307	                                )
+  8308	                            )
+  8309	                        }
+  8310	                    }
+  8311	                }
+  8312	            }
+  8313	        }
+  8314	    }
+  8315	}
+  8316	
+  8317	@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+  8318	@Composable
+  8319	fun CustomFolderChip(
+  8320	    selected: Boolean,
+  8321	    label: String,
+  8322	    onClick: () -> Unit,
+  8323	    onLongClick: (() -> Unit)? = null,
+  8324	    isLocked: Boolean = false,
+  8325	    onDelete: (() -> Unit)? = null
+  8326	) {
+  8327	    Surface(
+  8328	        color = if (selected) ThemePurple else Color(0xFF1B2031),
+  8329	        shape = RoundedCornerShape(16.dp),
+  8330	        border = BorderStroke(1.dp, if (selected) ThemePurple else ThemeContainerBorder.copy(alpha = 0.2f)),
+  8331	        modifier = Modifier.combinedClickable(
+  8332	            onClick = onClick,
+  8333	            onLongClick = onLongClick
+  8334	        )
+  8335	    ) {
+  8336	        Row(
+  8337	            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+  8338	            verticalAlignment = Alignment.CenterVertically,
+  8339	            horizontalArrangement = Arrangement.spacedBy(4.dp)
+  8340	        ) {
+  8341	            if (isLocked) {
+  8342	                Icon(
+  8343	                    imageVector = Icons.Default.Lock,
+  8344	                    contentDescription = "Locked",
+  8345	                    tint = Color(0xFFFFD600),
+  8346	                    modifier = Modifier.size(11.dp)
+  8347	                )
+  8348	            }
+  8349	            Text(
+  8350	                text = label,
+  8351	                color = Color.White,
+  8352	                fontSize = 11.sp,
+  8353	                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+  8354	            )
+  8355	            if (onDelete != null) {
+  8356	                Icon(
+  8357	                    imageVector = Icons.Default.Close,
+  8358	                    contentDescription = "Delete",
+  8359	                    tint = Color.White.copy(alpha = 0.6f),
+  8360	                    modifier = Modifier
+  8361	                        .size(14.dp)
+  8362	                        .clickable { onDelete() }
+  8363	                )
+  8364	            }
+  8365	        }
+  8366	    }
+  8367	}
+  8368	
+  8369	@Composable
+  8370	fun StorageCategoryItem(color: Color, label: String, sizeStr: String, count: Int) {
+  8371	    Row(
+  8372	        verticalAlignment = Alignment.CenterVertically,
+  8373	        horizontalArrangement = Arrangement.spacedBy(6.dp)
+  8374	    ) {
+  8375	        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
+  8376	        Column {
+  8377	            Text(text = label, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+  8378	            Text(text = "$sizeStr ($count items)", fontSize = 9.sp, color = Color(0xFF8B92A5))
+  8379	        }
+  8380	    }
+  8381	}
+  8382	
