@@ -765,7 +765,7 @@ fun CalculatorTabContent(
                                     text = "${targetCurrency.symbol}${df.format(convertedTargetVal)}",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF21005D)
+                                    color = TextDark
                                 )
                             }
                         }
@@ -1102,7 +1102,7 @@ fun ExchangeTabContent(
                     )
                     Text(
                         text = "Rate: 1 ${sourceCurrency.code} = ${String.format(Locale.US, "%.4f", rate)} ${targetCurrency.code}",
-                        color = Color(0xFF21005D),
+                        color = TextDark,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -1326,7 +1326,7 @@ fun ExchangeTabContent(
                     ) {
                         Text(
                             text = "+ $symbol$formatted",
-                            color = Color(0xFF21005D),
+                            color = TextDark,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -1786,7 +1786,7 @@ fun RatesHistoryTabContent(
                                 text = "1 ${sourceCurrency.code} = ${String.format(Locale.US, "%.4f", rate)} ${targetCurrency.code}",
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF21005D)
+                                color = TextDark
                             )
                             Text(
                                 text = "Last auto-synced: $lastUpdated\nClick to set a custom override",
@@ -2020,7 +2020,7 @@ fun FolderCard(
                     Text(
                         text = subtitle,
                         fontSize = 11.sp,
-                        color = Color(0xFF8B92A5)
+                        color = TextMedium
                     )
                 }
             }
@@ -2080,7 +2080,7 @@ fun ExploreGridCard(
                 Text(
                     text = subtitle,
                     fontSize = 9.sp,
-                    color = Color(0xFF8B92A5)
+                    color = TextMedium
                 )
             }
         }
@@ -2101,7 +2101,7 @@ fun SettingsGroup(
             text = title,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF8B92A5),
+            color = TextMedium,
             modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
         )
         Card(
@@ -2167,7 +2167,7 @@ fun SettingsActionRow(
                     Text(
                         text = subtitle,
                         fontSize = 10.sp,
-                        color = Color(0xFF8B92A5),
+                        color = TextMedium,
                         lineHeight = 13.sp
                     )
                 }
@@ -2237,7 +2237,7 @@ fun SettingsSwitchRow(
                     Text(
                         text = subtitle,
                         fontSize = 10.sp,
-                        color = Color(0xFF8B92A5),
+                        color = TextMedium,
                         lineHeight = 13.sp
                     )
                 }
@@ -2373,7 +2373,7 @@ fun VaultTabLockedContent(
                 Text(
                     text = "Enter the secret passcode to unlock your private space.",
                     fontSize = 12.sp,
-                    color = Color(0xFF8B92A5),
+                    color = TextMedium,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
@@ -2971,7 +2971,7 @@ fun VaultTabUnlockedContent(
                                         Text(
                                             text = "Protect apps",
                                             fontSize = 10.sp,
-                                            color = Color(0xFF8B92A5)
+                                            color = TextMedium
                                         )
                                     }
                                 }
@@ -3019,7 +3019,7 @@ fun VaultTabUnlockedContent(
                                         Text(
                                             text = "Secure features",
                                             fontSize = 10.sp,
-                                            color = Color(0xFF8B92A5)
+                                            color = TextMedium
                                         )
                                     }
                                 }
@@ -3134,7 +3134,7 @@ fun VaultTabUnlockedContent(
                                     text = "Recently Opened",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF8B92A5),
+                                    color = TextMedium,
                                     modifier = Modifier.padding(top = 4.dp)
                                 )
                                 LazyRow(
@@ -3234,7 +3234,7 @@ fun VaultTabUnlockedContent(
                                                     Text(
                                                         text = if (item.type == "note") "Note" else "File",
                                                         fontSize = 8.sp,
-                                                        color = Color(0xFF8B92A5)
+                                                        color = TextMedium
                                                     )
                                                 }
                                             }
@@ -3254,7 +3254,7 @@ fun VaultTabUnlockedContent(
                                 text = "All Folders",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF8B92A5)
+                                color = TextMedium
                             )
                             Icon(
                                 imageVector = Icons.Default.Sort,
@@ -3462,7 +3462,7 @@ fun VaultTabUnlockedContent(
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text("No Activity", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("Items added to your vault will appear here", color = Color.Gray, fontSize = 14.sp)
+                                Text("Items added to your vault will appear here", color = TextMedium, fontSize = 14.sp)
                             }
                         }
                     } else {
@@ -3528,7 +3528,7 @@ fun VaultTabUnlockedContent(
                                             Spacer(modifier = Modifier.height(2.dp))
                                             Text(
                                                 text = timestamp,
-                                                color = Color(0xFF8B92A5),
+                                                color = TextMedium,
                                                 fontSize = 12.sp
                                             )
                                         }
@@ -3631,7 +3631,9 @@ fun VaultTabUnlockedContent(
                         if (filteredNotes.isEmpty()) {
                             EmptyVaultSectionState(
                                 title = "No Secure Notes",
-                                description = "Tap 'Add Note' to save password credentials or personal journals safely."
+                                description = "Tap 'Add Note' to save password credentials or personal journals safely.",
+                                actionLabel = "Add Note",
+                                onActionClick = { showAddNoteDialog = true }
                             )
                         } else {
                             LazyColumn(
@@ -3728,7 +3730,7 @@ fun VaultTabUnlockedContent(
                                                 Text(
                                                     text = body,
                                                     fontSize = 12.sp,
-                                                    color = Color(0xFF8B92A5),
+                                                    color = TextMedium,
                                                     lineHeight = 16.sp,
                                                     maxLines = 3,
                                                     overflow = TextOverflow.Ellipsis
@@ -4106,7 +4108,7 @@ fun VaultTabUnlockedContent(
                                                         Text(
                                                             text = "$sizeStr • $timestamp",
                                                             fontSize = 10.sp,
-                                                            color = Color(0xFF8B92A5)
+                                                            color = TextMedium
                                                         )
                                                     }
 
@@ -4304,7 +4306,7 @@ fun VaultTabUnlockedContent(
                                                         )
                                                         Text(
                                                             text = sizeStr,
-                                                            color = Color(0xFF8B92A5),
+                                                            color = TextMedium,
                                                             fontSize = 9.sp
                                                         )
                                                     }
@@ -4424,7 +4426,7 @@ fun VaultTabUnlockedContent(
                                                         Text(
                                                             text = "$sizeStr • $timestamp",
                                                             fontSize = 10.sp,
-                                                            color = Color(0xFF8B92A5)
+                                                            color = TextMedium
                                                         )
                                                     }
 
@@ -4681,7 +4683,7 @@ fun VaultTabUnlockedContent(
                                                         )
                                                         Text(
                                                             text = sizeStr,
-                                                            color = Color(0xFF8B92A5),
+                                                            color = TextMedium,
                                                             fontSize = 9.sp
                                                         )
                                                     }
@@ -4801,7 +4803,7 @@ fun VaultTabUnlockedContent(
                                                         Text(
                                                             text = "$sizeStr • $timestamp",
                                                             fontSize = 10.sp,
-                                                            color = Color(0xFF8B92A5)
+                                                            color = TextMedium
                                                         )
                                                     }
 
@@ -4999,7 +5001,7 @@ fun VaultTabUnlockedContent(
                             text = "Security Toolbox",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF8B92A5)
+                            color = TextMedium
                         )
 
                         LazyVerticalGrid(
@@ -5192,7 +5194,7 @@ fun VaultTabUnlockedContent(
                                                     Text(
                                                         text = "Deleted: $deletedDate • $sizeStr",
                                                         fontSize = 10.sp,
-                                                        color = Color(0xFF8B92A5)
+                                                        color = TextMedium
                                                     )
                                                     Spacer(modifier = Modifier.height(2.dp))
                                                     Text(
@@ -5299,7 +5301,7 @@ fun VaultTabUnlockedContent(
                                 Text(
                                     text = "Configure your secret numerical passcodes. Entering your real passcode unlocks your private vault. Entering your decoy passcode opens a completely empty guest vault.",
                                     fontSize = 11.sp,
-                                    color = Color(0xFF8B92A5),
+                                    color = TextMedium,
                                     lineHeight = 15.sp
                                 )
 
@@ -5317,7 +5319,7 @@ fun VaultTabUnlockedContent(
                                                 realPasscodeInput = input
                                             }
                                         },
-                                        placeholder = { Text("e.g. 7777", fontSize = 12.sp, color = Color(0xFF8B92A5)) },
+                                        placeholder = { Text("e.g. 7777", fontSize = 12.sp, color = TextMedium) },
                                         singleLine = true,
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         colors = OutlinedTextFieldDefaults.colors(
@@ -5344,7 +5346,7 @@ fun VaultTabUnlockedContent(
                                                 decoyPasscodeInput = input
                                             }
                                         },
-                                        placeholder = { Text("e.g. 1111", fontSize = 12.sp, color = Color(0xFF8B92A5)) },
+                                        placeholder = { Text("e.g. 1111", fontSize = 12.sp, color = TextMedium) },
                                         singleLine = true,
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         colors = OutlinedTextFieldDefaults.colors(
@@ -5928,7 +5930,7 @@ fun VaultTabUnlockedContent(
                                                 )
                                                 Spacer(modifier = Modifier.height(16.dp))
                                                 Text("Secure PDF Document", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                                Text("$sizeStr • $timestamp", color = Color.Gray, fontSize = 12.sp)
+                                                Text("$sizeStr • $timestamp", color = TextMedium, fontSize = 12.sp)
                                             }
                                         }
                                     } else if (mimeType.startsWith("audio/") || mimeType.startsWith("music/")) {
@@ -6039,12 +6041,12 @@ fun VaultTabUnlockedContent(
                                             ) {
                                                 Text(
                                                     text = formatDuration(currentPosition.toInt()),
-                                                    color = Color.Gray,
+                                                    color = TextMedium,
                                                     fontSize = 12.sp
                                                 )
                                                 Text(
                                                     text = formatDuration(duration.toInt()),
-                                                    color = Color.Gray,
+                                                    color = TextMedium,
                                                     fontSize = 12.sp
                                                 )
                                             }
@@ -6130,7 +6132,7 @@ fun VaultTabUnlockedContent(
                                             )
                                             Spacer(modifier = Modifier.height(16.dp))
                                             Text(originalName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                            Text("$sizeStr • $mimeType", color = Color.Gray, fontSize = 12.sp)
+                                            Text("$sizeStr • $mimeType", color = TextMedium, fontSize = 12.sp)
                                         }
                                     }
                                 }
@@ -6249,27 +6251,30 @@ fun VaultTabUnlockedContent(
                     }
                 }
             }
+        }
 
             // 1. Create Folder Dialog
             if (showCreateFolderDialog) {
                 AlertDialog(
                 onDismissRequest = { showCreateFolderDialog = false },
                 containerColor = BrandBg,
-                title = { Text("Create New Folder", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+                title = { Text("Create New Folder", color = TextDark, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Enter a unique folder name to organize your vault content:", color = Color(0xFF8B92A5), fontSize = 12.sp)
+                        Text("Enter a unique folder name to organize your vault content:", color = TextMedium, fontSize = 12.sp)
                         OutlinedTextField(
                             value = newFolderName,
                             onValueChange = { newFolderName = it },
-                            placeholder = { Text("Folder Name", color = Color.Gray) },
-                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            placeholder = { Text("Folder Name", color = TextMedium) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = TextDark),
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = ThemePurple,
                                 unfocusedBorderColor = ThemeContainerBorder.copy(alpha = 0.2f),
-                                focusedContainerColor = Color(0xFF1B2031),
-                                unfocusedContainerColor = Color(0xFF1B2031)
+                                focusedContainerColor = KeypadBg,
+                                unfocusedContainerColor = KeypadBg,
+                                focusedTextColor = TextDark,
+                                unfocusedTextColor = TextDark
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -6298,7 +6303,7 @@ fun VaultTabUnlockedContent(
                         showCreateFolderDialog = false
                         newFolderName = ""
                     }) {
-                        Text("Cancel", color = Color.Gray)
+                        Text("Cancel", color = TextMedium)
                     }
                 }
             )
@@ -6315,7 +6320,7 @@ fun VaultTabUnlockedContent(
                 title = { Text("Move to Folder", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Select a destination folder or remove from current folder:", color = Color(0xFF8B92A5), fontSize = 12.sp)
+                        Text("Select a destination folder or remove from current folder:", color = TextMedium, fontSize = 12.sp)
                         
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.heightIn(max = 240.dp)) {
                             item {
@@ -6380,7 +6385,7 @@ fun VaultTabUnlockedContent(
                         viewModel.triggerKeypressEffects(context)
                         showMoveToFolderDialog = null
                     }) {
-                        Text("Close", color = Color.Gray)
+                        Text("Close", color = TextMedium)
                     }
                 }
             )
@@ -6407,7 +6412,7 @@ fun VaultTabUnlockedContent(
                 title = {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Global Vault Search", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text("Locate any photo, video, document, or note instantly", color = Color(0xFF8B92A5), fontSize = 11.sp)
+                        Text("Locate any photo, video, document, or note instantly", color = TextMedium, fontSize = 11.sp)
                     }
                 },
                 text = {
@@ -6415,22 +6420,24 @@ fun VaultTabUnlockedContent(
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search title, body, original filename...", color = Color.Gray, fontSize = 12.sp) },
+                            placeholder = { Text("Search title, body, original filename...", color = TextMedium, fontSize = 12.sp) },
                             textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 13.sp),
                             singleLine = true,
                             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = ThemePurple,
                                 unfocusedBorderColor = ThemeContainerBorder.copy(alpha = 0.2f),
-                                focusedContainerColor = Color(0xFF1B2031),
-                                unfocusedContainerColor = Color(0xFF1B2031)
+                                focusedContainerColor = KeypadBg,
+                                unfocusedContainerColor = KeypadBg,
+                                focusedTextColor = TextDark,
+                                unfocusedTextColor = TextDark
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
                         
                         if (searchQuery.trim().isNotEmpty() && matchedNotes.isEmpty() && matchedFiles.isEmpty()) {
                             Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                Text("No matching records found", color = Color(0xFF8B92A5), fontSize = 12.sp)
+                                Text("No matching records found", color = TextMedium, fontSize = 12.sp)
                             }
                         } else {
                             LazyColumn(
@@ -6463,7 +6470,7 @@ fun VaultTabUnlockedContent(
                                                     Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                 }
                                                 Spacer(modifier = Modifier.height(2.dp))
-                                                Text(body, color = Color(0xFF8B92A5), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                Text(body, color = TextMedium, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             }
                                         }
                                     }
@@ -6509,7 +6516,7 @@ fun VaultTabUnlockedContent(
                                                 )
                                                 Column(modifier = Modifier.weight(1f)) {
                                                     Text(originalName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                    Text(sizeStr, color = Color(0xFF8B92A5), fontSize = 10.sp)
+                                                    Text(sizeStr, color = TextMedium, fontSize = 10.sp)
                                                 }
                                             }
                                         }
@@ -6525,7 +6532,7 @@ fun VaultTabUnlockedContent(
                         viewModel.triggerKeypressEffects(context)
                         showSearchDialog = false
                     }) {
-                        Text("Close", color = Color.Gray)
+                        Text("Close", color = TextMedium)
                     }
                 }
             )
@@ -6550,7 +6557,7 @@ fun VaultTabUnlockedContent(
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
                             Text(text = body, fontSize = 13.sp, color = Color(0xFFE2E4E9), lineHeight = 18.sp)
                             Spacer(modifier = Modifier.height(10.dp))
-                            Text(text = "Created At: $timestamp", fontSize = 10.sp, color = Color(0xFF8B92A5))
+                            Text(text = "Created At: $timestamp", fontSize = 10.sp, color = TextMedium)
                         }
                     },
                     confirmButton = {
@@ -6569,7 +6576,7 @@ fun VaultTabUnlockedContent(
         }
 
         // Floating Action Button for active media/notes/documents sections!
-        if (activeSection == "Notes" || activeSection == "Photos & Videos" || activeSection == "Documents") {
+        if (activeSection == "Notes" || activeSection == "Photos & Videos" || activeSection == "Documents" || activeSection == "Music & Audio") {
             Box(
                 modifier = Modifier.fillMaxSize().padding(24.dp),
                 contentAlignment = Alignment.BottomEnd
@@ -6586,6 +6593,9 @@ fun VaultTabUnlockedContent(
                             }
                             "Documents" -> {
                                 showDocAddOptions = true
+                            }
+                            "Music & Audio" -> {
+                                audioPickerLauncher.launch("audio/*")
                             }
                         }
                     },
@@ -6606,7 +6616,8 @@ fun VaultTabUnlockedContent(
                             text = when (activeSection) {
                                 "Notes" -> "Add Note"
                                 "Photos & Videos" -> "Add Media"
-                                else -> "Add Document"
+                                "Documents" -> "Add Document"
+                                else -> "Add Audio"
                             },
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
@@ -6773,7 +6784,7 @@ fun VaultTabUnlockedContent(
             )
         }
 
-    }
+
 
     if (pendingUnlockAction != null) {
         var folderPin by remember { mutableStateOf("") }
@@ -7246,7 +7257,9 @@ fun VaultTabUnlockedContent(
 fun EmptyVaultSectionState(
     title: String,
     description: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onActionClick: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -8048,7 +8061,7 @@ fun PrivateBrowserSection(
                                     Text(
                                         text = "No downloads in this session",
                                         fontSize = 12.sp,
-                                        color = Color.Gray
+                                        color = TextMedium
                                     )
                                 }
                             }
@@ -8364,7 +8377,7 @@ fun StorageCategoryItem(color: Color, label: String, sizeStr: String, count: Int
         Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
         Column {
             Text(text = label, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-            Text(text = "$sizeStr ($count items)", fontSize = 9.sp, color = Color(0xFF8B92A5))
+            Text(text = "$sizeStr ($count items)", fontSize = 9.sp, color = TextMedium)
         }
     }
 }
