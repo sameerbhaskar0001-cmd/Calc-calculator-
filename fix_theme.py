@@ -1,17 +1,17 @@
-package com.example.ui.theme
+import re
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+with open("app/src/main/java/com/example/ui/theme/Theme.kt", "r") as f:
+    content = f.read()
 
-enum class AppTheme(val id: String, val displayName: String, val previewColor: Color) {
+# Replace Enum
+old_enum = """enum class AppTheme(val id: String, val displayName: String, val flag: String) {
+    CLASSIC_LAVENDER("classic_lavender", "Classic Neon Black", "⚡"),
+    SUNSET_ROSE("sunset_rose", "Sunset Rose", "🌅"),
+    NORDIC_EMERALD("nordic_emerald", "Nordic Emerald", "🌲"),
+    OCEAN_BREEZE("ocean_breeze", "Ocean Breeze", "🌊")
+}"""
+
+new_enum = """enum class AppTheme(val id: String, val displayName: String, val previewColor: Color) {
     DEFAULT("default", "Default", Color(0xFF4DB6AC)),
     OCEAN_BREEZE("ocean_breeze", "Ocean Breeze", Color(0xFF0EA5E9)),
     NORDIC_EMERALD("nordic_emerald", "Nordic Emerald", Color(0xFF10B981)),
@@ -19,20 +19,12 @@ enum class AppTheme(val id: String, val displayName: String, val previewColor: C
     MIDNIGHT_BLUE("midnight_blue", "Midnight Blue", Color(0xFF3B82F6)),
     GRAPHITE("graphite", "Graphite", Color(0xFFFFFFFF)),
     LAVENDER_MIST("lavender_mist", "Lavender Mist", Color(0xFF8B5CF6))
-}
+}"""
+content = content.replace(old_enum, new_enum)
 
-data class AppThemeColors(
-    val brandBg: Color,
-    val textDark: Color,
-    val textMedium: Color,
-    val themePurple: Color,
-    val themeLightPurple: Color,
-    val themeContainerBorder: Color,
-    val keypadBg: Color,
-    val digitBg: Color
-)
-
-val DefaultColors = AppThemeColors(
+# Replace Colors
+pattern_colors = re.compile(r'val ClassicLavenderColors.*?val LocalAppThemeColors', re.DOTALL)
+new_colors = """val DefaultColors = AppThemeColors(
     brandBg = Color(0xFF121212),
     textDark = Color(0xFFFFFFFF),
     textMedium = Color(0xFFAAAAAA),
@@ -109,9 +101,25 @@ val LavenderMistColors = AppThemeColors(
     digitBg = Color(0xFF2B2342)
 )
 
-val LocalAppThemeColors = androidx.compose.runtime.staticCompositionLocalOf { DefaultColors }
+val LocalAppThemeColors"""
+content = pattern_colors.sub(new_colors, content)
 
-@Composable
+# Fix composition local
+content = content.replace("staticCompositionLocalOf { ClassicLavenderColors }", "staticCompositionLocalOf { DefaultColors }")
+
+# Fix MyApplicationTheme
+old_theme_func = """@Composable
+fun MyApplicationTheme(
+  theme: AppTheme = AppTheme.CLASSIC_LAVENDER,
+  content: @Composable () -> Unit,
+) {
+  val colors = when (theme) {
+    AppTheme.CLASSIC_LAVENDER -> ClassicLavenderColors
+    AppTheme.SUNSET_ROSE -> SunsetRoseColors
+    AppTheme.NORDIC_EMERALD -> NordicEmeraldColors
+    AppTheme.OCEAN_BREEZE -> OceanBreezeColors
+  }"""
+new_theme_func = """@Composable
 fun MyApplicationTheme(
   theme: AppTheme = AppTheme.DEFAULT,
   content: @Composable () -> Unit,
@@ -124,18 +132,8 @@ fun MyApplicationTheme(
     AppTheme.MIDNIGHT_BLUE -> MidnightBlueColors
     AppTheme.GRAPHITE -> GraphiteColors
     AppTheme.LAVENDER_MIST -> LavenderMistColors
-  }
+  }"""
+content = content.replace(old_theme_func, new_theme_func)
 
-  val colorScheme = lightColorScheme(
-    primary = colors.themePurple,
-    secondary = colors.themeLightPurple,
-    tertiary = colors.themeContainerBorder,
-    background = colors.brandBg,
-    surface = colors.brandBg
-  )
-
-  androidx.compose.runtime.CompositionLocalProvider(LocalAppThemeColors provides colors) {
-    MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
-  }
-}
-
+with open("app/src/main/java/com/example/ui/theme/Theme.kt", "w") as f:
+    f.write(content)

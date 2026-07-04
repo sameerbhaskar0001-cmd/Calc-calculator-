@@ -27,8 +27,8 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.CloudQueue
 import androidx.compose.material.icons.filled.Sort
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -37,6 +37,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -104,7 +105,7 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -121,6 +122,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -263,57 +266,59 @@ fun CalculatorScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 8.dp),
+                        .padding(start = 24.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(ThemePurple),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (activeTab == ActiveTab.VAULT) Icons.Default.Lock else Icons.Default.Calculate,
-                                contentDescription = "Calculator Icon",
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Column {
-                            Text(
-                                text = if (activeTab == ActiveTab.VAULT) viewModel.t("secure_vault") else viewModel.t("app_title"),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = TextDark,
-                                letterSpacing = (-0.5).sp
-                            )
-                        }
+                        
+                        Text(
+                            text = "Calculator",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = TextMedium,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
 
-                    // Theme switcher button on top right of home page
-                    IconButton(
-                        onClick = {
-                            viewModel.triggerKeypressEffects(context)
-                            showThemeDialog = true
-                        },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(ThemePurple.copy(alpha = 0.12f))
-                            .testTag("theme_switcher_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Palette,
-                            contentDescription = "Change Theme",
-                            tint = ThemePurple,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    Box {
+                        var showHeaderMenu by remember { mutableStateOf(false) }
+                        IconButton(
+                            onClick = {
+                                viewModel.triggerKeypressEffects(context)
+                                showHeaderMenu = true
+                            },
+                            modifier = Modifier.testTag("overflow_menu_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More options",
+                                tint = TextDark
+                            )
+                        }
+                        androidx.compose.material3.DropdownMenu(
+                            expanded = showHeaderMenu,
+                            onDismissRequest = { showHeaderMenu = false },
+                            modifier = Modifier.background(KeypadBg)
+                        ) {
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text("Theme", color = TextDark) },
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    showHeaderMenu = false
+                                    showThemeDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Palette,
+                                        contentDescription = null,
+                                        tint = TextDark
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -472,6 +477,7 @@ fun CalculatorScreen(
         )
     }
 
+
     // Dynamic Theme Selection Dialog
     if (showThemeDialog) {
         val selectedTheme by viewModel.selectedTheme.collectAsState()
@@ -479,7 +485,7 @@ fun CalculatorScreen(
             onDismissRequest = { showThemeDialog = false },
             title = {
                 Text(
-                    text = viewModel.t("app_theme"),
+                    text = "Theme",
                     color = TextDark,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
@@ -493,28 +499,16 @@ fun CalculatorScreen(
             },
             text = {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)
                 ) {
                     items(com.example.ui.theme.AppTheme.values()) { theme ->
                         val isSelected = selectedTheme == theme
-                        val themeColors = when (theme) {
-                            com.example.ui.theme.AppTheme.CLASSIC_LAVENDER -> com.example.ui.theme.ClassicLavenderColors
-                            com.example.ui.theme.AppTheme.SUNSET_ROSE -> com.example.ui.theme.SunsetRoseColors
-                            com.example.ui.theme.AppTheme.NORDIC_EMERALD -> com.example.ui.theme.NordicEmeraldColors
-                            com.example.ui.theme.AppTheme.OCEAN_BREEZE -> com.example.ui.theme.OceanBreezeColors
-                        }
-
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isSelected) ThemePurple.copy(alpha = 0.15f) else Color.Transparent)
-                                .border(
-                                    1.dp,
-                                    if (isSelected) ThemePurple else Color.Gray.copy(alpha = 0.2f),
-                                    RoundedCornerShape(12.dp)
-                                )
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) ThemePurple.copy(alpha = 0.1f) else Color.Transparent)
                                 .clickable {
                                     viewModel.triggerKeypressEffects(context)
                                     viewModel.setSelectedTheme(theme)
@@ -524,41 +518,20 @@ fun CalculatorScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text(theme.flag, fontSize = 24.sp)
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = theme.displayName,
-                                    color = if (isSelected) ThemePurple else TextDark,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 14.sp
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                // Swatch circles representing colors
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(14.dp)
-                                            .clip(CircleShape)
-                                            .background(themeColors.themePurple)
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .size(14.dp)
-                                            .clip(CircleShape)
-                                            .background(themeColors.themeLightPurple)
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .size(14.dp)
-                                            .clip(CircleShape)
-                                            .background(themeColors.brandBg)
-                                            .border(1.dp, Color.Gray.copy(alpha = 0.3f), CircleShape)
-                                    )
-                                }
-                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(theme.previewColor)
+                                    .border(1.dp, Color.Gray.copy(alpha = 0.2f), CircleShape)
+                            )
+                            Text(
+                                text = theme.displayName,
+                                color = if (isSelected) ThemePurple else TextDark,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 16.sp,
+                                modifier = Modifier.weight(1f)
+                            )
                             if (isSelected) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
@@ -720,15 +693,20 @@ fun CalculatorTabContent(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(elevation = 1.dp, shape = RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color.Black.copy(alpha = 0.4f))
                         .border(
                             width = 1.dp,
-                            color = ThemeContainerBorder.copy(alpha = 0.2f),
+                            brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                colors = listOf(ThemePurple.copy(alpha = 0.3f), Color.Transparent),
+                                start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                                end = androidx.compose.ui.geometry.Offset(0f, 300f)
+                            ),
                             shape = RoundedCornerShape(20.dp)
                         )
                         .testTag("conversion_banner_card"),
-                    colors = CardDefaults.cardColors(containerColor = ThemeLightPurple),
-                    shape = RoundedCornerShape(20.dp)
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                        shape = RoundedCornerShape(20.dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -847,129 +825,122 @@ fun GlassCalculatorKey(
     themePurple: Color,
     themeLightPurple: Color
 ) {
+    val themeColors = com.example.ui.theme.LocalAppThemeColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    // Animate glow/inner light alpha
-    val glowAlpha by animateFloatAsState(
-        targetValue = if (isPressed) 1.0f else 0.0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "button_glow"
-    )
-
-    // Button scale animation to give a premium physically responsive "press" feeling!
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1.0f,
+        targetValue = if (isPressed) 0.9f else 1.0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessHigh
+            stiffness = Spring.StiffnessLow
         ),
         label = "button_scale"
     )
 
-    // Glassmorphism properties:
-    // A translucent black glass color that is always dark/black
-    val glassBg = Color(0xD908080A) // Deep frosted black glass (always black!)
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (isPressed) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(150),
+        label = "glow_alpha"
+    )
 
-    // Choose dynamic content colors for text/icons so the text/icons themselves can subtly adapt
-    // to the active theme accent, while the button bodies remain black glass!
-    val contentColor = when {
-        isEquals -> Color.White
-        isOperator -> themePurple
-        isUtility -> themePurple.copy(alpha = 0.85f)
-        else -> Color.White.copy(alpha = 0.9f)
+    val bgColor = when {
+        isEquals -> Color(0xFFE3AB79) // Lighter beige/orange
+        isUtility -> Color(0xFF3F4145)
+        isOperator -> Color(0xFF3F4145)
+        else -> Color(0xFF2E3034)
     }
+
+    val contentColor = Color.White
 
     Box(
         modifier = modifier
-            .aspectRatio(1.25f)
+            .aspectRatio(1f)
             .graphicsLayer(scaleX = scale, scaleY = scale)
+            .drawBehind {
+                if (glowAlpha > 0f) {
+                    // Outer glow - large radius to illuminate neighboring buttons
+                    val outerGlowRadius = size.width * 2.5f
+                    drawCircle(
+                        brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.5f * glowAlpha),
+                                Color.White.copy(alpha = 0.1f * glowAlpha),
+                                Color.Transparent
+                            ),
+                            center = center,
+                            radius = outerGlowRadius
+                        ),
+                        radius = outerGlowRadius,
+                        center = center
+                    )
+                }
+            }
             .shadow(
-                elevation = if (isEquals) 4.dp else 2.dp,
-                shape = RoundedCornerShape(20.dp),
-                ambientColor = Color.Black,
-                spotColor = Color.Black
+                elevation = 8.dp,
+                shape = CircleShape,
+                ambientColor = Color.Black.copy(alpha = 0.8f),
+                spotColor = Color.Black.copy(alpha = 0.8f)
             )
-            .clip(RoundedCornerShape(20.dp))
+            .clip(CircleShape)
+            .background(bgColor)
+            // Inner glow (only when pressed)
+            .drawWithContent {
+                drawContent()
+                if (glowAlpha > 0f) {
+                    drawRect(
+                        brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.4f * glowAlpha),
+                                Color.Transparent
+                            ),
+                            center = center,
+                            radius = size.width / 1.2f
+                        )
+                    )
+                }
+            }
+            // Top inner highlight
+            .background(
+                brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                    colors = listOf(Color.White.copy(alpha = 0.20f), Color.Transparent),
+                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                    end = androidx.compose.ui.geometry.Offset(0f, Float.POSITIVE_INFINITY)
+                )
+            )
+            // Premium glass border
             .border(
                 width = 1.dp,
-                brush = Brush.verticalGradient(
+                brush = androidx.compose.ui.graphics.Brush.linearGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.18f), // top glass highlight reflection
-                        Color.White.copy(alpha = 0.05f)  // bottom reflection
-                    )
+                        Color.White.copy(alpha = 0.4f), 
+                        Color.White.copy(alpha = 0.05f), 
+                        Color.Black.copy(alpha = 0.8f)
+                    ),
+                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                    end = androidx.compose.ui.geometry.Offset(0f, Float.POSITIVE_INFINITY)
                 ),
-                shape = RoundedCornerShape(20.dp)
-            )
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        glassBg,
-                        glassBg.copy(alpha = 0.95f)
-                    )
-                )
+                shape = CircleShape
             )
             .clickable(
                 interactionSource = interactionSource,
-                indication = null, // Disable default material ripple to show our custom inner light effect!
+                indication = null,
                 onClick = onClick
             ),
         contentAlignment = Alignment.Center
     ) {
-        // Glowing Inner Light Effect!
-        // We draw a radial gradient from the center that becomes visible and glows upon touch/press.
-        if (glowAlpha > 0f) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .drawWithContent {
-                        // The inner glow center matches the button, emitting a bright theme-colored light or white light
-                        val glowColor = when {
-                            isEquals -> Color.White
-                            isOperator -> themePurple
-                            isUtility -> themeLightPurple
-                            else -> themePurple
-                        }
-
-                        // Layer 1: Soft wide atmospheric glow radiating from center
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    glowColor.copy(alpha = glowAlpha * 0.45f),
-                                    glowColor.copy(alpha = glowAlpha * 0.15f),
-                                    Color.Transparent
-                                ),
-                                radius = size.minDimension * 1.5f
-                            )
-                        )
-                        // Layer 2: Ultra-bright concentrated neon-like center light core
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    glowColor.copy(alpha = glowAlpha * 0.9f),
-                                    glowColor.copy(alpha = glowAlpha * 0.5f),
-                                    Color.Transparent
-                                ),
-                                radius = size.minDimension * 0.7f
-                            )
-                        )
-                        drawContent()
-                    }
-            )
-        }
-
         if (char == "⌫") {
             Icon(
                 imageVector = Icons.Default.KeyboardBackspace,
                 contentDescription = "Backspace",
                 tint = contentColor,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(24.dp)
             )
         } else {
             Text(
                 text = char,
-                fontSize = if (isOperator || isEquals) 22.sp else 20.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = if (isOperator || isEquals) 32.sp else 32.sp,
+                fontWeight = FontWeight.Normal,
                 color = contentColor
             )
         }
@@ -1008,16 +979,24 @@ fun ExchangeTabContent(
                 .fillMaxWidth()
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(vertical = 12.dp),
+                .padding(horizontal = 24.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Real-Time Sync Status Banner
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White)
-                    .border(1.dp, ThemeContainerBorder.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .border(
+                        width = 1.dp,
+                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                            colors = listOf(ThemePurple.copy(alpha = 0.3f), Color.Transparent),
+                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                            end = androidx.compose.ui.geometry.Offset(0f, 300f)
+                        ),
+                        shape = RoundedCornerShape(20.dp)
+                    )
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -1081,9 +1060,17 @@ fun ExchangeTabContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(ThemeLightPurple.copy(alpha = 0.5f))
-                    .border(1.dp, ThemeContainerBorder.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .border(
+                        width = 1.dp,
+                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                            colors = listOf(ThemePurple.copy(alpha = 0.3f), Color.Transparent),
+                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                            end = androidx.compose.ui.geometry.Offset(0f, 300f)
+                        ),
+                        shape = RoundedCornerShape(20.dp)
+                    )
                     .clickable { onEditRateClick() }
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1123,9 +1110,16 @@ fun ExchangeTabContent(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(140.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color.Black.copy(alpha = 0.4f))
                     .border(
-                        width = if (isSourceActive) 2.dp else 1.dp,
-                        color = if (isSourceActive) ThemePurple else ThemeContainerBorder.copy(alpha = 0.3f),
+                        width = 1.dp,
+                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                            colors = listOf(ThemePurple.copy(alpha = if (isSourceActive) 0.6f else 0.3f), Color.Transparent),
+                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                            end = androidx.compose.ui.geometry.Offset(0f, 300f)
+                        ),
                         shape = RoundedCornerShape(20.dp)
                     )
                     .clickable {
@@ -1133,9 +1127,7 @@ fun ExchangeTabContent(
                         viewModel.onCurrencyFieldSelect(CurrencyField.USD)
                     }
                     .testTag("card_usd"),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSourceActive) ThemeLightPurple.copy(alpha = 0.4f) else DigitBg
-                ),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 shape = RoundedCornerShape(20.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -1197,7 +1189,7 @@ fun ExchangeTabContent(
 
             // SWAP BUTTON IN MIDDLE
             Box(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
                 IconButton(
@@ -1224,9 +1216,16 @@ fun ExchangeTabContent(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(140.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color.Black.copy(alpha = 0.4f))
                     .border(
-                        width = if (isTargetActive) 2.dp else 1.dp,
-                        color = if (isTargetActive) ThemePurple else ThemeContainerBorder.copy(alpha = 0.3f),
+                        width = 1.dp,
+                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                            colors = listOf(ThemePurple.copy(alpha = if (isTargetActive) 0.6f else 0.3f), Color.Transparent),
+                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                            end = androidx.compose.ui.geometry.Offset(0f, 300f)
+                        ),
                         shape = RoundedCornerShape(20.dp)
                     )
                     .clickable {
@@ -1234,9 +1233,7 @@ fun ExchangeTabContent(
                         viewModel.onCurrencyFieldSelect(CurrencyField.INR)
                     }
                     .testTag("card_inr"),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isTargetActive) ThemeLightPurple.copy(alpha = 0.4f) else DigitBg
-                ),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 shape = RoundedCornerShape(20.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -2330,7 +2327,7 @@ fun VaultTabLockedContent(
                     .background(Color(0xFF1B2031))
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = Icons.Default.ArrowBack,
                     contentDescription = "Back to Calculator",
                     tint = Color.White,
                     modifier = Modifier.size(20.dp)
@@ -2728,7 +2725,7 @@ fun VaultTabUnlockedContent(
                                 .background(Color(0xFF1B2031))
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                imageVector = Icons.Default.ArrowBack,
                                 contentDescription = "Back",
                                 tint = Color.White,
                                 modifier = Modifier.size(20.dp)
@@ -3540,7 +3537,7 @@ fun VaultTabUnlockedContent(
                                                 selectedFileForDetails = data
                                             }
                                         }) {
-                                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "View", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.ArrowForward, contentDescription = "View", tint = Color.Gray, modifier = Modifier.size(16.dp))
                                         }
                                     }
                                 }
@@ -6068,7 +6065,7 @@ fun VaultTabUnlockedContent(
                                                     modifier = Modifier.size(48.dp)
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                                        imageVector = Icons.Default.ArrowBack,
                                                         contentDescription = "Previous",
                                                         tint = Color.White,
                                                         modifier = Modifier.size(32.dp)
@@ -6109,7 +6106,7 @@ fun VaultTabUnlockedContent(
                                                     modifier = Modifier.size(48.dp)
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                                        imageVector = Icons.Default.ArrowForward,
                                                         contentDescription = "Next",
                                                         tint = Color.White,
                                                         modifier = Modifier.size(32.dp)
@@ -7552,7 +7549,7 @@ fun PrivateBrowserSection(
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Back to Vault",
                             tint = Color.White
                         )
@@ -7652,7 +7649,7 @@ fun PrivateBrowserSection(
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        imageVector = Icons.Default.ArrowBack,
                         contentDescription = "Web Back",
                         tint = if (activeTab?.canGoBack == true) ThemePurple else Color.Gray
                     )
@@ -7664,7 +7661,7 @@ fun PrivateBrowserSection(
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        imageVector = Icons.Default.ArrowForward,
                         contentDescription = "Web Forward",
                         tint = if (activeTab?.canGoForward == true) ThemePurple else Color.Gray
                     )

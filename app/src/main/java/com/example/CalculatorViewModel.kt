@@ -419,9 +419,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     // --- Dynamic Theme Selection State ---
     private val _selectedTheme = MutableStateFlow(
         try {
-            AppTheme.valueOf(prefs.getString("selected_theme", AppTheme.CLASSIC_LAVENDER.name) ?: AppTheme.CLASSIC_LAVENDER.name)
+            AppTheme.valueOf(prefs.getString("selected_theme", AppTheme.DEFAULT.name) ?: AppTheme.DEFAULT.name)
         } catch (e: Exception) {
-            AppTheme.CLASSIC_LAVENDER
+            AppTheme.DEFAULT
         }
     )
     val selectedTheme: StateFlow<AppTheme> = _selectedTheme.asStateFlow()

@@ -1,0 +1,59 @@
+Calculating task graph as no cached configuration is available for tasks: :app:compileDebugKotlin
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:processDebugGoogleServices UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:generateDebugBuildConfig
+> Task :app:processDebugNavigationResources
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:generateDebugRFile UP-TO-DATE
+> Task :app:kspDebugKotlin
+> Task :app:compileDebugKotlin
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:873:45 'val Icons.Filled.KeyboardBackspace: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.KeyboardBackspace.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:1008:53 'val Icons.Filled.TrendingUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingUp.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:1294:69 'val Icons.Filled.KeyboardBackspace: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.KeyboardBackspace.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:1761:79 'val Icons.Filled.VolumeUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.VolumeUp.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:1761:107 'val Icons.Filled.VolumeOff: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.VolumeOff.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:2702:84 'val Icons.Filled.List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:2916:73 'val Icons.Filled.TrendingUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingUp.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:3112:85 'val Icons.Filled.Article: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Article.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:3170:61 'val Icons.Filled.Sort: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Sort.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:3229:56 'val Icons.Filled.Article: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Article.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:3412:75 'val Icons.Filled.Article: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Article.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:4978:58 'val Icons.Filled.Article: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Article.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:6379:72 'val Icons.Filled.Article: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Article.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:7233:13 'var databaseEnabled: Boolean' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:7234:13 'var savePassword: Boolean' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:7235:13 'var saveFormData: Boolean' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorViewModel.kt:525:57 'static field VIBRATOR_SERVICE: String' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CurrencyApi.kt:12:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///app/applet/app/src/main/java/com/example/CurrencyApi.kt:13:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///app/applet/app/src/main/java/com/example/CurrencyApi.kt:14:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///app/applet/app/src/main/java/com/example/CurrencyApi.kt:15:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///app/applet/app/src/main/java/com/example/CurrencyApi.kt:16:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///app/applet/app/src/main/java/com/example/SecureCameraComponents.kt:740:40 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+
+BUILD SUCCESSFUL in 55s
+9 actionable tasks: 4 executed, 5 up-to-date
+Configuration cache entry stored.

@@ -1,0 +1,263 @@
+224: 0 -> fun CalculatorScreen(
+225: 0 -> viewModel: CalculatorViewModel = viewModel(),
+226: 0 -> modifier: Modifier = Modifier
+227: 1 -> ) {
+228: 1 -> var activeTab by remember { mutableStateOf(ActiveTab.CALCULATOR) }
+229: 1 -> var showRateDialog by remember { mutableStateOf(false) }
+230: 1 -> var showThemeDialog by remember { mutableStateOf(false) }
+231: 1 -> 
+232: 1 -> val haptic = LocalHapticFeedback.current
+233: 1 -> val context = LocalContext.current
+234: 1 -> 
+235: 1 -> val vaultUnlocked by viewModel.vaultUnlocked.collectAsState()
+236: 1 -> 
+237: 1 -> // Switch to the private vault screen automatically when unlocked via passcode
+238: 2 -> LaunchedEffect(vaultUnlocked) {
+239: 3 -> if (vaultUnlocked) {
+240: 3 -> activeTab = ActiveTab.VAULT
+241: 3 -> } else {
+242: 3 -> activeTab = ActiveTab.CALCULATOR
+243: 2 -> }
+244: 1 -> }
+245: 1 -> 
+246: 1 -> Surface(
+247: 1 -> modifier = modifier
+248: 1 -> .fillMaxSize()
+249: 2 -> .pointerInput(Unit) {
+250: 3 -> awaitPointerEventScope {
+251: 4 -> while (true) {
+252: 4 -> awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+253: 4 -> viewModel.updateLastInteraction()
+254: 3 -> }
+255: 2 -> }
+256: 1 -> },
+257: 1 -> color = BrandBg
+258: 2 -> ) {
+259: 2 -> Column(
+260: 2 -> modifier = Modifier.fillMaxSize(),
+261: 2 -> horizontalAlignment = Alignment.CenterHorizontally
+262: 3 -> ) {
+263: 3 -> // Header Bar
+264: 4 -> if (activeTab != ActiveTab.VAULT) {
+265: 4 -> Row(
+266: 4 -> modifier = Modifier
+267: 4 -> .fillMaxWidth()
+268: 4 -> .padding(start = 24.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+269: 4 -> horizontalArrangement = Arrangement.SpaceBetween,
+270: 4 -> verticalAlignment = Alignment.CenterVertically
+271: 5 -> ) {
+272: 5 -> Row(
+273: 5 -> verticalAlignment = Alignment.CenterVertically,
+274: 5 -> horizontalArrangement = Arrangement.spacedBy(8.dp)
+275: 6 -> ) {
+276: 6 -> Icon(
+277: 6 -> imageVector = Icons.Default.Calculate,
+278: 6 -> contentDescription = "Calculator Icon",
+279: 6 -> tint = TextMedium,
+280: 6 -> modifier = Modifier.size(20.dp)
+281: 6 -> )
+282: 6 -> Text(
+283: 6 -> text = "Calculator",
+284: 6 -> style = MaterialTheme.typography.titleMedium,
+285: 6 -> color = TextMedium,
+286: 6 -> fontWeight = FontWeight.Medium
+287: 6 -> )
+288: 5 -> }
+289: 5 -> 
+290: 6 -> Box {
+291: 6 -> var showHeaderMenu by remember { mutableStateOf(false) }
+292: 6 -> IconButton(
+293: 7 -> onClick = {
+294: 7 -> viewModel.triggerKeypressEffects(context)
+295: 7 -> showHeaderMenu = true
+296: 6 -> },
+297: 6 -> modifier = Modifier.testTag("overflow_menu_button")
+298: 7 -> ) {
+299: 7 -> Icon(
+300: 7 -> imageVector = Icons.Default.MoreVert,
+301: 7 -> contentDescription = "More options",
+302: 7 -> tint = TextDark
+303: 7 -> )
+304: 6 -> }
+305: 6 -> androidx.compose.material3.DropdownMenu(
+306: 6 -> expanded = showHeaderMenu,
+307: 6 -> onDismissRequest = { showHeaderMenu = false },
+308: 6 -> modifier = Modifier.background(KeypadBg)
+309: 7 -> ) {
+310: 7 -> androidx.compose.material3.DropdownMenuItem(
+311: 7 -> text = { Text("Theme", color = TextDark) },
+312: 8 -> onClick = {
+313: 8 -> viewModel.triggerKeypressEffects(context)
+314: 8 -> showHeaderMenu = false
+315: 8 -> showThemeDialog = true
+316: 7 -> },
+317: 8 -> leadingIcon = {
+318: 8 -> Icon(
+319: 8 -> imageVector = Icons.Default.Palette,
+320: 8 -> contentDescription = null,
+321: 8 -> tint = TextDark
+322: 8 -> )
+323: 7 -> }
+324: 7 -> )
+325: 6 -> }
+326: 5 -> }
+327: 4 -> }
+328: 3 -> }
+329: 3 -> 
+330: 3 -> // Main View Area
+331: 3 -> Box(
+332: 3 -> modifier = Modifier
+333: 3 -> .weight(1f)
+334: 3 -> .fillMaxWidth()
+335: 3 -> .padding(horizontal = if (activeTab == ActiveTab.VAULT) 0.dp else 24.dp)
+336: 4 -> ) {
+337: 5 -> when (activeTab) {
+338: 6 -> ActiveTab.CALCULATOR -> {
+339: 6 -> CalculatorTabContent(viewModel = viewModel)
+340: 5 -> }
+341: 6 -> ActiveTab.EXCHANGE -> {
+342: 6 -> ExchangeTabContent(
+343: 6 -> viewModel = viewModel,
+344: 6 -> onEditRateClick = { showRateDialog = true }
+345: 6 -> )
+346: 5 -> }
+347: 6 -> ActiveTab.VAULT -> {
+348: 6 -> val vaultUnlocked by viewModel.vaultUnlocked.collectAsState()
+349: 7 -> if (!vaultUnlocked) {
+350: 7 -> VaultTabLockedContent(
+351: 7 -> viewModel = viewModel,
+352: 7 -> onLockExit = { activeTab = ActiveTab.CALCULATOR }
+353: 7 -> )
+354: 7 -> } else {
+355: 7 -> VaultTabUnlockedContent(
+356: 7 -> viewModel = viewModel,
+357: 7 -> onLockExit = { activeTab = ActiveTab.CALCULATOR }
+358: 7 -> )
+359: 6 -> }
+360: 5 -> }
+361: 4 -> }
+362: 3 -> }
+363: 3 -> 
+364: 3 -> // Professional Bottom Navigation Bar - only shown if not in vault
+365: 4 -> if (activeTab != ActiveTab.VAULT) {
+366: 4 -> Row(
+367: 4 -> modifier = Modifier
+368: 4 -> .fillMaxWidth()
+369: 4 -> .height(80.dp)
+370: 4 -> .background(KeypadBg)
+371: 4 -> .border(width = 1.dp, color = ThemeContainerBorder.copy(alpha = 0.3f))
+372: 4 -> .padding(horizontal = 16.dp),
+373: 4 -> horizontalArrangement = Arrangement.SpaceAround,
+374: 4 -> verticalAlignment = Alignment.CenterVertically
+375: 5 -> ) {
+376: 5 -> BottomNavItem(
+377: 5 -> label = viewModel.t("calculator"),
+378: 5 -> icon = Icons.Default.Calculate,
+379: 5 -> isSelected = activeTab == ActiveTab.CALCULATOR,
+380: 6 -> onClick = {
+381: 6 -> viewModel.triggerKeypressEffects(context)
+382: 6 -> activeTab = ActiveTab.CALCULATOR
+383: 5 -> },
+384: 5 -> modifier = Modifier.testTag("nav_calculator")
+385: 5 -> )
+386: 5 -> 
+387: 5 -> BottomNavItem(
+388: 5 -> label = viewModel.t("exchange"),
+389: 5 -> icon = Icons.Default.CurrencyExchange,
+390: 5 -> isSelected = activeTab == ActiveTab.EXCHANGE,
+391: 6 -> onClick = {
+392: 6 -> viewModel.triggerKeypressEffects(context)
+393: 6 -> activeTab = ActiveTab.EXCHANGE
+394: 5 -> },
+395: 5 -> modifier = Modifier.testTag("nav_exchange")
+396: 5 -> )
+397: 4 -> }
+398: 3 -> }
+399: 2 -> }
+400: 1 -> }
+401: 1 -> 
+402: 1 -> // Rate Customization Dialog
+403: 2 -> if (showRateDialog) {
+404: 2 -> val srcCurrency by viewModel.sourceCurrency.collectAsState()
+405: 2 -> val tgtCurrency by viewModel.targetCurrency.collectAsState()
+406: 2 -> var rateInput by remember { mutableStateOf(viewModel.exchangeRate.value.toString()) }
+407: 2 -> var isError by remember { mutableStateOf(false) }
+408: 2 -> 
+409: 2 -> AlertDialog(
+410: 2 -> onDismissRequest = { showRateDialog = false },
+411: 3 -> title = {
+412: 3 -> Text(
+413: 3 -> text = "Update Custom Rate",
+414: 3 -> color = TextDark,
+415: 3 -> fontWeight = FontWeight.Bold
+416: 3 -> )
+417: 2 -> },
+418: 2 -> containerColor = BrandBg,
+419: 3 -> text = {
+420: 4 -> Column {
+421: 4 -> Text(
+422: 4 -> text = "Configure current conversion value from ${srcCurrency.name} (${srcCurrency.code}) to ${tgtCurrency.name} (${tgtCurrency.code}):",
+423: 4 -> style = MaterialTheme.typography.bodyMedium,
+424: 4 -> color = TextMedium,
+425: 4 -> modifier = Modifier.padding(bottom = 16.dp)
+426: 4 -> )
+427: 4 -> OutlinedTextField(
+428: 4 -> value = rateInput,
+429: 5 -> onValueChange = {
+430: 5 -> rateInput = it
+431: 5 -> isError = it.toDoubleOrNull() == null || it.toDouble() <= 0
+432: 4 -> },
+433: 4 -> label = { Text("1 ${srcCurrency.code} = ... ${tgtCurrency.code}") },
+434: 4 -> isError = isError,
+435: 4 -> keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+436: 4 -> colors = OutlinedTextFieldDefaults.colors(
+437: 4 -> focusedBorderColor = ThemePurple,
+438: 4 -> focusedLabelColor = ThemePurple,
+439: 4 -> unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f),
+440: 4 -> unfocusedLabelColor = Color.Gray,
+441: 4 -> focusedTextColor = TextDark,
+442: 4 -> unfocusedTextColor = TextDark,
+443: 4 -> errorTextColor = Color.Red
+444: 4 -> ),
+445: 4 -> singleLine = true,
+446: 4 -> modifier = Modifier
+447: 4 -> .fillMaxWidth()
+448: 4 -> .testTag("exchange_rate_input")
+449: 4 -> )
+450: 5 -> if (isError) {
+451: 5 -> Text(
+452: 5 -> text = "Please enter a valid rate greater than 0",
+453: 5 -> color = Color.Red,
+454: 5 -> style = MaterialTheme.typography.bodySmall,
+455: 5 -> modifier = Modifier.padding(top = 4.dp)
+456: 5 -> )
+457: 4 -> }
+458: 3 -> }
+459: 2 -> },
+460: 3 -> confirmButton = {
+461: 3 -> Button(
+462: 4 -> onClick = {
+463: 4 -> val rate = rateInput.toDoubleOrNull()
+464: 5 -> if (rate != null && rate > 0) {
+465: 5 -> viewModel.updateExchangeRate(rate)
+466: 5 -> showRateDialog = false
+467: 4 -> }
+468: 3 -> },
+469: 3 -> colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+470: 3 -> enabled = !isError,
+471: 3 -> modifier = Modifier.testTag("save_rate_button")
+472: 4 -> ) {
+473: 4 -> Text("Save")
+474: 3 -> }
+475: 2 -> },
+476: 3 -> dismissButton = {
+477: 4 -> TextButton(onClick = { showRateDialog = false }) {
+478: 4 -> Text("Cancel", color = TextMedium)
+479: 3 -> }
+480: 2 -> }
+481: 2 -> )
+482: 1 -> }
+483: 1 -> 
+484: 1 -> 
+485: 1 -> // Dynamic Theme Selection Dialog
+Total balance at 485: 1
