@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 enum class AppTheme(val id: String, val displayName: String, val previewColor: Color) {
-    DEFAULT("default", "Default", Color(0xFF4DB6AC)),
+    CLASSIC("classic", "Classic", Color(0xFF4DB6AC)),
     OCEAN_BREEZE("ocean_breeze", "Ocean Breeze", Color(0xFF0EA5E9)),
     NORDIC_EMERALD("nordic_emerald", "Nordic Emerald", Color(0xFF10B981)),
     SUNSET_ROSE("sunset_rose", "Sunset Rose", Color(0xFFF43F5E)),
@@ -32,7 +32,7 @@ data class AppThemeColors(
     val digitBg: Color
 )
 
-val DefaultColors = AppThemeColors(
+val ClassicColors = AppThemeColors(
     brandBg = Color(0xFF121212),
     textDark = Color(0xFFFFFFFF),
     textMedium = Color(0xFFAAAAAA),
@@ -109,15 +109,15 @@ val LavenderMistColors = AppThemeColors(
     digitBg = Color(0xFF2B2342)
 )
 
-val LocalAppThemeColors = androidx.compose.runtime.staticCompositionLocalOf { DefaultColors }
+val LocalAppThemeColors = androidx.compose.runtime.staticCompositionLocalOf { GraphiteColors }
 
 @Composable
 fun MyApplicationTheme(
-  theme: AppTheme = AppTheme.DEFAULT,
+  theme: AppTheme = AppTheme.GRAPHITE,
   content: @Composable () -> Unit,
 ) {
   val colors = when (theme) {
-    AppTheme.DEFAULT -> DefaultColors
+    AppTheme.CLASSIC -> ClassicColors
     AppTheme.OCEAN_BREEZE -> OceanBreezeColors
     AppTheme.NORDIC_EMERALD -> NordicEmeraldColors
     AppTheme.SUNSET_ROSE -> SunsetRoseColors

@@ -45,7 +45,7 @@ class MainAppActivity : FragmentActivity() {
         }
 
         setContent {
-          val selectedTheme by (viewModel?.selectedTheme ?: kotlinx.coroutines.flow.MutableStateFlow(com.example.ui.theme.AppTheme.DEFAULT)).collectAsState()
+          val selectedTheme by (viewModel?.selectedTheme ?: kotlinx.coroutines.flow.MutableStateFlow(com.example.ui.theme.AppTheme.GRAPHITE)).collectAsState()
           MyApplicationTheme(theme = selectedTheme) {
             Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
               if (viewModel != null) {
