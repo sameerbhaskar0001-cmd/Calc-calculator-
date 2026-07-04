@@ -847,9 +847,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 }
             }
             else -> { // Digits 0-9
-                if (currentInput == "0" && key == "0") return
+                if (currentInput == "0" && (key == "0" || key == "00")) return
                 
-                val newValue = if (currentInput == "0") key else currentInput + key
+                val newValue = if (currentInput == "0" && key != "00") key else if (currentInput == "0" && key == "00") "0" else currentInput + key
                 activeInputFlow.value = newValue
                 recalculateConversion(fromSource = isSourceActive, input = newValue)
             }

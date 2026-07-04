@@ -1,4 +1,7 @@
+
 package com.example
+import androidx.compose.foundation.layout.wrapContentSize
+
 
 import android.content.Context
 import android.content.Intent
@@ -644,15 +647,14 @@ fun CalculatorTabContent(
             verticalArrangement = Arrangement.Bottom
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth().weight(1f),
+                modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.Bottom
             ) {
             // Expression
             if (formulaDisplay.isNotEmpty()) {
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(scrollState),
+                        .fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
                     Text(
@@ -662,7 +664,6 @@ fun CalculatorTabContent(
                         color = if (isEvaluated) TextMedium.copy(alpha = 0.65f) else ThemePurple.copy(alpha = 0.75f),
                         fontFamily = FontFamily.SansSerif,
                         textAlign = TextAlign.End,
-                        maxLines = 1,
                         modifier = Modifier.testTag("expression_display")
                     )
                 }
@@ -681,8 +682,6 @@ fun CalculatorTabContent(
                     color = mainColor,
                     fontFamily = FontFamily.SansSerif,
                     textAlign = TextAlign.End,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag("calc_result_display")
                 )
             }
@@ -785,12 +784,13 @@ fun CalculatorTabContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .weight(1.5f)
                 .padding(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             for (row in buttons) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     for (char in row) {
@@ -833,6 +833,7 @@ fun GlassCalculatorKey(
 ) {
     val themeColors = com.example.ui.theme.LocalAppThemeColors.current
     val interactionSource = remember { MutableInteractionSource() }
+
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
@@ -852,103 +853,118 @@ fun GlassCalculatorKey(
 
     val bgColor = when {
         isEquals -> Color(0xFFE3AB79) // Lighter beige/orange
-        isUtility -> Color(0xFF3F4145)
-        isOperator -> Color(0xFF3F4145)
-        else -> Color(0xFF2E3034)
+        isUtility -> themeColors.keypadBg
+        isOperator -> themeColors.keypadBg
+        else -> themeColors.digitBg
+    }
+    
+    val contentColor = when {
+        isEquals -> Color.Black
+        isUtility -> themePurple
+        isOperator -> themePurple
+        else -> themeColors.textDark
     }
 
-    val contentColor = Color.White
-
     Box(
-        modifier = modifier
-            .aspectRatio(1f)
-            .graphicsLayer(scaleX = scale, scaleY = scale)
-            .drawBehind {
-                if (glowAlpha > 0f) {
-                    // Outer glow - large radius to illuminate neighboring buttons
-                    val outerGlowRadius = size.width * 2.5f
-                    drawCircle(
-                        brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.5f * glowAlpha),
-                                Color.White.copy(alpha = 0.1f * glowAlpha),
-                                Color.Transparent
-                            ),
-                            center = center,
-                            radius = outerGlowRadius
-                        ),
-                        radius = outerGlowRadius,
-                        center = center
-                    )
-                }
-            }
-            .shadow(
-                elevation = 8.dp,
-                shape = CircleShape,
-                ambientColor = Color.Black.copy(alpha = 0.8f),
-                spotColor = Color.Black.copy(alpha = 0.8f)
-            )
-            .clip(CircleShape)
-            .background(bgColor)
-            // Inner glow (only when pressed)
-            .drawWithContent {
-                drawContent()
-                if (glowAlpha > 0f) {
-                    drawRect(
-                        brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.4f * glowAlpha),
-                                Color.Transparent
-                            ),
-                            center = center,
-                            radius = size.width / 1.2f
-                        )
-                    )
-                }
-            }
-            // Top inner highlight
-            .background(
-                brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                    colors = listOf(Color.White.copy(alpha = 0.20f), Color.Transparent),
-                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                    end = androidx.compose.ui.geometry.Offset(0f, Float.POSITIVE_INFINITY)
-                )
-            )
-            // Premium glass border
-            .border(
-                width = 1.dp,
-                brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = 0.4f), 
-                        Color.White.copy(alpha = 0.05f), 
-                        Color.Black.copy(alpha = 0.8f)
-                    ),
-                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                    end = androidx.compose.ui.geometry.Offset(0f, Float.POSITIVE_INFINITY)
-                ),
-                shape = CircleShape
-            )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            ),
+        modifier = modifier.fillMaxHeight(),
         contentAlignment = Alignment.Center
     ) {
-        if (char == "⌫") {
-            Icon(
-                imageVector = Icons.Default.KeyboardBackspace,
-                contentDescription = "Backspace",
-                tint = contentColor,
-                modifier = Modifier.size(24.dp)
-            )
-        } else {
-            Text(
-                text = char,
-                fontSize = if (isOperator || isEquals) 32.sp else 32.sp,
-                fontWeight = FontWeight.Normal,
-                color = contentColor
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .wrapContentSize(Alignment.Center)
+                .aspectRatio(1f)
+                .graphicsLayer(scaleX = scale, scaleY = scale)
+                .drawBehind {
+                    if (glowAlpha > 0f) {
+                        val outerGlowRadius = size.width * 2.5f
+                        drawCircle(
+                            brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.5f * glowAlpha),
+                                    Color.White.copy(alpha = 0.1f * glowAlpha),
+                                    Color.Transparent
+                                ),
+                                center = center,
+                                radius = outerGlowRadius
+                            ),
+                            radius = outerGlowRadius,
+                            center = center
+                        )
+                    }
+                }
+                .shadow(
+                    elevation = if (!isUtility && !isEquals) 4.dp else 0.dp,
+                    shape = CircleShape,
+                    ambientColor = Color.Black.copy(alpha = 0.8f),
+                    spotColor = Color.Black.copy(alpha = 0.8f)
+                )
+                .clip(CircleShape)
+                .background(bgColor)
+                .drawWithContent {
+                    drawContent()
+                    if (glowAlpha > 0f) {
+                        drawRect(
+                            brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.4f * glowAlpha),
+                                    Color.Transparent
+                                ),
+                                center = center,
+                                radius = size.width / 1.2f
+                            )
+                        )
+                    }
+                }
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                        colors = listOf(Color.White.copy(alpha = 0.20f), Color.Transparent),
+                        start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                        end = androidx.compose.ui.geometry.Offset(0f, Float.POSITIVE_INFINITY)
+                    )
+                )
+                .border(
+                    width = 1.dp,
+                    brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.4f), 
+                            Color.White.copy(alpha = 0.05f), 
+                            Color.Black.copy(alpha = 0.8f)
+                        ),
+                        start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                        end = androidx.compose.ui.geometry.Offset(0f, Float.POSITIVE_INFINITY)
+                    ),
+                    shape = CircleShape
+                )
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onClick
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (char == "⌫") {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Backspace",
+                    tint = contentColor,
+                    modifier = Modifier.size(28.dp)
+                )
+            } else if (char == "+/-") {
+                 Text(
+                    text = char,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = contentColor
+                )
+            } else {
+                Text(
+                    text = char,
+                    fontSize = if (isOperator || isEquals) 32.sp else 32.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = contentColor
+                )
+            }
         }
     }
 }
@@ -986,44 +1002,19 @@ fun ExchangeTabContent(
                 .padding(top = 12.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Minimal Sync & Rate Strip
+            // Minimal Rate Display
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val statusColor = when (apiStatus) {
-                        ApiStatus.LOADING -> ThemePurple
-                        ApiStatus.SUCCESS -> Color(0xFF2E7D32)
-                        ApiStatus.ERROR -> Color(0xFFC62828)
-                        else -> TextMedium
-                    }
-                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(statusColor))
-                    Text(
-                        text = "1 ${sourceCurrency.code} = ${String.format(java.util.Locale.US, "%.4f", rate)} ${targetCurrency.code}",
-                        color = TextMedium,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                IconButton(
-                    onClick = {
-                        viewModel.triggerKeypressEffects(context)
-                        viewModel.fetchLatestRates()
-                    },
-                    modifier = Modifier.size(32.dp),
-                    enabled = apiStatus != ApiStatus.LOADING
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Sync rates",
-                        tint = ThemePurple,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Text(
+                    text = "1 ${sourceCurrency.code} = ${String.format(java.util.Locale.US, "%.4f", rate)} ${targetCurrency.code}",
+                    color = TextMedium.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Normal
+                )
             }
-
             // Cards container with reduced gap and swap button
             Box(
                 modifier = Modifier.fillMaxWidth().weight(1f),
@@ -1207,8 +1198,9 @@ fun ExchangeTabContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .weight(1.5f)
                 .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Quick Presets Row
             val presets = if (activeField == CurrencyField.USD) {
@@ -1248,26 +1240,27 @@ fun ExchangeTabContent(
                 }
             }
 
-            // Custom Numeric Keypad for Exchange Flow (4 Columns to match main calculator)
+            // Custom Numeric Keypad for Exchange Flow (3 Columns to match main calculator perfectly)
             val keys = listOf(
-                listOf("7", "8", "9", "⌫"),
-                listOf("4", "5", "6", "C"),
-                listOf("1", "2", "3", " "),
-                listOf(" ", "0", ".", " ")
+                listOf("C", " ", "⌫"),
+                listOf("7", "8", "9"),
+                listOf("4", "5", "6"),
+                listOf("1", "2", "3"),
+                listOf(".", "0", "00")
             )
 
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(0.75f).weight(1f).align(Alignment.CenterHorizontally),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 for (row in keys) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().weight(1f),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         for (char in row) {
                             if (char.isBlank()) {
-                                Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
+                                Spacer(modifier = Modifier.weight(1f))
                             } else {
                                 val isBackspace = char == "⌫"
                                 val isClear = char == "C"
