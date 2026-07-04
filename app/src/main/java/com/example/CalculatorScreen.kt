@@ -128,6 +128,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.alpha
+import kotlinx.coroutines.delay
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -238,10 +248,49 @@ fun CalculatorScreen(
     val vaultUnlocked by viewModel.vaultUnlocked.collectAsState()
 
     // Switch to the private vault screen automatically when unlocked via passcode
+    var transitionState by remember { mutableStateOf(0) } // 0=Calc, 1=Authenticating, 2=Transition, 3=Vault
+    
+    val blurRadius by animateDpAsState(
+        targetValue = when (transitionState) {
+            0 -> 0.dp
+            1 -> 12.dp
+            else -> 40.dp
+        },
+        animationSpec = tween(durationMillis = if (transitionState == 2) 300 else 150)
+    )
+    val calcAlpha by animateFloatAsState(
+        targetValue = if (transitionState >= 2) 0f else 1f,
+        animationSpec = tween(300)
+    )
+    val calcScale by animateFloatAsState(
+        targetValue = if (transitionState >= 2) 0.95f else 1f,
+        animationSpec = tween(300)
+    )
+    val vaultScale by animateFloatAsState(
+        targetValue = if (transitionState >= 3) 1f else if (transitionState == 2) 0.95f else 0.9f,
+        animationSpec = tween(450, easing = FastOutSlowInEasing)
+    )
+    val vaultAlpha by animateFloatAsState(
+        targetValue = if (transitionState >= 2) 1f else 0f,
+        animationSpec = tween(300)
+    )
+    
+    val authOverlayAlpha by animateFloatAsState(
+        targetValue = if (transitionState == 1) 1f else 0f,
+        animationSpec = tween(150)
+    )
+
     LaunchedEffect(vaultUnlocked) {
         if (vaultUnlocked) {
+            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+            transitionState = 1 // Authenticating
+            delay(3000)
+            transitionState = 2 // Transition
+            delay(300)
+            transitionState = 3 // Vault fully emerges
             activeTab = ActiveTab.VAULT
         } else {
+            transitionState = 0
             activeTab = ActiveTab.CALCULATOR
         }
     }
@@ -330,16 +379,85 @@ fun CalculatorScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = if (activeTab == ActiveTab.VAULT) 0.dp else 24.dp)
             ) {
-                when (activeTab) {
-                    ActiveTab.CALCULATOR -> {
+                // We render Calculator if it's not fully transitioned to Vault
+                if (transitionState < 3 && activeTab == ActiveTab.CALCULATOR) {
+                    Box(modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp)
+                        .blur(blurRadius)
+                        .scale(calcScale)
+                        .alpha(calcAlpha)
+                    ) {
                         CalculatorTabContent(viewModel = viewModel)
                     }
-
-                    ActiveTab.VAULT -> {
-                        val vaultUnlocked by viewModel.vaultUnlocked.collectAsState()
-                        if (!vaultUnlocked) {
+                    
+                    if (transitionState == 1 || transitionState == 2) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .alpha(authOverlayAlpha),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(100.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // Concentric circles
+                                    val localThemePurple = ThemePurple
+                                    Canvas(modifier = Modifier.fillMaxSize()) {
+                                        drawCircle(
+                                            color = localThemePurple.copy(alpha = 0.2f),
+                                            radius = size.width / 2,
+                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                                        )
+                                        drawCircle(
+                                            color = localThemePurple.copy(alpha = 0.4f),
+                                            radius = size.width / 2.5f,
+                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                                        )
+                                        // A spinning arc for "authenticating"
+                                        drawArc(
+                                            color = localThemePurple,
+                                            startAngle = -90f,
+                                            sweepAngle = 120f,
+                                            useCenter = false,
+                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round),
+                                            size = androidx.compose.ui.geometry.Size(size.width / 1.25f, size.height / 1.25f),
+                                            topLeft = androidx.compose.ui.geometry.Offset(size.width * 0.1f, size.height * 0.1f)
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = "Authenticating",
+                                        tint = ThemePurple,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Text(
+                                    text = "Unlocking Secure Vault...",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 16.sp
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // We render Vault if transition has started or is complete
+                if (transitionState > 0 || activeTab == ActiveTab.VAULT) {
+                    val isVaultUnlocked by viewModel.vaultUnlocked.collectAsState()
+                    Box(modifier = Modifier
+                        .fillMaxSize()
+                        .scale(if (isVaultUnlocked) vaultScale else 1f)
+                        .alpha(if (isVaultUnlocked) vaultAlpha else 1f)
+                    ) {
+                        if (!isVaultUnlocked) {
                             VaultTabLockedContent(
                                 viewModel = viewModel,
                                 onLockExit = { activeTab = ActiveTab.CALCULATOR }
@@ -1194,7 +1312,7 @@ fun VaultTabLockedContent(
                     .align(Alignment.TopStart)
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF1B2031))
+                    .background(Color(0xFF161B2B).copy(alpha = 0.8f)).border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
             ) {
                 Icon(
                     imageVector = Icons.Default.ArrowBack,
@@ -1248,9 +1366,47 @@ fun VaultTabLockedContent(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Custom secure PIN Dots
+                var shakeOffset by remember { mutableStateOf(0f) }
+                
+                LaunchedEffect(pinError) {
+                    if (pinError) {
+                        try {
+                            // Two short vibrations
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+                                vibrator.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 50, 100, 50), -1))
+                            } else {
+                                val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+                                vibrator.vibrate(longArrayOf(0, 50, 100, 50), -1)
+                            }
+                        } catch (e: Exception) {}
+                        
+                        androidx.compose.animation.core.animate(
+                            initialValue = 0f,
+                            targetValue = 0f,
+                            animationSpec = androidx.compose.animation.core.keyframes {
+                                durationMillis = 400
+                                0f at 0
+                                -20f at 50
+                                20f at 100
+                                -20f at 150
+                                20f at 200
+                                -10f at 250
+                                10f at 300
+                                0f at 400
+                            }
+                        ) { value, _ ->
+                            shakeOffset = value
+                        }
+                        pinError = false
+                        pinInput = ""
+                    }
+                }
+                
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.offset(x = shakeOffset.dp)
                 ) {
                     for (i in 0 until 4) {
                         val isFilled = pinInput.length > i
@@ -1567,217 +1723,187 @@ fun VaultTabUnlockedContent(
                         .padding(16.dp)
                 ) {
                 // Clean and spacious Unlocked Header
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                if (activeSection == "Home") {
                     Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.weight(1f)
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         IconButton(
-                            onClick = {
+                            onClick = { 
                                 viewModel.triggerKeypressEffects(context)
-                                if (activeSection == "Home") {
-                                    viewModel.lockVault()
-                                    onLockExit()
-                                } else {
-                                    activeSection = "Home"
-                                }
+                                viewModel.lockVault()
+                                onLockExit()
                             },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF1B2031))
+                            modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ArrowBack,
-                                contentDescription = "Back",
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Menu / Lock",
                                 tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
-
-                        Column {
-                            Text(
-                                text = if (activeSection == "Home") viewModel.t("secure_vault") else viewModel.t(
-                                    when(activeSection) {
-                                        "Notes" -> "notes"
-                                        "Photos & Videos" -> "photos_videos"
-                                        "Documents" -> "documents"
-                                        "Private Browser" -> "private_browser"
-                                        "Explore" -> "explore"
-                                        "Settings" -> "settings"
-                                        else -> "secure_vault"
-                                    }
-                                ),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "AES Passcode Secured",
-                                fontSize = 10.sp,
-                                color = Color(0xFF4CAF50),
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (activeSection == "Photos & Videos" || activeSection == "Documents" || activeSection == "Music & Audio") {
-                            val isCurrentGrid = when (activeSection) {
-                                "Photos & Videos" -> isMediaGridView
-                                "Documents" -> isDocGridView
-                                "Music & Audio" -> isMusicGridView
-                                else -> true
+                        
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            IconButton(
+                                onClick = { 
+                                    viewModel.triggerKeypressEffects(context)
+                                    showSearchDialog = true
+                                },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "Search",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
                             }
                             IconButton(
-                                onClick = {
+                                onClick = { 
                                     viewModel.triggerKeypressEffects(context)
-                                    when (activeSection) {
-                                        "Photos & Videos" -> isMediaGridView = !isMediaGridView
-                                        "Documents" -> isDocGridView = !isDocGridView
-                                        "Music & Audio" -> isMusicGridView = !isMusicGridView
-                                    }
+                                    activeSection = "Settings"
                                 },
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFF1B2031))
+                                    .background(Color(0xFF262D45))
                             ) {
                                 Icon(
-                                    imageVector = if (isCurrentGrid) Icons.Default.List else Icons.Default.GridView,
-                                    contentDescription = "Toggle Grid/List View",
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Profile",
                                     tint = Color.White,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
-
-                        IconButton(
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                showSearchDialog = true
-                            },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF1B2031))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Global Search",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                activeSection = "Settings"
-                            },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF1B2031))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Change Passcode",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                viewModel.lockVault()
-                            },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF1B2031))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = "Lock Vault",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
                     }
-                }
-
-            // Material 3 Filter Chips for Sections
-            val decoyActive by viewModel.decoyActive.collectAsState()
-            val sections = if (decoyActive) {
-                listOf("Home", "Timeline", "Notes", "Photos & Videos", "Documents", "Private Browser", "Recently Deleted", "Settings")
-            } else {
-                listOf("Home", "Timeline", "Notes", "Photos & Videos", "Documents", "Private Browser", "Explore", "Recently Deleted", "Settings")
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp)
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                sections.forEach { label ->
-                    val isSelected = activeSection == label
-                    val chipBg = if (isSelected) ThemePurple else Color(0xFF1B2031)
-                    val chipText = if (isSelected) Color.White else Color(0xFF8B92A5)
-                    val chipBorder = if (isSelected) Color.Transparent else Color(0xFF383F56)
-
-                    Box(
+                    Text(
+                        text = "My Vault",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 8.dp).padding(bottom = 24.dp)
+                    )
+                } else {
+                    Row(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(chipBg)
-                            .border(1.dp, chipBorder, RoundedCornerShape(12.dp))
-                            .clickable {
-                                viewModel.triggerKeypressEffects(context)
-                                activeSection = label
-                            }
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = when(label) {
-                                "Home" -> viewModel.t("vault")
-                                "Notes" -> viewModel.t("notes")
-                                "Photos & Videos" -> viewModel.t("photos_videos")
-                                "Documents" -> viewModel.t("documents")
-                                "Private Browser" -> viewModel.t("private_browser")
-                                "Explore" -> viewModel.t("explore")
-                                "Recently Deleted" -> viewModel.t("recently_deleted")
-                                "Settings" -> viewModel.t("settings")
-                                else -> label
-                            },
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = chipText,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    activeSection = "Home"
+                                },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF161B2B).copy(alpha = 0.8f)).border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            Column {
+                                Text(
+                                    text = viewModel.t(
+                                        when(activeSection) {
+                                            "Notes" -> "notes"
+                                            "Photos & Videos" -> "photos_videos"
+                                            "Documents" -> "documents"
+                                            "Private Browser" -> "private_browser"
+                                            "Explore" -> "explore"
+                                            "Settings" -> "settings"
+                                            else -> "secure_vault"
+                                        }
+                                    ),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "AES Passcode Secured",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFF4CAF50),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (activeSection == "Photos & Videos" || activeSection == "Documents" || activeSection == "Music & Audio") {
+                                val isCurrentGrid = when (activeSection) {
+                                    "Photos & Videos" -> isMediaGridView
+                                    "Documents" -> isDocGridView
+                                    "Music & Audio" -> isMusicGridView
+                                    else -> true
+                                }
+                                IconButton(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        when (activeSection) {
+                                            "Photos & Videos" -> isMediaGridView = !isMediaGridView
+                                            "Documents" -> isDocGridView = !isDocGridView
+                                            "Music & Audio" -> isMusicGridView = !isMusicGridView
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF161B2B).copy(alpha = 0.8f)).border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+                                ) {
+                                    Icon(
+                                        imageVector = if (isCurrentGrid) Icons.Default.List else Icons.Default.GridView,
+                                        contentDescription = "Toggle Grid/List View",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    showSearchDialog = true
+                                },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF161B2B).copy(alpha = 0.8f)).border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "Global Search",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
+
+
                 }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Section Contents with Crossfade Animation
+                // Section Contents with Crossfade Animation
             androidx.compose.animation.Crossfade(
                 targetState = activeSection,
                 animationSpec = androidx.compose.animation.core.tween(300),
@@ -1789,632 +1915,60 @@ fun VaultTabUnlockedContent(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        // Header Cards like App Lock and Explore
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            // Card 1: App Lock
-                            Card(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(100.dp)
-                                    .clickable {
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "App Lock"
-                                    },
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF635BFF).copy(alpha = 0.15f))
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(14.dp),
-                                    verticalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFF635BFF)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Shield,
-                                            contentDescription = "App Lock",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    Column {
-                                        Text(
-                                            text = "App Lock",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                        Text(
-                                            text = "Protect apps",
-                                            fontSize = 10.sp,
-                                            color = TextMedium
-                                        )
-                                    }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            // Main Vault Grid
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                VaultFolderCard(
+                                    title = "Hidden Photos", 
+                                    count = "12 Items", 
+                                    icon = Icons.Default.Image, 
+                                    iconTint = Color(0xFF0EA5E9),
+                                    modifier = Modifier.weight(1f)
+                                ) { 
+                                    viewModel.triggerKeypressEffects(context)
+                                    activeSection = "Photos & Videos" 
+                                }
+                                VaultFolderCard(
+                                    title = "Private Notes", 
+                                    count = "3 Items", 
+                                    icon = Icons.Default.List, 
+                                    iconTint = Color(0xFFF97316),
+                                    modifier = Modifier.weight(1f)
+                                ) { 
+                                    viewModel.triggerKeypressEffects(context)
+                                    activeSection = "Notes" 
                                 }
                             }
-
-                            // Card 2: Explore Toolbox
-                            Card(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(100.dp)
-                                    .clickable {
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Explore"
-                                    },
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF00C853).copy(alpha = 0.15f))
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(14.dp),
-                                    verticalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFF00C853)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.TrendingUp,
-                                            contentDescription = "Explore",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    Column {
-                                        Text(
-                                            text = "Explore",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                        Text(
-                                            text = "Secure features",
-                                            fontSize = 10.sp,
-                                            color = TextMedium
-                                        )
-                                    }
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                VaultFolderCard(
+                                    title = "Documents", 
+                                    count = "0 Items", 
+                                    icon = Icons.Default.Description, 
+                                    iconTint = Color(0xFFEAB308),
+                                    modifier = Modifier.weight(1f)
+                                ) { 
+                                    viewModel.triggerKeypressEffects(context)
+                                    activeSection = "Documents" 
+                                }
+                                VaultFolderCard(
+                                    title = "Web Browser", 
+                                    count = "Secure", 
+                                    icon = Icons.Default.Language, 
+                                    iconTint = Color(0xFF8B5CF6),
+                                    modifier = Modifier.weight(1f)
+                                ) { 
+                                    viewModel.triggerKeypressEffects(context)
+                                    activeSection = "Private Browser"
                                 }
                             }
-                        }
-
-                        // 1. Vault Storage Analyzer Card
-                        val storageDetails = viewModel.getVaultStorageDetails()
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(
-                                    width = 1.dp,
-                                    color = ThemeContainerBorder.copy(alpha = 0.2f),
-                                    shape = RoundedCornerShape(16.dp)
-                                ),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Vault Storage Analyzer",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                    Text(
-                                        text = "Total: ${viewModel.formatFileSize(storageDetails.totalSize)}",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = ThemePurple
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(10.dp))
                                 
-                                val totalBytes = storageDetails.totalSize.coerceAtLeast(1L)
-                                val photoRatio = storageDetails.photosSize.toFloat() / totalBytes
-                                val videoRatio = storageDetails.videosSize.toFloat() / totalBytes
-                                val docRatio = storageDetails.documentsSize.toFloat() / totalBytes
-                                val noteRatio = storageDetails.notesSize.toFloat() / totalBytes
-                                
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(8.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color(0xFF2C3145))
-                                ) {
-                                    if (photoRatio > 0) {
-                                        Box(modifier = Modifier.weight(photoRatio.coerceAtLeast(0.01f)).fillMaxHeight().background(Color(0xFF2979FF)))
-                                    }
-                                    if (videoRatio > 0) {
-                                        Box(modifier = Modifier.weight(videoRatio.coerceAtLeast(0.01f)).fillMaxHeight().background(Color(0xFFFF9100)))
-                                    }
-                                    if (docRatio > 0) {
-                                        Box(modifier = Modifier.weight(docRatio.coerceAtLeast(0.01f)).fillMaxHeight().background(Color(0xFF00E676)))
-                                    }
-                                    if (noteRatio > 0) {
-                                        Box(modifier = Modifier.weight(noteRatio.coerceAtLeast(0.01f)).fillMaxHeight().background(Color(0xFFFFD600)))
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(12.dp))
-                                
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    StorageCategoryItem(
-                                        color = Color(0xFF2979FF),
-                                        label = "Photos",
-                                        sizeStr = viewModel.formatFileSize(storageDetails.photosSize),
-                                        count = storageDetails.photosCount
-                                    )
-                                    StorageCategoryItem(
-                                        color = Color(0xFFFF9100),
-                                        label = "Videos",
-                                        sizeStr = viewModel.formatFileSize(storageDetails.videosSize),
-                                        count = storageDetails.videosCount
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    StorageCategoryItem(
-                                        color = Color(0xFF00E676),
-                                        label = "Docs",
-                                        sizeStr = viewModel.formatFileSize(storageDetails.documentsSize),
-                                        count = storageDetails.documentsCount
-                                    )
-                                    StorageCategoryItem(
-                                        color = Color(0xFFFFD600),
-                                        label = "Notes",
-                                        sizeStr = viewModel.formatFileSize(storageDetails.notesSize),
-                                        count = storageDetails.notesCount
-                                    )
-                                }
-                            }
-                        }
 
-                        // 2. Recently Opened Row (Horizontal Scroll)
-                        val recentlyOpened by viewModel.recentlyOpened.collectAsState()
-                        if (recentlyOpened.isNotEmpty()) {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    text = "Recently Opened",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextMedium,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
-                                LazyRow(
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    items(recentlyOpened) { item ->
-                                        Card(
-                                            modifier = Modifier
-                                                .width(130.dp)
-                                                .height(70.dp)
-                                                .clickable {
-                                                    viewModel.triggerKeypressEffects(context)
-                                                    if (item.type == "note") {
-                                                        activeSection = "Notes"
-                                                        viewNoteToShow = item.extra
-                                                    } else {
-                                                        val fileStr = item.extra
-                                                        if (fileStr.isNotEmpty()) {
-                                                            val parts = fileStr.split("|||")
-                                                            if (parts.size >= 4) {
-                                                                if (parts[3].startsWith("image/") || parts[3].startsWith("video/")) {
-                                                                    selectedFileForDetails = fileStr
-                                                                } else if (parts[3].startsWith("text/plain")) {
-                                                                    try {
-                                                                        val txt = java.io.File(parts[4]).readText()
-                                                                        textFileContentToRead = Pair(parts[2], txt)
-                                                                    } catch (e: Exception) {}
-                                                                } else {
-                                                                    selectedFileForDetails = fileStr
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                },
-                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
-                                            shape = RoundedCornerShape(10.dp),
-                                            border = BorderStroke(1.dp, ThemeContainerBorder.copy(alpha = 0.15f))
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.fillMaxSize().padding(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(32.dp)
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(
-                                                            when (item.type) {
-                                                                "note" -> Color(0xFFFFD600).copy(alpha = 0.15f)
-                                                                else -> {
-                                                                    val parts = item.extra.split("|||")
-                                                                    val mime = if (parts.size >= 4) parts[3] else ""
-                                                                    if (mime.startsWith("image/")) Color(0xFF2979FF).copy(alpha = 0.15f)
-                                                                    else if (mime.startsWith("video/")) Color(0xFFFF9100).copy(alpha = 0.15f)
-                                                                    else Color(0xFF00E676).copy(alpha = 0.15f)
-                                                                }
-                                                            }
-                                                        ),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        imageVector = when (item.type) {
-                                                            "note" -> Icons.Default.Article
-                                                            else -> {
-                                                                val parts = item.extra.split("|||")
-                                                                val mime = if (parts.size >= 4) parts[3] else ""
-                                                                if (mime.startsWith("image/")) Icons.Default.Image
-                                                                else if (mime.startsWith("video/")) Icons.Default.PlayArrow
-                                                                else Icons.Default.Description
-                                                            }
-                                                        },
-                                                        contentDescription = null,
-                                                        tint = when (item.type) {
-                                                            "note" -> Color(0xFFFFD600)
-                                                            else -> {
-                                                                val parts = item.extra.split("|||")
-                                                                val mime = if (parts.size >= 4) parts[3] else ""
-                                                                if (mime.startsWith("image/")) Color(0xFF2979FF)
-                                                                else if (mime.startsWith("video/")) Color(0xFFFF9100)
-                                                                else Color(0xFF00E676)
-                                                            }
-                                                        },
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                                Column(verticalArrangement = Arrangement.Center) {
-                                                    Text(
-                                                        text = item.name,
-                                                        fontSize = 10.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = Color.White,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                    Text(
-                                                        text = if (item.type == "note") "Note" else "File",
-                                                        fontSize = 8.sp,
-                                                        color = TextMedium
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Folder items header
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "All Folders",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextMedium
-                            )
-                            Icon(
-                                imageVector = Icons.Default.Sort,
-                                contentDescription = "Sort",
-                                tint = Color(0xFF8B92A5),
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-
-                        // Folders list like in Screenshot 1
-                        FolderCard(
-                            title = "Recent Files",
-                            subtitle = "${vaultFiles.size + vaultNotes.size} locked items",
-                            icon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Color(0xFFFF9100).copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.History, "Recent", tint = Color(0xFFFF9100), modifier = Modifier.size(20.dp))
-                                }
-                            },
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                activeSection = "Photos & Videos"
-                            }
-                        )
-
-                        FolderCard(
-                            title = "Photos & Videos",
-                            subtitle = "${vaultFiles.filter { it.contains("image/") || it.contains("video/") }.size} media objects",
-                            icon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Color(0xFF2979FF).copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Image, "Photos", tint = Color(0xFF2979FF), modifier = Modifier.size(20.dp))
-                                }
-                            },
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                activeSection = "Photos & Videos"
-                            }
-                        )
-
-                        FolderCard(
-                            title = "Private Notes",
-                            subtitle = "${vaultNotes.size} secret logs",
-                            icon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Color(0xFFFFD600).copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Article, "Notes", tint = Color(0xFFFFD600), modifier = Modifier.size(20.dp))
-                                }
-                            },
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                activeSection = "Notes"
-                            }
-                        )
-
-                        FolderCard(
-                            title = "Secure Camera",
-                            subtitle = "Take private photos",
-                            icon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Color(0xFFE53935).copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.CameraAlt, "Camera", tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
-                                }
-                            },
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                activeCameraMode = "camera"
-                            }
-                        )
-
-                        FolderCard(
-                            title = "Private Documents",
-                            subtitle = "${vaultFiles.filter { !it.contains("image/") && !it.contains("video/") && !it.contains("audio/") && !it.contains("music/") }.size} locked assets",
-                            icon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Color(0xFF00E676).copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Description, "Documents", tint = Color(0xFF00E676), modifier = Modifier.size(20.dp))
-                                }
-                            },
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                activeSection = "Documents"
-                            }
-                        )
-
-                        FolderCard(
-                            title = "Private Music & Audio",
-                            subtitle = "${vaultFiles.filter { it.contains("audio/") || it.contains("music/") }.size} secure audio tracks",
-                            icon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Color(0xFFE040FB).copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.MusicNote, "Music", tint = Color(0xFFE040FB), modifier = Modifier.size(20.dp))
-                                }
-                            },
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                activeSection = "Music & Audio"
-                            }
-                        )
-
-                        FolderCard(
-                            title = "Private Web Browser",
-                            subtitle = "Incognito browsing workspace",
-                            icon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Color(0xFF00B0FF).copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Language, "Browser", tint = Color(0xFF00B0FF), modifier = Modifier.size(20.dp))
-                                }
-                            },
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                activeSection = "Private Browser"
-                            }
-                        )
-
-                        val recentlyDeletedFiles by viewModel.recentlyDeletedFiles.collectAsState()
-                        FolderCard(
-                            title = "Recently Deleted",
-                            subtitle = "${recentlyDeletedFiles.size} temporary items",
-                            icon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Color(0xFFE53935).copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Delete, "Recently Deleted", tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
-                                }
-                            },
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                activeSection = "Recently Deleted"
-                            }
-                        )
-                    }
-                }
-                "Timeline" -> {
-                    val allItems = mutableListOf<Triple<String, String, String>>() // Timestamp, Type, Content/ID
-                    
-                    vaultFiles.forEach { fileStr ->
-                        val parts = fileStr.split("|||")
-                        if (parts.size >= 5) {
-                            val timestamp = parts[4]
-                            val mime = parts[3]
-                            val type = if (mime.startsWith("image/") || mime.startsWith("video/")) "Media" else "Document"
-                            allItems.add(Triple(timestamp, type, fileStr))
+                            Spacer(modifier = Modifier.height(40.dp))
                         }
                     }
-                    
-                    vaultNotes.forEach { noteStr ->
-                        val parts = noteStr.split("|||")
-                        if (parts.size >= 3) {
-                            val timestamp = parts[0]
-                            allItems.add(Triple(timestamp, "Note", noteStr))
-                        }
-                    }
-                    
-                    // Simple chronological sort assuming YYYY-MM-DD HH:MM:SS format 
-                    // (Note: For robust timelines, you'd parse to dates, but string sort works for ISO formats)
-                    val sortedItems = allItems.sortedByDescending { it.first }
-
-                    if (sortedItems.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.History, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(64.dp))
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text("No Activity", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Items added to your vault will appear here", color = TextMedium, fontSize = 14.sp)
-                            }
-                        }
-                    } else {
-                        LazyColumn(
-                            contentPadding = PaddingValues(bottom = 80.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(sortedItems) { (timestamp, type, data) ->
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(40.dp)
-                                                .background(
-                                                    when (type) {
-                                                        "Media" -> Color(0xFF2979FF).copy(alpha = 0.2f)
-                                                        "Document" -> Color(0xFF00E676).copy(alpha = 0.2f)
-                                                        else -> Color(0xFFFFD600).copy(alpha = 0.2f)
-                                                    },
-                                                    CircleShape
-                                                ),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = when (type) {
-                                                    "Media" -> Icons.Default.Image
-                                                    "Document" -> Icons.Default.Description
-                                                    else -> Icons.Default.Article
-                                                },
-                                                contentDescription = null,
-                                                tint = when (type) {
-                                                    "Media" -> Color(0xFF2979FF)
-                                                    "Document" -> Color(0xFF00E676)
-                                                    else -> Color(0xFFFFD600)
-                                                },
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                        
-                                        Spacer(modifier = Modifier.width(16.dp))
-                                        
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = when(type) {
-                                                    "Note" -> data.split("|||").getOrNull(1) ?: "Secure Note"
-                                                    else -> data.split("|||").getOrNull(2) ?: "Secure File"
-                                                },
-                                                color = Color.White,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = timestamp,
-                                                color = TextMedium,
-                                                fontSize = 12.sp
-                                            )
-                                        }
-                                        
-                                        IconButton(onClick = {
-                                            if (type == "Note") {
-                                                viewNoteToShow = data
-                                            } else {
-                                                selectedFileForDetails = data
-                                            }
-                                        }) {
-                                            Icon(Icons.Default.ArrowForward, contentDescription = "View", tint = Color.Gray, modifier = Modifier.size(16.dp))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
                 "Notes" -> {
                     val favoriteNotes by viewModel.favoriteNotes.collectAsState()
                     val noteFolders by viewModel.noteFolders.collectAsState()
@@ -7248,3 +6802,33 @@ fun StorageCategoryItem(color: Color, label: String, sizeStr: String, count: Int
     }
 }
 
+
+@Composable
+fun VaultFolderCard(title: String, count: String, icon: androidx.compose.ui.graphics.vector.ImageVector, iconTint: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFF161B2B).copy(alpha = 0.8f))
+            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(20.dp))
+            .clickable { onClick() }
+            .padding(16.dp)
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(iconTint.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+            }
+            Column {
+                Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(count, color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+            }
+        }
+    }
+}
