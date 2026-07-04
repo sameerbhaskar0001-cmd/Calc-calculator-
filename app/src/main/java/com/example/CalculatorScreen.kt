@@ -643,6 +643,10 @@ fun CalculatorTabContent(
                 .padding(vertical = 8.dp),
             verticalArrangement = Arrangement.Bottom
         ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = Arrangement.Bottom
+            ) {
             // Expression
             if (formulaDisplay.isNotEmpty()) {
                 Row(
@@ -683,6 +687,7 @@ fun CalculatorTabContent(
                 )
             }
 
+                        }
             Spacer(modifier = Modifier.height(8.dp))
 
             // Conversion container
@@ -978,7 +983,6 @@ fun ExchangeTabContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
                 .padding(top = 12.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -1022,16 +1026,16 @@ fun ExchangeTabContent(
 
             // Cards container with reduced gap and swap button
             Box(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // SOURCE INPUT CARD
                     val isSourceActive = activeField == CurrencyField.USD
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(130.dp)
+                            .weight(1f)
                             .clip(RoundedCornerShape(20.dp))
                             .background(Color.Black.copy(alpha = 0.4f))
                             .border(
@@ -1106,7 +1110,7 @@ fun ExchangeTabContent(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(130.dp)
+                            .weight(1f)
                             .clip(RoundedCornerShape(20.dp))
                             .background(Color.Black.copy(alpha = 0.4f))
                             .border(
@@ -6643,8 +6647,7 @@ fun VaultTabUnlockedContent(
                             .border(1.dp, ThemeContainerBorder.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                             .background(Color.White)
                             .padding(12.dp)
-                            .verticalScroll(rememberScrollState())
-                    ) {
+                                ) {
                         Text(
                             text = content,
                             fontSize = 12.sp,
