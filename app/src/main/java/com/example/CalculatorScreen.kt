@@ -47,6 +47,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -963,7 +964,6 @@ fun ExchangeTabContent(
     val targetCurrency by viewModel.targetCurrency.collectAsState()
     val currencies = viewModel.currencies
     val apiStatus by viewModel.apiStatus.collectAsState()
-    val lastUpdated by viewModel.lastUpdated.collectAsState()
 
     var showSourceSelector by remember { mutableStateOf(false) }
     var showTargetSelector by remember { mutableStateOf(false) }
@@ -971,7 +971,7 @@ fun ExchangeTabContent(
     val context = LocalContext.current
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
@@ -979,72 +979,36 @@ fun ExchangeTabContent(
                 .fillMaxWidth()
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(top = 12.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Real-Time Sync Status Banner
+            // Minimal Sync & Rate Strip
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color.Black.copy(alpha = 0.4f))
-                    .border(
-                        width = 1.dp,
-                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                            colors = listOf(ThemePurple.copy(alpha = 0.3f), Color.Transparent),
-                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                            end = androidx.compose.ui.geometry.Offset(0f, 300f)
-                        ),
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val statusText = when (apiStatus) {
-                        ApiStatus.IDLE -> "Auto rates synced"
-                        ApiStatus.LOADING -> "Syncing live rates..."
-                        ApiStatus.SUCCESS -> "Live rates synced"
-                        ApiStatus.ERROR -> "Offline (using cached rates)"
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val statusColor = when (apiStatus) {
                         ApiStatus.LOADING -> ThemePurple
-                        ApiStatus.SUCCESS -> Color(0xFF2E7D32) // Green
-                        ApiStatus.ERROR -> Color(0xFFC62828) // Red
+                        ApiStatus.SUCCESS -> Color(0xFF2E7D32)
+                        ApiStatus.ERROR -> Color(0xFFC62828)
                         else -> TextMedium
                     }
-                    
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(statusColor)
+                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(statusColor))
+                    Text(
+                        text = "1 ${sourceCurrency.code} = ${String.format(java.util.Locale.US, "%.4f", rate)} ${targetCurrency.code}",
+                        color = TextMedium,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
-                    Column {
-                        Text(
-                            text = statusText,
-                            color = TextDark,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Last updated: $lastUpdated",
-                            color = TextMedium.copy(alpha = 0.7f),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
                 }
-                
                 IconButton(
                     onClick = {
                         viewModel.triggerKeypressEffects(context)
                         viewModel.fetchLatestRates()
                     },
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier.size(32.dp),
                     enabled = apiStatus != ApiStatus.LOADING
                 ) {
                     Icon(
@@ -1056,243 +1020,192 @@ fun ExchangeTabContent(
                 }
             }
 
-            // Live Exchange Info Strip with flag icons
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color.Black.copy(alpha = 0.4f))
-                    .border(
-                        width = 1.dp,
-                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                            colors = listOf(ThemePurple.copy(alpha = 0.3f), Color.Transparent),
-                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                            end = androidx.compose.ui.geometry.Offset(0f, 300f)
-                        ),
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                    .clickable { onEditRateClick() }
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.TrendingUp,
-                        contentDescription = "Trending Rate",
-                        tint = ThemePurple,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "Rate: 1 ${sourceCurrency.code} = ${String.format(Locale.US, "%.4f", rate)} ${targetCurrency.code}",
-                        color = TextDark,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "EDIT RATE",
-                    color = ThemePurple,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Black
-                )
-            }
-
-            // SOURCE INPUT CARD
-            val isSourceActive = activeField == CurrencyField.USD
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color.Black.copy(alpha = 0.4f))
-                    .border(
-                        width = 1.dp,
-                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                            colors = listOf(ThemePurple.copy(alpha = if (isSourceActive) 0.6f else 0.3f), Color.Transparent),
-                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                            end = androidx.compose.ui.geometry.Offset(0f, 300f)
-                        ),
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                    .clickable {
-                        viewModel.triggerKeypressEffects(context)
-                        viewModel.onCurrencyFieldSelect(CurrencyField.USD)
-                    }
-                    .testTag("card_usd"),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { showSourceSelector = true }
-                                .background(KeypadBg)
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text(sourceCurrency.emoji, fontSize = 24.sp)
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(sourceCurrency.code, fontWeight = FontWeight.Bold, color = TextDark, fontSize = 15.sp)
-                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Source", tint = ThemePurple)
-                                }
-                                Text(
-                                    text = sourceCurrency.name,
-                                    color = TextMedium,
-                                    fontSize = 10.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.widthIn(max = 120.dp)
-                                )
-                            }
-                        }
-
-                        if (isSourceActive) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(ThemePurple.copy(alpha = 0.15f))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Text("ACTIVE INPUT", color = ThemePurple, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = usdVal.ifEmpty { "0" },
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (usdVal.isEmpty()) TextMedium.copy(alpha = 0.5f) else TextDark,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("usd_display")
-                    )
-                }
-            }
-
-            // SWAP BUTTON IN MIDDLE
+            // Cards container with reduced gap and swap button
             Box(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // SOURCE INPUT CARD
+                    val isSourceActive = activeField == CurrencyField.USD
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(130.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color.Black.copy(alpha = 0.4f))
+                            .border(
+                                width = 1.dp,
+                                brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                    colors = listOf(ThemePurple.copy(alpha = if (isSourceActive) 0.6f else 0.3f), Color.Transparent),
+                                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                                    end = androidx.compose.ui.geometry.Offset(0f, 300f)
+                                ),
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                            .clickable {
+                                viewModel.triggerKeypressEffects(context)
+                                viewModel.onCurrencyFieldSelect(CurrencyField.USD)
+                            }
+                            .testTag("card_usd"),
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { showSourceSelector = true }
+                                        .background(KeypadBg)
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Text(sourceCurrency.emoji, fontSize = 24.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(sourceCurrency.code, fontWeight = FontWeight.Bold, color = TextDark, fontSize = 15.sp)
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Source", tint = ThemePurple)
+                                    }
+                                }
+
+                                if (isSourceActive) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(ThemePurple.copy(alpha = 0.15f))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("ACTIVE", color = ThemePurple, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.weight(1f))
+                            Text(
+                                text = usdVal.ifEmpty { "0" },
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (usdVal.isEmpty()) TextMedium.copy(alpha = 0.5f) else TextDark,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("usd_display"),
+                                textAlign = TextAlign.Right,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    // TARGET INPUT CARD
+                    val isTargetActive = activeField == CurrencyField.INR
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(130.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color.Black.copy(alpha = 0.4f))
+                            .border(
+                                width = 1.dp,
+                                brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                    colors = listOf(ThemePurple.copy(alpha = if (isTargetActive) 0.6f else 0.3f), Color.Transparent),
+                                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                                    end = androidx.compose.ui.geometry.Offset(0f, 300f)
+                                ),
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                            .clickable {
+                                viewModel.triggerKeypressEffects(context)
+                                viewModel.onCurrencyFieldSelect(CurrencyField.INR)
+                            }
+                            .testTag("card_inr"),
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { showTargetSelector = true }
+                                        .background(KeypadBg)
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Text(targetCurrency.emoji, fontSize = 24.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(targetCurrency.code, fontWeight = FontWeight.Bold, color = TextDark, fontSize = 15.sp)
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Target", tint = ThemePurple)
+                                    }
+                                }
+
+                                if (isTargetActive) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(ThemePurple.copy(alpha = 0.15f))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("ACTIVE", color = ThemePurple, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.weight(1f))
+                            Text(
+                                text = inrVal.ifEmpty { "0" },
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (inrVal.isEmpty()) TextMedium.copy(alpha = 0.5f) else TextDark,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("inr_display"),
+                                textAlign = TextAlign.Right,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                // SWAP BUTTON IN MIDDLE OVERLAYING THE CARDS
                 IconButton(
                     onClick = {
                         viewModel.triggerKeypressEffects(context)
                         viewModel.swapCurrencies()
                     },
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
                         .background(ThemePurple)
+                        .border(4.dp, BrandBg, CircleShape) // Create a cutout effect
                 ) {
                     Icon(
-                        imageVector = Icons.Default.SwapHoriz,
+                        imageVector = Icons.Default.SwapVert,
                         contentDescription = "Swap currencies",
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
+        }
 
-            // TARGET INPUT CARD
-            val isTargetActive = activeField == CurrencyField.INR
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color.Black.copy(alpha = 0.4f))
-                    .border(
-                        width = 1.dp,
-                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                            colors = listOf(ThemePurple.copy(alpha = if (isTargetActive) 0.6f else 0.3f), Color.Transparent),
-                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                            end = androidx.compose.ui.geometry.Offset(0f, 300f)
-                        ),
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                    .clickable {
-                        viewModel.triggerKeypressEffects(context)
-                        viewModel.onCurrencyFieldSelect(CurrencyField.INR)
-                    }
-                    .testTag("card_inr"),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { showTargetSelector = true }
-                                .background(KeypadBg)
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text(targetCurrency.emoji, fontSize = 24.sp)
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(targetCurrency.code, fontWeight = FontWeight.Bold, color = TextDark, fontSize = 15.sp)
-                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Target", tint = ThemePurple)
-                                }
-                                Text(
-                                    text = targetCurrency.name,
-                                    color = TextMedium,
-                                    fontSize = 10.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.widthIn(max = 120.dp)
-                                )
-                            }
-                        }
-
-                        if (isTargetActive) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(ThemePurple.copy(alpha = 0.15f))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Text("ACTIVE INPUT", color = ThemePurple, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = inrVal.ifEmpty { "0" },
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (inrVal.isEmpty()) TextMedium.copy(alpha = 0.5f) else TextDark,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("inr_display")
-                    )
-                }
-            }
-
+        // Bottom Fixed Area: Quick Add & Keypad
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
             // Quick Presets Row
             val presets = if (activeField == CurrencyField.USD) {
                 listOf(1.0, 5.0, 10.0, 50.0, 100.0, 500.0)
@@ -1311,13 +1224,13 @@ fun ExchangeTabContent(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(ThemeLightPurple)
+                            .background(Color.Black.copy(alpha = 0.3f))
                             .clickable {
                                 viewModel.triggerKeypressEffects(context)
                                 viewModel.applyQuickAdd(preset)
                             }
-                            .border(1.dp, ThemeContainerBorder, RoundedCornerShape(50))
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                            .border(1.dp, ThemeContainerBorder.copy(alpha=0.5f), RoundedCornerShape(50))
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
                             .testTag("quick_add_$preset"),
                         contentAlignment = Alignment.Center
                     ) {
@@ -1330,73 +1243,42 @@ fun ExchangeTabContent(
                     }
                 }
             }
-        }
 
-        // Custom Numeric Keypad for Exchange Flow
-        val keys = listOf(
-            listOf("1", "2", "3"),
-            listOf("4", "5", "6"),
-            listOf("7", "8", "9"),
-            listOf("C", "0", "."),
-            listOf("⌫")
-        )
+            // Custom Numeric Keypad for Exchange Flow (4 Columns to match main calculator)
+            val keys = listOf(
+                listOf("7", "8", "9", "⌫"),
+                listOf("4", "5", "6", "C"),
+                listOf("1", "2", "3", " "),
+                listOf(" ", "0", ".", " ")
+            )
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            for (row in keys) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    for (char in row) {
-                        val isBackspace = char == "⌫"
-                        val isClear = char == "C"
-                        val containerBg = if (isBackspace || isClear) KeypadBg else DigitBg
-                        val contentColor = if (isBackspace || isClear) ThemePurple else TextDark
-
-                        Box(
-                            modifier = Modifier
-                                .weight(if (isBackspace) 3f else 1f)
-                                .height(54.dp)
-                                .shadow(elevation = if (!isBackspace && !isClear) 1.dp else 0.dp, shape = RoundedCornerShape(16.dp))
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(containerBg)
-                                .clickable {
-                                    viewModel.triggerKeypressEffects(context)
-                                    viewModel.onCurrencyKeyPress(char)
-                                }
-                                .testTag("currency_key_$char"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (char == "⌫") {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.KeyboardBackspace,
-                                        contentDescription = "Backspace",
-                                        tint = contentColor,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "DELETE",
-                                        color = contentColor,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                for (row in keys) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        for (char in row) {
+                            if (char.isBlank()) {
+                                Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
                             } else {
-                                Text(
-                                    text = char,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = contentColor
+                                val isBackspace = char == "⌫"
+                                val isClear = char == "C"
+                                GlassCalculatorKey(
+                                    char = char,
+                                    isOperator = false,
+                                    isUtility = isClear || isBackspace,
+                                    isEquals = false,
+                                    themePurple = ThemePurple,
+                                    themeLightPurple = ThemeLightPurple,
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        viewModel.onCurrencyKeyPress(char)
+                                    },
+                                    modifier = Modifier.weight(1f).testTag("currency_key_$char")
                                 )
                             }
                         }
@@ -1406,21 +1288,25 @@ fun ExchangeTabContent(
         }
     }
 
-    // Source Currency Select dialog
     if (showSourceSelector) {
         CurrencySelectDialog(
             currencies = currencies,
             onDismiss = { showSourceSelector = false },
-            onSelect = { viewModel.selectSourceCurrency(it) }
+            onSelect = {
+                viewModel.selectSourceCurrency(it)
+                showSourceSelector = false
+            }
         )
     }
 
-    // Target Currency Select dialog
     if (showTargetSelector) {
         CurrencySelectDialog(
             currencies = currencies,
             onDismiss = { showTargetSelector = false },
-            onSelect = { viewModel.selectTargetCurrency(it) }
+            onSelect = {
+                viewModel.selectTargetCurrency(it)
+                showTargetSelector = false
+            }
         )
     }
 }
