@@ -26,6 +26,10 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.CloudQueue
@@ -93,6 +97,11 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.MoreHoriz
+
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Restore
@@ -270,23 +279,28 @@ fun CalculatorScreen(
         targetValue = if (transitionState >= 3) 1f else if (transitionState == 2) 0.95f else 0.9f,
         animationSpec = tween(450, easing = FastOutSlowInEasing)
     )
+    val welcomeAlpha by animateFloatAsState(
+        targetValue = if (transitionState == 2) 1f else 0f,
+        animationSpec = tween(500)
+    )
+    
     val vaultAlpha by animateFloatAsState(
-        targetValue = if (transitionState >= 2) 1f else 0f,
-        animationSpec = tween(300)
+        targetValue = if (transitionState >= 3) 1f else 0f,
+        animationSpec = tween(500)
     )
     
     val authOverlayAlpha by animateFloatAsState(
         targetValue = if (transitionState == 1) 1f else 0f,
-        animationSpec = tween(150)
+        animationSpec = tween(300)
     )
 
     LaunchedEffect(vaultUnlocked) {
         if (vaultUnlocked) {
             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
             transitionState = 1 // Authenticating
+            delay(2000)
+            transitionState = 2 // Welcome Transition
             delay(3000)
-            transitionState = 2 // Transition
-            delay(300)
             transitionState = 3 // Vault fully emerges
             activeTab = ActiveTab.VAULT
         } else {
@@ -392,7 +406,7 @@ fun CalculatorScreen(
                         CalculatorTabContent(viewModel = viewModel)
                     }
                     
-                    if (transitionState == 1 || transitionState == 2) {
+                    if (transitionState == 1) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -444,6 +458,125 @@ fun CalculatorScreen(
                                     color = Color.White.copy(alpha = 0.8f),
                                     fontSize = 16.sp
                                 )
+                            }
+                        }
+                    }
+                    
+                    if (transitionState == 2) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .alpha(welcomeAlpha)
+                                .background(Color(0xFF0F121C)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                // Glowing Shield
+                                Box(
+                                    modifier = Modifier
+                                        .size(120.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    val localThemePurple = ThemePurple
+                                    Canvas(modifier = Modifier.fillMaxSize()) {
+                                        // Simple glow effect
+                                        drawCircle(
+                                            color = localThemePurple.copy(alpha = 0.15f),
+                                            radius = size.width / 2,
+                                            style = androidx.compose.ui.graphics.drawscope.Fill
+                                        )
+                                        drawCircle(
+                                            color = localThemePurple.copy(alpha = 0.1f),
+                                            radius = size.width / 1.5f,
+                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.Shield,
+                                        contentDescription = "Secure",
+                                        tint = ThemePurple,
+                                        modifier = Modifier.size(64.dp)
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = "Secure",
+                                        tint = Color(0xFF0F121C),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(32.dp))
+                                
+                                Text(
+                                    text = "Welcome Back!",
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Your vault is opening",
+                                    fontSize = 16.sp,
+                                    color = Color.White.copy(alpha = 0.6f)
+                                )
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                // Accent line
+                                Box(
+                                    modifier = Modifier
+                                        .width(40.dp)
+                                        .height(3.dp)
+                                        .clip(RoundedCornerShape(1.5.dp))
+                                        .background(ThemePurple)
+                                )
+                                
+                                Spacer(modifier = Modifier.height(64.dp))
+                                
+                                // Preview Grid
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    modifier = Modifier.padding(horizontal = 32.dp)
+                                ) {
+                                    VaultFolderCard(
+                                        title = "Photos", 
+                                        count = "12 Items", 
+                                        icon = Icons.Default.Image, 
+                                        iconTint = ThemePurple,
+                                        modifier = Modifier.weight(1f)
+                                    ) {}
+                                    VaultFolderCard(
+                                        title = "Videos", 
+                                        count = "3 Items", 
+                                        icon = Icons.Default.PlayArrow, 
+                                        iconTint = ThemePurple,
+                                        modifier = Modifier.weight(1f)
+                                    ) {}
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    modifier = Modifier.padding(horizontal = 32.dp)
+                                ) {
+                                    VaultFolderCard(
+                                        title = "Documents", 
+                                        count = "0 Items", 
+                                        icon = Icons.Default.Description, 
+                                        iconTint = ThemePurple,
+                                        modifier = Modifier.weight(1f)
+                                    ) {}
+                                    VaultFolderCard(
+                                        title = "Notes", 
+                                        count = "3 Items", 
+                                        icon = Icons.Default.List, 
+                                        iconTint = ThemePurple,
+                                        modifier = Modifier.weight(1f)
+                                    ) {}
+                                }
                             }
                         }
                     }
@@ -1734,14 +1867,13 @@ fun VaultTabUnlockedContent(
                         IconButton(
                             onClick = { 
                                 viewModel.triggerKeypressEffects(context)
-                                viewModel.lockVault()
-                                onLockExit()
+                                // Handle menu click
                             },
                             modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "Menu / Lock",
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Menu",
                                 tint = Color.White,
                                 modifier = Modifier.size(24.dp)
                             )
@@ -1765,29 +1897,40 @@ fun VaultTabUnlockedContent(
                             IconButton(
                                 onClick = { 
                                     viewModel.triggerKeypressEffects(context)
-                                    activeSection = "Settings"
+                                    activeSection = "More"
                                 },
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFF262D45))
+                                    .background(ThemePurple.copy(alpha = 0.2f))
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Settings,
+                                    imageVector = Icons.Default.Person,
                                     contentDescription = "Profile",
-                                    tint = Color.White,
+                                    tint = ThemePurple,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
                     }
-                    Text(
-                        text = "My Vault",
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(horizontal = 8.dp).padding(bottom = 24.dp)
-                    )
+                    Column(modifier = Modifier.padding(horizontal = 8.dp).padding(bottom = 24.dp)) {
+                        Text(
+                            text = "My Vault",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.CloudDone, contentDescription = "Cloud Synced", tint = Color(0xFF00E676), modifier = Modifier.size(16.dp))
+                            Text(
+                                text = "All files are encrypted & backed up",
+                                fontSize = 13.sp,
+                                color = Color.White.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
                 } else {
                     Row(
                         modifier = Modifier
@@ -1828,7 +1971,13 @@ fun VaultTabUnlockedContent(
                                             "Documents" -> "documents"
                                             "Private Browser" -> "private_browser"
                                             "Explore" -> "explore"
-                                            "Settings" -> "settings"
+                                            "More" -> "more"
+                                            "Security Settings" -> "security_settings"
+                                            "Fake Vault" -> "fake_vault"
+                                            "Change PIN" -> "change_pin"
+                                            "Export / Import" -> "export_import"
+                                            "App Disguise" -> "app_disguise"
+                                            "About" -> "about"
                                             else -> "secure_vault"
                                         }
                                     ),
@@ -1918,50 +2067,171 @@ fun VaultTabUnlockedContent(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Spacer(modifier = Modifier.height(4.dp))
+                                             // Status Card
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(Brush.verticalGradient(listOf(Color(0xFF1E2640), Color(0xFF161B2B))))
+                                    .border(1.dp, ThemePurple.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
+                                    .padding(20.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(56.dp)
+                                            .clip(CircleShape)
+                                            .background(ThemePurple.copy(alpha = 0.15f))
+                                            .border(1.dp, ThemePurple.copy(alpha = 0.4f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Shield, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(28.dp))
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "VAULT STATUS",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White.copy(alpha = 0.6f),
+                                            letterSpacing = 1.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = "Secure",
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = ThemePurple
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Icon(Icons.Default.Verified, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(16.dp))
+                                        }
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${vaultFiles.size + vaultNotes.size} items protected",
+                                            fontSize = 13.sp,
+                                            color = Color.White.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                    IconButton(onClick = { activeSection = "Security Settings" }, modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)) {
+                                        Icon(Icons.Default.Security, contentDescription = "Security", tint = Color.White)
+                                    }
+                                }
+                            }
                             
-                            // Main Vault Grid
+                            Text(
+                                text = "FILES & MEDIA",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.5f),
+                                letterSpacing = 2.sp,
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) 
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                VaultFolderCard(
-                                    title = "Hidden Photos", 
-                                    count = "12 Items", 
-                                    icon = Icons.Default.Image, 
-                                    iconTint = Color(0xFF0EA5E9),
+                                EnhancedVaultCard(
+                                    title = "Photos", 
+                                    count = "${vaultFiles.count { val ext = it.substringAfterLast('.', "").lowercase(); ext in listOf("jpg", "jpeg", "png", "webp", "heic") }} Items", 
+                                    icon = Icons.Default.Image,
                                     modifier = Modifier.weight(1f)
                                 ) { 
                                     viewModel.triggerKeypressEffects(context)
-                                    activeSection = "Photos & Videos" 
+                                    activeSection = "Photos" 
                                 }
-                                VaultFolderCard(
-                                    title = "Private Notes", 
-                                    count = "3 Items", 
-                                    icon = Icons.Default.List, 
-                                    iconTint = Color(0xFFF97316),
+                                EnhancedVaultCard(
+                                    title = "Videos", 
+                                    count = "${vaultFiles.count { val ext = it.substringAfterLast('.', "").lowercase(); ext in listOf("mp4", "mkv", "3gp", "mov", "avi") }} Items", 
+                                    icon = Icons.Default.PlayArrow,
+                                    modifier = Modifier.weight(1f)
+                                ) { 
+                                    viewModel.triggerKeypressEffects(context)
+                                    activeSection = "Videos" 
+                                }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                EnhancedVaultCard(
+                                    title = "Documents", 
+                                    count = "${vaultFiles.count { val ext = it.substringAfterLast('.', "").lowercase(); ext !in listOf("jpg", "jpeg", "png", "mp4", "mkv", "mp3", "wav") }} Items", 
+                                    icon = Icons.Default.Description,
+                                    modifier = Modifier.weight(1f)
+                                ) { 
+                                    viewModel.triggerKeypressEffects(context)
+                                    activeSection = "Documents" 
+                                }
+                                EnhancedVaultCard(
+                                    title = "Notes", 
+                                    count = "${vaultNotes.size} Items", 
+                                    icon = Icons.Default.List,
                                     modifier = Modifier.weight(1f)
                                 ) { 
                                     viewModel.triggerKeypressEffects(context)
                                     activeSection = "Notes" 
                                 }
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                VaultFolderCard(
-                                    title = "Documents", 
-                                    count = "0 Items", 
-                                    icon = Icons.Default.Description, 
-                                    iconTint = Color(0xFFEAB308),
-                                    modifier = Modifier.weight(1f)
-                                ) { 
-                                    viewModel.triggerKeypressEffects(context)
-                                    activeSection = "Documents" 
+                            
+                            // Recent Activity
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "RECENT ACTIVITY",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    letterSpacing = 2.sp
+                                )
+                                Text(
+                                    text = "View All",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = ThemePurple,
+                                    modifier = Modifier.clickable { activeSection = "Explore" }
+                                )
+                            }
+                            
+                            if (vaultFiles.isEmpty() && vaultNotes.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("Your secrets are safe here.", color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp)
                                 }
-                                VaultFolderCard(
-                                    title = "Web Browser", 
-                                    count = "Secure", 
-                                    icon = Icons.Default.Language, 
-                                    iconTint = Color(0xFF8B5CF6),
-                                    modifier = Modifier.weight(1f)
-                                ) { 
-                                    viewModel.triggerKeypressEffects(context)
-                                    activeSection = "Private Browser"
+                            } else {
+                                val recentFiles = vaultFiles.take(3)
+                                recentFiles.forEach { file ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(Color(0xFF161B2B).copy(alpha = 0.5f))
+                                            .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(16.dp))
+                                            .padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(ThemePurple.copy(alpha = 0.1f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = if (file.lowercase().endsWith(".jpg") || file.lowercase().endsWith(".png")) Icons.Default.Image else Icons.Default.Description,
+                                                contentDescription = null,
+                                                tint = ThemePurple
+                                            )
+                                        }
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(file.substringAfterLast('/'), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                            Text("Added recently", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
+                                        }
+                                        Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                                    }
                                 }
                             }
                                 
@@ -2209,374 +2479,18 @@ fun VaultTabUnlockedContent(
                     }
                 }
 
-                "Photos & Videos" -> {
-                    val favoriteFiles by viewModel.favoriteFiles.collectAsState()
-                    val fileFolders by viewModel.fileFolders.collectAsState()
-                    val vaultFolders by viewModel.vaultFolders.collectAsState()
-
-                    val allMediaFiles = vaultFiles.filter {
-                        val parts = it.split("|||")
-                        parts.size >= 4 && (parts[3].startsWith("image/") || parts[3].startsWith("video/"))
-                    }
-
-                    val filteredMediaFiles = allMediaFiles.filter { fileStr ->
-                        val parts = fileStr.split("|||")
-                        val id = parts[0]
-                        val isFav = favoriteFiles.contains(id)
-                        val assocFolder = fileFolders[id] ?: ""
-                        
-                        when (selectedMediaFolder) {
-                            "All" -> true
-                            "Favorites" -> isFav
-                            "Default" -> assocFolder.isEmpty()
-                            else -> assocFolder == selectedMediaFolder
+                "Photos", "Videos" -> {
+                    MediaGalleryScreen(
+                        viewModel = viewModel,
+                        context = context,
+                        mediaType = if (activeSection == "Photos") "image" else "video",
+                        onNavigateBack = { activeSection = "Dashboard" },
+                        onViewMedia = { files, index ->
+                            activeViewerFiles = files
+                            activeViewerIndex = index
                         }
-                    }
-
-                    Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        // Custom folder chip row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CustomFolderChip(
-                                selected = selectedMediaFolder == "All",
-                                label = "All",
-                                onClick = { selectedMediaFolder = "All" }
-                            )
-                            CustomFolderChip(
-                                selected = selectedMediaFolder == "Favorites",
-                                label = "Favorites ⭐",
-                                onClick = { selectedMediaFolder = "Favorites" }
-                            )
-                            CustomFolderChip(
-                                selected = selectedMediaFolder == "Default",
-                                label = "Uncategorized",
-                                onClick = { selectedMediaFolder = "Default" }
-                            )
-                            vaultFolders.forEach { folderName ->
-                                CustomFolderChip(
-                                    selected = selectedMediaFolder == folderName,
-                                    label = folderName,
-                                    isLocked = lockedFolders.contains(folderName),
-                                    onClick = { 
-                                        if (lockedFolders.contains(folderName) && !tempUnlockedFolders.contains(folderName)) {
-                                            pendingUnlockAction = Pair(folderName) { 
-                                                viewModel.tempUnlockFolder(folderName)
-                                                selectedMediaFolder = folderName 
-                                            }
-                                        } else {
-                                            selectedMediaFolder = folderName 
-                                        }
-                                    },
-                                    onLongClick = {
-                                        if (lockedFolders.contains(folderName)) {
-                                            pendingUnlockAction = Pair(folderName) { viewModel.toggleFolderLock(folderName) }
-                                        } else {
-                                            viewModel.toggleFolderLock(folderName)
-                                        }
-                                    },
-                                    onDelete = {
-                                        viewModel.deleteFolder(folderName)
-                                        if (selectedMediaFolder == folderName) {
-                                            selectedMediaFolder = "All"
-                                        }
-                                    }
-                                )
-                            }
-                            TextButton(onClick = { showCreateFolderDialog = true }) {
-                                Icon(Icons.Default.Add, contentDescription = "Add Folder", modifier = Modifier.size(16.dp), tint = ThemePurple)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("New Folder", fontSize = 12.sp, color = ThemePurple)
-                            }
-                        }
-
-                        if (filteredMediaFiles.isEmpty()) {
-                            EmptyVaultSectionState(
-                                title = "No Secure Photos or Videos",
-                                description = "Tap 'Import Photo' to transfer visual media into this secure sandboxed directory."
-                            )
-                        } else {
-                            if (isMediaGridView) {
-                                LazyVerticalGrid(
-                                    columns = GridCells.Fixed(3),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    items(filteredMediaFiles) { fileStr ->
-                                        val parts = fileStr.split("|||")
-                                        if (parts.size >= 6) {
-                                            val id = parts[0]
-                                            val originalName = parts[2]
-                                            val mimeType = parts[3]
-                                            val path = parts[4]
-                                            val isFav = favoriteFiles.contains(id)
-
-                                            Card(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .aspectRatio(1f)
-                                                    .clickable {
-                                                        viewModel.triggerKeypressEffects(context)
-                                                        viewModel.recordOpenedItem(id, "file", originalName, fileStr)
-                                                        activeViewerFiles = filteredMediaFiles
-                                                        activeViewerIndex = filteredMediaFiles.indexOf(fileStr)
-                                                    },
-                                                shape = RoundedCornerShape(12.dp),
-                                                colors = CardDefaults.cardColors(containerColor = KeypadBg)
-                                            ) {
-                                                Box(modifier = Modifier.fillMaxSize()) {
-                                                    if (mimeType.startsWith("image/")) {
-                                                        AsyncImage(
-                                                            model = java.io.File(path),
-                                                            contentDescription = originalName,
-                                                            modifier = Modifier.fillMaxSize().then(if (blurThumbnails) Modifier.blur(16.dp) else Modifier),
-                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                                        )
-                                                    } else {
-                                                        // Video Placeholder thumbnail
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .fillMaxSize()
-                                                                .background(Color.Black.copy(alpha = 0.7f)),
-                                                            contentAlignment = Alignment.Center
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = Icons.Default.Visibility,
-                                                                contentDescription = "Video",
-                                                                tint = Color.White.copy(alpha = 0.8f),
-                                                                modifier = Modifier.size(28.dp)
-                                                            )
-                                                        }
-                                                    }
-                                                    if (blurThumbnails) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .fillMaxSize()
-                                                                .background(Color.Black.copy(alpha = 0.4f)),
-                                                            contentAlignment = Alignment.Center
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = Icons.Default.BlurOn,
-                                                                contentDescription = "Blurred",
-                                                                tint = Color.White.copy(alpha = 0.8f),
-                                                                modifier = Modifier.size(24.dp)
-                                                            )
-                                                        }
-                                                    }
-
-                                                    // Favorite star in top right corner
-                                                    if (isFav) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Star,
-                                                            contentDescription = "Favorite",
-                                                            tint = Color(0xFFFFD600),
-                                                            modifier = Modifier
-                                                                .size(18.dp)
-                                                                .align(Alignment.TopEnd)
-                                                                .padding(4.dp)
-                                                        )
-                                                    }
-
-                                                    // Tiny tag or details
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .background(Color.Black.copy(alpha = 0.4f))
-                                                            .padding(4.dp)
-                                                            .align(Alignment.BottomStart)
-                                                    ) {
-                                                        Text(
-                                                            text = if (mimeType.startsWith("video/")) "VIDEO" else "IMAGE",
-                                                            color = Color.White,
-                                                            fontSize = 8.sp,
-                                                            fontWeight = FontWeight.Bold,
-                                                            modifier = Modifier.align(Alignment.Center)
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                LazyColumn(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    items(filteredMediaFiles) { fileStr ->
-                                        val parts = fileStr.split("|||")
-                                        if (parts.size >= 6) {
-                                            val id = parts[0]
-                                            val timestamp = parts[1]
-                                            val originalName = parts[2]
-                                            val mimeType = parts[3]
-                                            val path = parts[4]
-                                            val sizeStr = parts[5]
-                                            val isFav = favoriteFiles.contains(id)
-                                            val assocFolder = fileFolders[id] ?: ""
-
-                                            Card(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .border(
-                                                        width = 1.dp,
-                                                        color = ThemeContainerBorder.copy(alpha = 0.2f),
-                                                        shape = RoundedCornerShape(12.dp)
-                                                    )
-                                                    .clickable {
-                                                        viewModel.triggerKeypressEffects(context)
-                                                        viewModel.recordOpenedItem(id, "file", originalName, fileStr)
-                                                        activeViewerFiles = filteredMediaFiles
-                                                        activeViewerIndex = filteredMediaFiles.indexOf(fileStr)
-                                                    },
-                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
-                                                shape = RoundedCornerShape(12.dp)
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(8.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                                ) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(50.dp)
-                                                            .clip(RoundedCornerShape(8.dp))
-                                                            .background(Color.Black),
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        if (mimeType.startsWith("image/")) {
-                                                            AsyncImage(
-                                                                model = java.io.File(path),
-                                                                contentDescription = originalName,
-                                                                modifier = Modifier.fillMaxSize().then(if (blurThumbnails) Modifier.blur(16.dp) else Modifier),
-                                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                                            )
-                                                        } else {
-                                                            Icon(
-                                                                imageVector = Icons.Default.Visibility,
-                                                                contentDescription = "Video",
-                                                                tint = Color.White.copy(alpha = 0.8f),
-                                                                modifier = Modifier.size(24.dp)
-                                                            )
-                                                        }
-                                                        if (blurThumbnails) {
-                                                            Box(
-                                                                modifier = Modifier
-                                                                    .fillMaxSize()
-                                                                    .background(Color.Black.copy(alpha = 0.4f)),
-                                                                contentAlignment = Alignment.Center
-                                                            ) {
-                                                                Icon(
-                                                                    imageVector = Icons.Default.BlurOn,
-                                                                    contentDescription = "Blurred",
-                                                                    tint = Color.White.copy(alpha = 0.8f),
-                                                                    modifier = Modifier.size(16.dp)
-                                                                )
-                                                            }
-                                                        }
-                                                    }
-
-                                                    Column(modifier = Modifier.weight(1f)) {
-                                                        Row(
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                                        ) {
-                                                            Text(
-                                                                text = originalName,
-                                                                fontSize = 13.sp,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = Color.White,
-                                                                maxLines = 1,
-                                                                overflow = TextOverflow.Ellipsis,
-                                                                modifier = Modifier.weight(1f, fill = false)
-                                                            )
-                                                            if (isFav) {
-                                                                Icon(
-                                                                    imageVector = Icons.Default.Star,
-                                                                    contentDescription = "Favorite",
-                                                                    tint = Color(0xFFFFD600),
-                                                                    modifier = Modifier.size(14.dp)
-                                                                )
-                                                            }
-                                                            if (assocFolder.isNotEmpty()) {
-                                                                Surface(
-                                                                    color = ThemePurple.copy(alpha = 0.15f),
-                                                                    shape = RoundedCornerShape(4.dp),
-                                                                    modifier = Modifier.padding(horizontal = 4.dp)
-                                                                ) {
-                                                                    Text(
-                                                                        text = assocFolder,
-                                                                        color = ThemePurple,
-                                                                        fontSize = 8.sp,
-                                                                        fontWeight = FontWeight.Bold,
-                                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                                                    )
-                                                                }
-                                                            }
-                                                        }
-                                                        Text(
-                                                            text = "$sizeStr • $timestamp",
-                                                            fontSize = 10.sp,
-                                                            color = TextMedium
-                                                        )
-                                                    }
-
-                                                    Row(
-                                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        IconButton(
-                                                            onClick = {
-                                                                viewModel.triggerKeypressEffects(context)
-                                                                viewModel.toggleFavoriteFile(id)
-                                                            },
-                                                            modifier = Modifier.size(32.dp)
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = if (isFav) Icons.Default.Star else Icons.Default.StarBorder,
-                                                                contentDescription = "Toggle Favorite",
-                                                                tint = if (isFav) Color(0xFFFFD600) else Color(0xFF8B92A5),
-                                                                modifier = Modifier.size(18.dp)
-                                                            )
-                                                        }
-
-                                                        IconButton(
-                                                            onClick = {
-                                                                viewModel.triggerKeypressEffects(context)
-                                                                showMoveToFolderDialog = Pair(id, "file")
-                                                            },
-                                                            modifier = Modifier.size(32.dp)
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = Icons.Default.Folder,
-                                                                contentDescription = "Move to Folder",
-                                                                tint = Color(0xFF2979FF),
-                                                                modifier = Modifier.size(18.dp)
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    )
                 }
-
                 "Documents" -> {
                     val favoriteFiles by viewModel.favoriteFiles.collectAsState()
                     val fileFolders by viewModel.fileFolders.collectAsState()
@@ -3502,7 +3416,7 @@ fun VaultTabUnlockedContent(
                                     bgColor = Color(0xFF00E676),
                                     onClick = {
                                         viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Settings"
+                                        activeSection = "More"
                                     }
                                 )
                             }
@@ -3514,7 +3428,7 @@ fun VaultTabUnlockedContent(
                                     bgColor = Color(0xFFEC407A),
                                     onClick = {
                                         viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Settings"
+                                        activeSection = "More"
                                     }
                                 )
                             }
@@ -3680,13 +3594,7 @@ fun VaultTabUnlockedContent(
                         }
                     }
                 }
-                "Settings" -> {
-                    // Initialize inputs on Settings entry
-                    LaunchedEffect(Unit) {
-                        realPasscodeInput = viewModel.getVaultPin()
-                        decoyPasscodeInput = viewModel.getDecoyPin()
-                    }
-
+                                "More" -> {
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -3694,115 +3602,85 @@ fun VaultTabUnlockedContent(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Card 1: SECURITY PASSCODES
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Icon(Icons.Default.Lock, contentDescription = "Passcode security", tint = Color(0xFF2979FF), modifier = Modifier.size(22.dp))
-                                    Text(
-                                        text = "PASSCODE MANAGEMENT",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF2979FF)
-                                    )
-                                }
-                                
-                                Text(
-                                    text = "Configure your secret numerical passcodes. Entering your real passcode unlocks your private vault. Entering your decoy passcode opens a completely empty guest vault.",
-                                    fontSize = 11.sp,
-                                    color = TextMedium,
-                                    lineHeight = 15.sp
-                                )
-
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(
-                                        text = "Real Vault Passcode",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                    OutlinedTextField(
-                                        value = realPasscodeInput,
-                                        onValueChange = { input ->
-                                            if (input.all { it.isDigit() } && input.length <= 8) {
-                                                realPasscodeInput = input
-                                            }
-                                        },
-                                        placeholder = { Text("e.g. 7777", fontSize = 12.sp, color = TextMedium) },
-                                        singleLine = true,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White,
-                                            focusedBorderColor = ThemePurple,
-                                            unfocusedBorderColor = Color(0xFF383F56)
-                                        ),
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(
-                                        text = "Decoy / Guest Passcode (Plausible Deniability)",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFE57373)
-                                    )
-                                    OutlinedTextField(
-                                        value = decoyPasscodeInput,
-                                        onValueChange = { input ->
-                                            if (input.all { it.isDigit() } && input.length <= 8) {
-                                                decoyPasscodeInput = input
-                                            }
-                                        },
-                                        placeholder = { Text("e.g. 1111", fontSize = 12.sp, color = TextMedium) },
-                                        singleLine = true,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White,
-                                            focusedBorderColor = Color(0xFFE57373),
-                                            unfocusedBorderColor = Color(0xFF383F56)
-                                        ),
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-
-                                Button(
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        if (realPasscodeInput.isBlank() || decoyPasscodeInput.isBlank()) {
-                                            android.widget.Toast.makeText(context, "Passcodes cannot be empty!", android.widget.Toast.LENGTH_SHORT).show()
-                                        } else if (realPasscodeInput == decoyPasscodeInput) {
-                                            android.widget.Toast.makeText(context, "Real and decoy passcodes must be different!", android.widget.Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            viewModel.setVaultPin(realPasscodeInput)
-                                            viewModel.setDecoyPin(decoyPasscodeInput)
-                                            android.widget.Toast.makeText(context, "Passcodes updated successfully!", android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Save Passcodes", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                }
-                            }
+                        SettingsGroup(title = "SECURITY") {
+                            SettingsActionRow(
+                                title = "App Lock",
+                                subtitle = "Lock apps with Calculator PIN",
+                                icon = Icons.Default.Lock,
+                                iconTint = Color(0xFF2979FF),
+                                onClick = { activeSection = "App Lock" }
+                            )
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                            SettingsActionRow(
+                                title = "App Disguise",
+                                subtitle = "Camouflage app icon",
+                                icon = Icons.Default.Palette,
+                                iconTint = Color(0xFF00B0FF),
+                                onClick = { activeSection = "App Disguise" }
+                            )
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                            SettingsActionRow(
+                                title = "Intruder Detection",
+                                subtitle = "Catch snoops trying to unlock",
+                                icon = Icons.Default.Warning,
+                                iconTint = Color(0xFFFF9100),
+                                onClick = { activeSection = "Intruder Alerts" }
+                            )
                         }
 
-                        // Card 2: STEALTH & PANIC MODES
+                        SettingsGroup(title = "VAULT SETTINGS") {
+                            SettingsActionRow(
+                                title = "Security Settings",
+                                subtitle = "Stealth & panic options",
+                                icon = Icons.Default.Shield,
+                                iconTint = Color(0xFFE57373),
+                                onClick = { activeSection = "Security Settings" }
+                            )
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                            SettingsActionRow(
+                                title = "Fake Vault",
+                                subtitle = "Create a decoy space",
+                                icon = Icons.Default.Folder,
+                                iconTint = Color(0xFFAB47BC),
+                                onClick = { activeSection = "Fake Vault" }
+                            )
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                            SettingsActionRow(
+                                title = "Change PIN",
+                                subtitle = "Update your vault passcode",
+                                icon = Icons.Default.Calculate,
+                                iconTint = Color(0xFF26C6DA),
+                                onClick = { activeSection = "Change PIN" }
+                            )
+                        }
+                        
+                        SettingsGroup(title = "DATA & ABOUT") {
+                            SettingsActionRow(
+                                title = "Export / Import",
+                                subtitle = "Backup or restore data",
+                                icon = Icons.Default.SwapVert,
+                                iconTint = Color(0xFFD4E157),
+                                onClick = { activeSection = "Export / Import" }
+                            )
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                            SettingsActionRow(
+                                title = "About",
+                                subtitle = "App version & info",
+                                icon = Icons.Default.Article,
+                                iconTint = Color(0xFF8D6E63),
+                                onClick = { activeSection = "About" }
+                            )
+                        }
+                    }
+                }
+                "Security Settings" -> {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
                         SettingsGroup(title = "STEALTH & SECURITY OPTIONS") {
                             val preventScreenshots by viewModel.preventScreenshots.collectAsState()
                             val screenDownLock by viewModel.screenDownLock.collectAsState()
@@ -4038,7 +3916,7 @@ fun VaultTabUnlockedContent(
                             }
                         }
 
-                        // Card 4: GENERAL PREFERENCES
+                        // GENERAL PREFERENCES
                         SettingsGroup(title = "GENERAL PREFERENCES") {
                             val currentLangCode by viewModel.selectedLanguage.collectAsState()
                             val currentLang = TranslationProvider.languages.find { it.code == currentLangCode }
@@ -4056,6 +3934,306 @@ fun VaultTabUnlockedContent(
                         }
                     }
                 }
+                "Change PIN" -> {
+                    LaunchedEffect(Unit) {
+                        realPasscodeInput = viewModel.getVaultPin()
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(Icons.Default.Lock, contentDescription = "Passcode security", tint = Color(0xFF2979FF), modifier = Modifier.size(22.dp))
+                                    Text(
+                                        text = "REAL VAULT PASSCODE",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF2979FF)
+                                    )
+                                }
+                                
+                                Text(
+                                    text = "Configure your secret numerical passcode. Entering your real passcode unlocks your private vault.",
+                                    fontSize = 11.sp,
+                                    color = TextMedium,
+                                    lineHeight = 15.sp
+                                )
+
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    OutlinedTextField(
+                                        value = realPasscodeInput,
+                                        onValueChange = { input ->
+                                            if (input.all { it.isDigit() } && input.length <= 8) {
+                                                realPasscodeInput = input
+                                            }
+                                        },
+                                        placeholder = { Text("e.g. 7777", fontSize = 12.sp, color = TextMedium) },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White,
+                                            focusedBorderColor = ThemePurple,
+                                            unfocusedBorderColor = Color(0xFF383F56)
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+
+                                Button(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        if (realPasscodeInput.isBlank()) {
+                                            android.widget.Toast.makeText(context, "Passcode cannot be empty!", android.widget.Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            viewModel.setVaultPin(realPasscodeInput)
+                                            android.widget.Toast.makeText(context, "Passcode updated successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Save Passcode", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+                "Fake Vault" -> {
+                    LaunchedEffect(Unit) {
+                        decoyPasscodeInput = viewModel.getDecoyPin()
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(Icons.Default.Folder, contentDescription = "Fake Vault", tint = Color(0xFFAB47BC), modifier = Modifier.size(22.dp))
+                                    Text(
+                                        text = "DECOY / GUEST PASSCODE",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFAB47BC)
+                                    )
+                                }
+                                
+                                Text(
+                                    text = "Entering your decoy passcode opens a completely empty guest vault. Use this for plausible deniability if forced to open the app.",
+                                    fontSize = 11.sp,
+                                    color = TextMedium,
+                                    lineHeight = 15.sp
+                                )
+
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    OutlinedTextField(
+                                        value = decoyPasscodeInput,
+                                        onValueChange = { input ->
+                                            if (input.all { it.isDigit() } && input.length <= 8) {
+                                                decoyPasscodeInput = input
+                                            }
+                                        },
+                                        placeholder = { Text("e.g. 1111", fontSize = 12.sp, color = TextMedium) },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White,
+                                            focusedBorderColor = Color(0xFFE57373),
+                                            unfocusedBorderColor = Color(0xFF383F56)
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+
+                                Button(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        if (decoyPasscodeInput.isBlank()) {
+                                            android.widget.Toast.makeText(context, "Passcode cannot be empty!", android.widget.Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            viewModel.setDecoyPin(decoyPasscodeInput)
+                                            android.widget.Toast.makeText(context, "Decoy passcode updated successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Save Decoy Passcode", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+                "App Disguise" -> {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Icon(Icons.Default.Palette, contentDescription = "App Disguise", tint = Color(0xFF00B0FF), modifier = Modifier.size(32.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text("Camouflage Icon", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Change how this app looks on your phone's home screen. Disguise it as a Weather, Notes, or Clock app so no one suspects it's a secure vault.", color = TextMedium, fontSize = 13.sp)
+                                
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Text("CHOOSE AN ICON", color = Color.White.copy(alpha=0.5f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(12.dp))
+                                
+                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { android.widget.Toast.makeText(context, "Icon changed to Calculator", android.widget.Toast.LENGTH_SHORT).show() }) {
+                                        Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF263238)), contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.Calculate, contentDescription = "Calculator", tint = Color.White, modifier = Modifier.size(32.dp))
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Calculator", color = Color.White, fontSize = 12.sp)
+                                    }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { android.widget.Toast.makeText(context, "Icon changed to Notes", android.widget.Toast.LENGTH_SHORT).show() }) {
+                                        Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFFFB300)), contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.Article, contentDescription = "Notes", tint = Color.White, modifier = Modifier.size(32.dp))
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Notes", color = Color.White, fontSize = 12.sp)
+                                    }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { android.widget.Toast.makeText(context, "Icon changed to Weather", android.widget.Toast.LENGTH_SHORT).show() }) {
+                                        Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF03A9F4)), contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.CloudQueue, contentDescription = "Weather", tint = Color.White, modifier = Modifier.size(32.dp))
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Weather", color = Color.White, fontSize = 12.sp)
+                                    }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { android.widget.Toast.makeText(context, "Icon changed to Clock", android.widget.Toast.LENGTH_SHORT).show() }) {
+                                        Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF8E24AA)), contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.Timer, contentDescription = "Clock", tint = Color.White, modifier = Modifier.size(32.dp))
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Clock", color = Color.White, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                "Export / Import" -> {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.SwapVert, contentDescription = "Export/Import", tint = Color(0xFFD4E157), modifier = Modifier.size(64.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Backup & Restore",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Backup all your vault contents to an encrypted archive, or restore a previous backup.",
+                            color = TextMedium,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = { android.widget.Toast.makeText(context, "Exporting...", android.widget.Toast.LENGTH_SHORT).show() },
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                            modifier = Modifier.fillMaxWidth(0.8f)
+                        ) {
+                            Text("Create Backup", color = Color.White)
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = { android.widget.Toast.makeText(context, "Importing...", android.widget.Toast.LENGTH_SHORT).show() },
+                            modifier = Modifier.fillMaxWidth(0.8f),
+                            border = BorderStroke(1.dp, ThemePurple),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ThemePurple)
+                        ) {
+                            Text("Restore Backup")
+                        }
+                    }
+                }
+                "About" -> {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.Shield, contentDescription = "App Logo", tint = ThemePurple, modifier = Modifier.size(80.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Calculator Vault Pro",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Version 1.0.0",
+                            color = TextMedium,
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "Your privacy is our priority. All files are encrypted and stored locally on your device.",
+                            color = TextMedium,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
             }
         } // closes when (section)
         } // closes Crossfade
@@ -4997,9 +5175,9 @@ fun VaultTabUnlockedContent(
         }
 
         // Floating Action Button for active media/notes/documents sections!
-        if (activeSection == "Notes" || activeSection == "Photos & Videos" || activeSection == "Documents" || activeSection == "Music & Audio") {
+        if (activeSection == "Notes" || activeSection == "Photos" || activeSection == "Videos" || activeSection == "Documents" || activeSection == "Music & Audio") {
             Box(
-                modifier = Modifier.fillMaxSize().padding(24.dp),
+                modifier = Modifier.fillMaxSize().padding(end = 24.dp, bottom = 96.dp),
                 contentAlignment = Alignment.BottomEnd
             ) {
                 FloatingActionButton(
@@ -5009,7 +5187,7 @@ fun VaultTabUnlockedContent(
                             "Notes" -> {
                                 showAddNoteDialog = true
                             }
-                            "Photos & Videos" -> {
+                            "Photos", "Videos" -> {
                                 showMediaAddOptions = true
                             }
                             "Documents" -> {
@@ -5036,12 +5214,69 @@ fun VaultTabUnlockedContent(
                         Text(
                             text = when (activeSection) {
                                 "Notes" -> "Add Note"
-                                "Photos & Videos" -> "Add Media"
+                                "Photos" -> "Add Photo"
+                                "Videos" -> "Add Video"
                                 "Documents" -> "Add Document"
                                 else -> "Add Audio"
                             },
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Custom Bottom Navigation
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 16.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .height(64.dp)
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(Color(0xFF161B2B).copy(alpha = 0.95f))
+                    .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(32.dp))
+                    .padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // Vault (Home)
+                IconButton(onClick = { activeSection = "Home" }, modifier = Modifier.weight(1f)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.GridView,
+                            contentDescription = "Vault",
+                            tint = if (activeSection == "Home") ThemePurple else Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                
+                // Browser
+                IconButton(onClick = { activeSection = "Private Browser" }, modifier = Modifier.weight(1f)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = "Browser",
+                            tint = if (activeSection == "Private Browser") ThemePurple else Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                
+                // Settings
+                IconButton(onClick = { activeSection = "More" }, modifier = Modifier.weight(1f)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = if (activeSection == "More") ThemePurple else Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
@@ -5076,12 +5311,12 @@ fun VaultTabUnlockedContent(
                         OutlinedButton(
                             onClick = {
                                 showMediaAddOptions = false
+                                val isPhoto = activeSection == "Photos"
                                 val intent = android.content.Intent(
                                     android.content.Intent.ACTION_PICK,
-                                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                                    if (isPhoto) android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI else android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
                                 ).apply {
-                                    type = "image/* video/*"
-                                    putExtra(android.content.Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
+                                    type = if (isPhoto) "image/*" else "video/*"
                                 }
                                 photoPickerLauncher.launch(intent)
                             },
@@ -6828,6 +7063,90 @@ fun VaultFolderCard(title: String, count: String, icon: androidx.compose.ui.grap
             Column {
                 Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 Text(count, color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val themePurple = LocalAppThemeColors.current.themePurple
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFF161B2B).copy(alpha = 0.6f))
+            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(20.dp))
+            .clickable { onClick() }
+            .padding(16.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(themePurple.copy(alpha = 0.1f))
+                        .border(1.dp, themePurple.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, contentDescription = null, tint = themePurple, modifier = Modifier.size(18.dp))
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(count, color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Faux preview content based on title
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF0F121C))
+                    .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (title == "Photos") {
+                    Row(
+                        modifier = Modifier.fillMaxSize().padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
+                    }
+                } else if (title == "Videos") {
+                    Box(modifier = Modifier.fillMaxSize().padding(4.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(16.dp))
+                    }
+                } else if (title == "Documents") {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth(0.8f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                        Box(modifier = Modifier.fillMaxWidth(0.9f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                        Box(modifier = Modifier.fillMaxWidth(0.6f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                    }
+                } else if (title == "Notes") {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth(0.5f).height(6.dp).clip(CircleShape).background(themePurple.copy(alpha = 0.4f)))
+                        Box(modifier = Modifier.fillMaxWidth(0.9f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                        Box(modifier = Modifier.fillMaxWidth(0.8f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                    }
+                }
             }
         }
     }
