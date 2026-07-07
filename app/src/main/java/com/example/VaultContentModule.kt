@@ -1,7 +1,16 @@
 package com.example
 
 import android.content.Context
+import java.util.Locale
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
@@ -16,7 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -56,24 +67,22 @@ fun VaultContentScreen(
     onNavigateBack: () -> Unit,
     onAddClick: () -> Unit,
     onItemClick: (VaultItemData, index: Int, allFiltered: List<VaultItemData>) -> Unit,
+    onDeleteItems: (Set<String>) -> Unit,
+    onToggleFavorite: (String) -> Unit,
     onCreateFolder: (String) -> Unit,
-    onDeleteItems: (Set<String>) -> Unit, // passes rawStrings
-    onMoveItems: (Set<String>, String) -> Unit, // passes rawStrings, new folder
-    onToggleFavorite: (String) -> Unit // passes rawString
+    onMoveItems: (Set<String>, String) -> Unit
 ) {
-    val themeColors = LocalAppThemeColors.current
-    val ThemePurple = themeColors.themePurple
-    val BrandBg = themeColors.brandBg
-    val KeypadBg = themeColors.keypadBg
+    val BrandBg = LocalAppThemeColors.current.brandBg
+    val ThemePurple = LocalAppThemeColors.current.themePurple
+    val KeypadBg = LocalAppThemeColors.current.keypadBg
 
-    var selectedFolder by remember { mutableStateOf("All") }
     var searchQuery by remember { mutableStateOf("") }
     var sortOrder by remember { mutableStateOf("Newest") }
     var showSortOptions by remember { mutableStateOf(false) }
-
+    var selectedFolder by remember { mutableStateOf("All") }
     var isSelectionMode by remember { mutableStateOf(false) }
     var selectedItemRaws by remember { mutableStateOf(setOf<String>()) }
-
+    
     var showCreateFolderDialog by remember { mutableStateOf(false) }
     var showMoveDialog by remember { mutableStateOf(false) }
 
@@ -95,305 +104,390 @@ fun VaultContentScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
-        if (isSelectionMode) {
-            // Selection Top Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    // Ambient Premium Background
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        BrandBg,
+                        KeypadBg,
+                        Color(0xFF0F131F)
+                    )
+                )
+            )
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (isSelectionMode) {
+                // Selection Top Bar
+                Surface(
+                    color = Color.White.copy(alpha = 0.03f),
+                    modifier = Modifier.fillMaxWidth(),
+                    shadowElevation = 0.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            IconButton(
+                                onClick = {
+                                    isSelectionMode = false
+                                    selectedItemRaws = emptySet()
+                                },
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.1f))
+                            ) {
+                                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(20.dp))
+                            }
+                            Text(
+                                text = "${selectedItemRaws.size} Selected",
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = (-0.5).sp
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                if (selectedItemRaws.size == filteredItems.size && filteredItems.isNotEmpty()) {
+                                    selectedItemRaws = emptySet()
+                                } else {
+                                    selectedItemRaws = filteredItems.map { it.rawString }.toSet()
+                                }
+                            },
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(ThemePurple.copy(alpha = 0.15f))
+                        ) {
+                            Icon(Icons.Default.SelectAll, contentDescription = "Select All", tint = ThemePurple, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                }
+            } else {
+                // Premium Normal Top Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     IconButton(
                         onClick = {
-                            isSelectionMode = false
-                            selectedItemRaws = emptySet()
+                            viewModel.triggerKeypressEffects(context)
+                            onNavigateBack()
                         },
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(44.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.1f))
+                            .background(Color.White.copy(alpha = 0.05f))
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(20.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(22.dp))
                     }
+                    
+                    Spacer(modifier = Modifier.width(20.dp))
+                    
                     Text(
-                        text = "${selectedItemRaws.size} Selected",
+                        text = title,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold,
                         color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
+                        modifier = Modifier.weight(1f),
+                        letterSpacing = (-0.5).sp
                     )
+                    
+                    Box {
+                        IconButton(
+                            onClick = { showSortOptions = true },
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.05f))
+                        ) {
+                            Icon(Icons.Default.Sort, contentDescription = "Sort", tint = Color.White, modifier = Modifier.size(22.dp))
+                        }
+                        DropdownMenu(
+                            expanded = showSortOptions,
+                            onDismissRequest = { showSortOptions = false },
+                            modifier = Modifier.background(KeypadBg, RoundedCornerShape(12.dp))
+                        ) {
+                            listOf("Newest", "Oldest", "Name").forEach { order ->
+                                DropdownMenuItem(
+                                    text = { 
+                                        Text(
+                                            text = order, 
+                                            color = if (sortOrder == order) ThemePurple else Color.White, 
+                                            fontWeight = if (sortOrder == order) FontWeight.Bold else FontWeight.Medium
+                                        ) 
+                                    },
+                                    onClick = {
+                                        sortOrder = order
+                                        showSortOptions = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
-                IconButton(
-                    onClick = {
-                        if (selectedItemRaws.size == filteredItems.size) {
-                            selectedItemRaws = emptySet()
-                        } else {
-                            selectedItemRaws = filteredItems.map { it.rawString }.toSet()
+
+                // Premium Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 8.dp)
+                        .height(54.dp),
+                    placeholder = { Text("Search ${title.lowercase()}...", color = Color.White.copy(alpha = 0.4f), fontSize = 15.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(22.dp)) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                            }
                         }
                     },
-                    modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
-                ) {
-                    Icon(Icons.Default.SelectAll, contentDescription = "Select All", tint = Color.White, modifier = Modifier.size(20.dp))
-                }
-            }
-        } else {
-            // Normal Top Bar (replaces the global one)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = {
-                        viewModel.triggerKeypressEffects(context)
-                        onNavigateBack()
-                    },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF161B2B).copy(alpha = 0.8f))
-                        .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape)
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(20.dp))
-                }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                Text(
-                    text = title,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.weight(1f)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = Color.White.copy(alpha = 0.06f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.04f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = ThemePurple
+                    ),
+                    shape = RoundedCornerShape(27.dp),
+                    singleLine = true,
+                    textStyle = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 )
-                
-                // Sort Button
-                Box {
-                    IconButton(
-                        onClick = { showSortOptions = true },
-                        modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f))
-                    ) {
-                        Icon(Icons.Default.Sort, contentDescription = "Sort", tint = Color.White, modifier = Modifier.size(20.dp))
+            }
+
+            // Sleek Folders Row
+            if (!isSelectionMode) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    val allFolders = listOf("All", "Favorites") + folders + listOf("Uncategorized")
+                    allFolders.forEach { folder ->
+                        val isLocked = lockedFolders.contains(folder) && !tempUnlockedFolders.contains(folder)
+                        val isFolderSelected = selectedFolder == folder
+                        FolderChip(
+                            label = folder,
+                            selected = isFolderSelected,
+                            isLocked = isLocked,
+                            icon = if (folder == "Favorites") Icons.Default.Star else if (folder != "All" && folder != "Uncategorized") Icons.Default.Folder else null,
+                            onClick = { selectedFolder = folder }
+                        )
                     }
-                    DropdownMenu(
-                        expanded = showSortOptions,
-                        onDismissRequest = { showSortOptions = false },
-                        modifier = Modifier.background(KeypadBg)
+                    
+                    // Add Folder Chip
+                    Surface(
+                        color = Color.White.copy(alpha = 0.05f),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.clickable { showCreateFolderDialog = true }
                     ) {
-                        listOf("Newest", "Oldest", "Name").forEach { order ->
-                            DropdownMenuItem(
-                                text = { Text(order, color = if (sortOrder == order) ThemePurple else Color.White, fontWeight = if (sortOrder == order) FontWeight.Bold else FontWeight.Normal) },
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Add Folder", tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+                            Text("New Folder", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            } else {
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // Main Content Area
+            Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+                if (filteredItems.isEmpty()) {
+                    // Premium Empty State
+                    val infiniteTransition = rememberInfiniteTransition()
+                    val pulseScale by infiniteTransition.animateFloat(
+                        initialValue = 1f,
+                        targetValue = 1.05f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1500, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        )
+                    )
+                    
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(140.dp)
+                                .scale(pulseScale)
+                                .clip(CircleShape)
+                                .background(Brush.radialGradient(listOf(ThemePurple.copy(alpha = 0.15f), Color.Transparent)))
+                                .border(1.dp, ThemePurple.copy(alpha = 0.2f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(emptyIcon, contentDescription = null, modifier = Modifier.size(56.dp), tint = ThemePurple)
+                        }
+                        Spacer(modifier = Modifier.height(32.dp))
+                        Text(
+                            text = if (searchQuery.isNotEmpty()) "No results found" else emptyTitle, 
+                            color = Color.White, 
+                            fontSize = 24.sp, 
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = (-0.5).sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = if (searchQuery.isNotEmpty()) "Try adjusting your search terms." else emptySubtitle,
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 16.sp,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 24.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 110.dp),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 140.dp) // Space for action button
+                    ) {
+                        items(filteredItems.size, key = { index -> filteredItems[index].id }) { index ->
+                            val item = filteredItems[index]
+                            val isSelected = selectedItemRaws.contains(item.rawString)
+                            
+                            VaultItemCard(
+                                item = item,
+                                isSelected = isSelected,
+                                isSelectionMode = isSelectionMode,
                                 onClick = {
-                                    sortOrder = order
-                                    showSortOptions = false
+                                    if (isSelectionMode) {
+                                        selectedItemRaws = if (isSelected) selectedItemRaws - item.rawString else selectedItemRaws + item.rawString
+                                        if (selectedItemRaws.isEmpty()) isSelectionMode = false
+                                    } else {
+                                        onItemClick(item, index, filteredItems)
+                                    }
+                                },
+                                onLongClick = {
+                                    if (!isSelectionMode) {
+                                        isSelectionMode = true
+                                        selectedItemRaws = setOf(item.rawString)
+                                    }
                                 }
                             )
                         }
                     }
                 }
-            }
-
-            // Search Bar (Dashboard style)
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
-                placeholder = { Text("Search $title...", color = Color.White.copy(alpha=0.3f), fontSize = 14.sp) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White.copy(alpha=0.3f), modifier = Modifier.size(20.dp)) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.White.copy(alpha=0.5f), modifier = Modifier.size(16.dp))
-                        }
-                    }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ThemePurple.copy(alpha = 0.5f),
-                    unfocusedBorderColor = Color.White.copy(alpha=0.05f),
-                    focusedContainerColor = Color(0xFF161B2B).copy(alpha = 0.5f),
-                    unfocusedContainerColor = Color(0xFF161B2B).copy(alpha = 0.5f),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = ThemePurple
-                ),
-                shape = RoundedCornerShape(16.dp),
-                singleLine = true
-            )
-        }
-
-        // Folders row
-        if (!isSelectionMode) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(vertical = 16.dp, horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                VaultCategoryChip(selected = selectedFolder == "All", label = "All", onClick = { selectedFolder = "All" })
-                VaultCategoryChip(selected = selectedFolder == "Favorites", label = "Favorites", icon = Icons.Default.Star, onClick = { selectedFolder = "Favorites" })
-                VaultCategoryChip(selected = selectedFolder == "Uncategorized", label = "Uncategorized", onClick = { selectedFolder = "Uncategorized" })
                 
-                folders.forEach { folderName ->
-                    val isLocked = lockedFolders.contains(folderName)
-                    VaultCategoryChip(
-                        selected = selectedFolder == folderName,
-                        label = folderName,
-                        isLocked = isLocked,
-                        onClick = {
-                            if (isLocked && !tempUnlockedFolders.contains(folderName)) {
-                                // Handled via global pending action if implemented, or ignore
-                            } else {
-                                selectedFolder = folderName 
-                            }
-                        }
-                    )
-                }
-                
-                IconButton(
-                    onClick = { showCreateFolderDialog = true },
-                    modifier = Modifier.size(36.dp).clip(CircleShape).background(ThemePurple.copy(alpha=0.1f))
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Album", tint = ThemePurple, modifier = Modifier.size(18.dp))
-                }
-            }
-        }
-
-        // Content Area
-        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            if (filteredItems.isEmpty()) {
-                // Empty State
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .clip(CircleShape)
-                            .background(ThemePurple.copy(alpha = 0.05f))
-                            .border(1.dp, ThemePurple.copy(alpha = 0.1f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(emptyIcon, contentDescription = null, modifier = Modifier.size(40.dp), tint = ThemePurple.copy(alpha = 0.6f))
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(text = if (searchQuery.isNotEmpty()) "No results found" else emptyTitle, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = if (searchQuery.isNotEmpty()) "Try adjusting your search terms." else emptySubtitle,
-                        color = Color.White.copy(alpha=0.5f),
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 20.sp
-                    )
-                }
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 100.dp),
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 120.dp) // Space for action button
-                ) {
-                    items(filteredItems.size) { index ->
-                        val item = filteredItems[index]
-                        val isSelected = selectedItemRaws.contains(item.rawString)
-                        
-                        VaultItemCard(
-                            item = item,
-                            isSelected = isSelected,
-                            isSelectionMode = isSelectionMode,
-                            onClick = {
-                                if (isSelectionMode) {
-                                    selectedItemRaws = if (isSelected) selectedItemRaws - item.rawString else selectedItemRaws + item.rawString
-                                    if (selectedItemRaws.isEmpty()) isSelectionMode = false
-                                } else {
-                                    onItemClick(item, index, filteredItems)
-                                }
-                            },
-                            onLongClick = {
-                                if (!isSelectionMode) {
-                                    isSelectionMode = true
-                                    selectedItemRaws = setOf(item.rawString)
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-            
-            // Floating Action Button for Adding Items (Premium style)
-            if (!isSelectionMode) {
-                Button(
-                    onClick = onAddClick,
+                // Floating Action Button
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = !isSelectionMode,
+                    enter = scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)) + fadeIn(),
+                    exit = scaleOut(animationSpec = tween(150)) + fadeOut(),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 32.dp)
-                        .height(56.dp),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp, pressedElevation = 4.dp)
+                        .padding(bottom = 40.dp)
                 ) {
                     val contentColor = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White
-                    Icon(Icons.Default.Add, contentDescription = addLabel, tint = contentColor)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(addLabel, color = contentColor, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Button(
+                        onClick = onAddClick,
+                        modifier = Modifier.height(64.dp).shadow(24.dp, RoundedCornerShape(32.dp), ambientColor = ThemePurple, spotColor = ThemePurple),
+                        shape = RoundedCornerShape(32.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
+                        contentPadding = PaddingValues(horizontal = 32.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = addLabel, tint = contentColor, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(addLabel, color = contentColor, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, letterSpacing = 0.5.sp)
+                    }
                 }
-            }
-        }
-
-        // Selection Bottom Bar
-        AnimatedVisibility(
-            visible = isSelectionMode,
-            enter = slideInVertically(initialOffsetY = { it }),
-            exit = slideOutVertically(targetOffsetY = { it })
-        ) {
-            Surface(
-                color = Color(0xFF161B2B).copy(alpha = 0.95f),
-                modifier = Modifier.fillMaxWidth().height(80.dp),
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                shadowElevation = 16.dp
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val hasFavs = filteredItems.filter { selectedItemRaws.contains(it.rawString) }.any { it.isFav }
-                    SelectionActionButton(
-                        icon = if (hasFavs) Icons.Default.StarOutline else Icons.Default.Star,
-                        label = if (hasFavs) "Unfavorite" else "Favorite",
-                        color = Color.White,
-                        onClick = {
-                            selectedItemRaws.forEach { onToggleFavorite(it) }
-                            isSelectionMode = false
-                            selectedItemRaws = emptySet()
+                
+                // Selection Bottom Bar
+                Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isSelectionMode,
+                        enter = slideInVertically(initialOffsetY = { it }),
+                        exit = slideOutVertically(targetOffsetY = { it })
+                    ) {
+                    Surface(
+                        color = Color(0xFF161B2B).copy(alpha = 0.98f),
+                        modifier = Modifier.fillMaxWidth().height(96.dp),
+                        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+                        shadowElevation = 24.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            SelectionActionButton(
+                                icon = Icons.Default.LockOpen,
+                                label = "Unhide",
+                                color = Color.White,
+                                onClick = {
+                                    var unhidCount = 0
+                                    val total = selectedItemRaws.size
+                                    selectedItemRaws.forEach { raw ->
+                                        viewModel.unhideVaultFile(context, raw, onSuccess = {
+                                            unhidCount++
+                                            if (unhidCount == total) {
+                                                android.widget.Toast.makeText(context, "Successfully unhid $total items", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        }, onFailure = {
+                                            android.widget.Toast.makeText(context, "Failed to unhide some items", android.widget.Toast.LENGTH_SHORT).show()
+                                        })
+                                    }
+                                    isSelectionMode = false
+                                    selectedItemRaws = emptySet()
+                                }
+                            )
+                            val hasFavs = filteredItems.filter { selectedItemRaws.contains(it.rawString) }.any { it.isFav }
+                            SelectionActionButton(
+                                icon = if (hasFavs) Icons.Default.StarOutline else Icons.Default.Star,
+                                label = if (hasFavs) "Unfavorite" else "Favorite",
+                                color = Color.White,
+                                onClick = {
+                                    selectedItemRaws.forEach { onToggleFavorite(it) }
+                                    isSelectionMode = false
+                                    selectedItemRaws = emptySet()
+                                }
+                            )
+                            SelectionActionButton(
+                                icon = Icons.AutoMirrored.Filled.DriveFileMove,
+                                label = "Move",
+                                color = Color.White,
+                                onClick = { showMoveDialog = true }
+                            )
+                            SelectionActionButton(
+                                icon = Icons.Default.Delete,
+                                label = "Delete",
+                                color = Color(0xFFEF5350),
+                                onClick = {
+                                    onDeleteItems(selectedItemRaws)
+                                    isSelectionMode = false
+                                    selectedItemRaws = emptySet()
+                                }
+                            )
                         }
-                    )
-                    SelectionActionButton(
-                        icon = Icons.Default.DriveFileMove,
-                        label = "Move",
-                        color = Color.White,
-                        onClick = { showMoveDialog = true }
-                    )
-                    SelectionActionButton(
-                        icon = Icons.Default.Delete,
-                        label = "Delete",
-                        color = Color(0xFFEF5350),
-                        onClick = {
-                            onDeleteItems(selectedItemRaws)
-                            isSelectionMode = false
-                            selectedItemRaws = emptySet()
-                        }
-                    )
+                    }
+                }
                 }
             }
         }
@@ -401,114 +495,114 @@ fun VaultContentScreen(
 
     if (showCreateFolderDialog) {
         var newFolderName by remember { mutableStateOf("") }
-        AlertDialog(
+        androidx.compose.material3.AlertDialog(
             onDismissRequest = { showCreateFolderDialog = false },
-            containerColor = KeypadBg,
-            title = { Text("Create Album", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Create Folder", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = newFolderName,
                     onValueChange = { newFolderName = it },
-                    label = { Text("Album Name", color = Color.White.copy(0.6f)) },
+                    label = { Text("Folder Name", color = Color.White.copy(alpha=0.6f)) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ThemePurple,
-                        unfocusedBorderColor = Color.White.copy(alpha=0.3f),
-                        focusedTextColor = Color.White
+                        unfocusedBorderColor = Color.White.copy(alpha=0.2f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
                     ),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        if (newFolderName.isNotBlank()) {
-                            onCreateFolder(newFolderName.trim())
-                            showCreateFolderDialog = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
-                    shape = RoundedCornerShape(8.dp)
-                ) { Text("Create", color = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White) }
+                TextButton(onClick = {
+                    if (newFolderName.isNotBlank()) {
+                        onCreateFolder(newFolderName.trim())
+                        selectedFolder = newFolderName.trim()
+                        showCreateFolderDialog = false
+                    }
+                }) {
+                    Text("Create", color = ThemePurple, fontWeight = FontWeight.Bold)
+                }
             },
             dismissButton = {
                 TextButton(onClick = { showCreateFolderDialog = false }) {
-                    Text("Cancel", color = Color.White.copy(0.6f))
+                    Text("Cancel", color = Color.White.copy(alpha=0.6f))
                 }
-            }
+            },
+            containerColor = KeypadBg
         )
     }
 
     if (showMoveDialog) {
-        AlertDialog(
+        val allTargetFolders = listOf("Uncategorized") + folders
+        androidx.compose.material3.AlertDialog(
             onDismissRequest = { showMoveDialog = false },
-            containerColor = KeypadBg,
-            title = { Text("Move Items", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Move to Folder", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    TextButton(onClick = {
-                        onMoveItems(selectedItemRaws, "")
-                        showMoveDialog = false
-                        isSelectionMode = false
-                        selectedItemRaws = emptySet()
-                    }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Uncategorized", color = Color.White)
-                    }
-                    folders.forEach { folder ->
-                        TextButton(onClick = {
-                            onMoveItems(selectedItemRaws, folder)
-                            showMoveDialog = false
-                            isSelectionMode = false
-                            selectedItemRaws = emptySet()
-                        }, modifier = Modifier.fillMaxWidth()) {
-                            Text(folder, color = Color.White)
-                        }
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp)) {
+                    items(allTargetFolders) { folder ->
+                        Text(
+                            text = if (folder == "Uncategorized") "Remove from Folder" else folder,
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onMoveItems(selectedItemRaws, if (folder == "Uncategorized") "" else folder)
+                                    isSelectionMode = false
+                                    selectedItemRaws = emptySet()
+                                    showMoveDialog = false
+                                }
+                                .padding(vertical = 16.dp, horizontal = 8.dp)
+                        )
+                        androidx.compose.material3.Divider(color = Color.White.copy(alpha = 0.1f))
                     }
                 }
             },
-            confirmButton = {
+            confirmButton = {},
+            dismissButton = {
                 TextButton(onClick = { showMoveDialog = false }) {
-                    Text("Cancel", color = Color.White.copy(0.6f))
+                    Text("Cancel", color = Color.White.copy(alpha=0.6f))
                 }
-            }
+            },
+            containerColor = KeypadBg
         )
     }
 }
 
 @Composable
-fun SelectionActionButton(icon: ImageVector, label: String, color: Color, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }.padding(8.dp)) {
-        Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(24.dp))
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(label, color = color, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-    }
-}
+fun FolderChip(
+    label: String,
+    selected: Boolean,
+    isLocked: Boolean,
+    icon: ImageVector? = null,
+    onClick: () -> Unit
+) {
+    val ThemePurple = LocalAppThemeColors.current.themePurple
+    val selectedBg = ThemePurple.copy(alpha = 0.2f)
+    val selectedContentColor = ThemePurple
+    val unselectedBg = Color.White.copy(alpha = 0.05f)
 
-@Composable
-fun VaultCategoryChip(selected: Boolean, label: String, icon: ImageVector? = null, isLocked: Boolean = false, onClick: () -> Unit) {
-    val themeColors = LocalAppThemeColors.current
-    val themePurple = themeColors.themePurple
-    val brandBg = themeColors.brandBg
-    val selectedContentColor = if (themePurple == Color(0xFFFFFFFF)) brandBg else Color.White
     Surface(
-        color = if (selected) themePurple else Color(0xFF161B2B).copy(alpha = 0.5f),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.clickable { onClick() }.border(1.dp, if(selected) Color.Transparent else Color.White.copy(alpha=0.05f), RoundedCornerShape(12.dp))
+        color = if (selected) selectedBg else unselectedBg,
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, if (selected) ThemePurple.copy(alpha = 0.5f) else Color.Transparent),
+        modifier = Modifier.clickable(onClick = onClick)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (isLocked) {
-                Icon(Icons.Default.Lock, contentDescription = "Locked", modifier = Modifier.size(14.dp), tint = if (selected) selectedContentColor else Color.White.copy(alpha = 0.4f))
+                Icon(Icons.Default.Lock, contentDescription = "Locked", modifier = Modifier.size(16.dp), tint = if (selected) selectedContentColor else Color.White.copy(alpha = 0.5f))
             } else if (icon != null) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp), tint = if (selected) selectedContentColor else Color.White.copy(alpha = 0.4f))
+                Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (selected) selectedContentColor else Color.White.copy(alpha = 0.5f))
             }
             Text(
                 text = label,
-                color = if (selected) selectedContentColor else Color.White.copy(alpha = 0.6f),
-                fontSize = 13.sp,
+                color = if (selected) selectedContentColor else Color.White.copy(alpha = 0.8f),
+                fontSize = 15.sp,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
             )
         }
@@ -526,83 +620,199 @@ fun VaultItemCard(
 ) {
     val themePurple = LocalAppThemeColors.current.themePurple
     
+    val borderAlpha by animateFloatAsState(if (isSelected) 1f else 0f)
+    val borderColor = if (isSelected) themePurple else Color.White.copy(alpha = 0.05f)
+    val borderWidth by animateDpAsState(if (isSelected) 3.dp else 1.dp)
+    val cornerRadius = 24.dp
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF161B2B).copy(alpha = 0.6f))
-            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+            .shadow(elevation = 8.dp, shape = RoundedCornerShape(cornerRadius), ambientColor = Color.Black.copy(alpha=0.6f), spotColor = Color.Black.copy(alpha=0.6f))
+            .clip(RoundedCornerShape(cornerRadius))
+            .background(Color(0xFF1C2235))
+            .border(borderWidth, borderColor, RoundedCornerShape(cornerRadius))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
     ) {
         when (item.type) {
-            "image" -> {
+            "image", "video" -> {
                 AsyncImage(
-                    model = File(item.path),
+                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                        .data(File(item.path))
+                        .crossfade(true)
+                        .build(),
                     contentDescription = item.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
-            }
-            "video" -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.PlayCircleFilled, contentDescription = "Play", tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(40.dp))
+                if (item.type == "video") {
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.2f))
+                                .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(28.dp))
+                        }
+                    }
                 }
             }
             "audio" -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.AudioFile, contentDescription = "Audio", tint = themePurple.copy(alpha = 0.6f), modifier = Modifier.size(40.dp))
+                Box(modifier = Modifier.fillMaxSize().background(Brush.radialGradient(listOf(themePurple.copy(alpha = 0.2f), Color.Transparent))), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.AudioFile, contentDescription = "Audio", tint = themePurple.copy(alpha = 0.8f), modifier = Modifier.size(56.dp))
                 }
             }
             "document" -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Description, contentDescription = "Document", tint = Color(0xFF29B6F6).copy(alpha = 0.6f), modifier = Modifier.size(40.dp))
-                    Text(item.title.substringAfterLast('.').take(4).uppercase(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.BottomCenter).padding(8.dp))
+                Box(modifier = Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF29B6F6).copy(alpha = 0.2f), Color.Transparent))), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Description, contentDescription = "Document", tint = Color(0xFF29B6F6).copy(alpha = 0.8f), modifier = Modifier.size(56.dp))
+                    Text(item.title.substringAfterLast('.').take(4).uppercase(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp))
                 }
             }
             "note" -> {
-                Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                    Text(item.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                    Text(
+                        text = item.title, 
+                        color = Color.White.copy(alpha = 0.9f), 
+                        fontSize = 15.sp, 
+                        fontWeight = FontWeight.SemiBold, 
+                        maxLines = 4, 
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 22.sp
+                    )
                 }
             }
         }
         
-        // Gradient overlay for titles on media
+        // Premium Gradient overlay for titles on media
         if (item.type in listOf("image", "video")) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .background(androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))
                     ))
-                    .padding(8.dp)
+                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 24.dp)
             ) {
-                Text(item.title, color = Color.White, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Text(item.title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    if (item.type == "video") {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        VideoDurationText(path = item.path)
+                    }
+                }
+            }
+        }
+        
+        // Favorite Badge
+        if (item.isFav && !isSelectionMode) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(10.dp)
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Star,
+                    contentDescription = "Favorite",
+                    tint = Color(0xFFFFD600),
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
 
-        if (item.isFav && !isSelectionMode) {
-            Icon(
-                Icons.Default.Star,
-                contentDescription = "Favorite",
-                tint = Color(0xFFFFD600),
-                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(16.dp)
-            )
-        }
-
+        // Selection Overlay
         if (isSelectionMode) {
+            val overlayAlpha by animateFloatAsState(if (isSelected) 0.4f else 0.6f)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(if (isSelected) themePurple.copy(alpha=0.4f) else Color.Black.copy(alpha=0.5f))
+                    .background(if (isSelected) themePurple.copy(alpha=overlayAlpha) else Color.Black.copy(alpha=overlayAlpha))
             )
-            Icon(
-                if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                contentDescription = "Select",
-                tint = if (isSelected) themePurple else Color.White.copy(alpha=0.8f),
-                modifier = Modifier.align(Alignment.TopStart).padding(8.dp).size(24.dp)
-            )
+            
+            AnimatedVisibility(
+                visible = isSelected,
+                enter = scaleIn() + fadeIn(),
+                exit = scaleOut() + fadeOut(),
+                modifier = Modifier.align(Alignment.TopStart).padding(12.dp)
+            ) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = "Selected",
+                    tint = themePurple,
+                    modifier = Modifier.size(28.dp).background(Color.White, CircleShape)
+                )
+            }
+            
+            if (!isSelected) {
+                Icon(
+                    Icons.Default.RadioButtonUnchecked,
+                    contentDescription = "Select",
+                    tint = Color.White.copy(alpha=0.9f),
+                    modifier = Modifier.align(Alignment.TopStart).padding(12.dp).size(28.dp)
+                )
+            }
         }
+    }
+}
+
+@Composable
+fun VideoDurationText(path: String, modifier: Modifier = Modifier) {
+    var durationText by remember { mutableStateOf("") }
+
+    LaunchedEffect(path) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val retriever = android.media.MediaMetadataRetriever()
+                retriever.setDataSource(path)
+                val time = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                val timeInMillis = time?.toLongOrNull() ?: 0L
+                if (timeInMillis > 0) {
+                    val sec = (timeInMillis / 1000) % 60
+                    val min = (timeInMillis / 1000) / 60
+                    durationText = String.format(Locale.getDefault(), "%02d:%02d", min, sec)
+                }
+                retriever.release()
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    }
+
+    if (durationText.isNotEmpty()) {
+        Text(
+            text = durationText, 
+            color = Color.White, 
+            fontSize = 11.sp, 
+            fontWeight = FontWeight.ExtraBold, 
+            modifier = modifier,
+            letterSpacing = 0.5.sp
+        )
+    }
+}
+
+@Composable
+fun SelectionActionButton(icon: ImageVector, label: String, color: Color, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+    ) {
+        Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(26.dp))
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(label, color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }

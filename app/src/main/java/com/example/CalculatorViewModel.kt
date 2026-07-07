@@ -1149,7 +1149,25 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         return DecimalFormat("#,##0.#").format(size / Math.pow(1024.0, index.toDouble())) + " " + units[index]
     }
 
-    fun addVaultFile(context: Context, uri: Uri): Boolean {
+    
+    fun batchDeleteOriginalFiles(context: Context, uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                val pendingIntent = android.provider.MediaStore.createDeleteRequest(context.contentResolver, uris)
+                _pendingDeleteSender.value = pendingIntent.intentSender
+            } else {
+                for (uri in uris) {
+                    context.contentResolver.delete(uri, null, null)
+                }
+                onOriginalFileDeleted(context)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("Vault", "Batch delete exception", e)
+        }
+    }
+
+    fun addVaultFile(context: Context, uri: Uri, skipDelete: Boolean = false): Boolean {
         return try {
             val contentResolver = context.contentResolver
             
@@ -1266,7 +1284,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 android.util.Log.d("Vault", "Original MediaStore Uri: $uri")
 
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                if (skipDelete) {
+                    // Skip deletion for batch processing
+                } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                     android.util.Log.d("Vault", "Delete request created")
                     val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, listOf(uri))
                     pendingDeleteOriginalPath = originalPath

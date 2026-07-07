@@ -9,6 +9,7 @@ import android.util.Log
 object CameraInitializer {
     private var initialized = false
 
+    @androidx.annotation.OptIn(androidx.camera.lifecycle.ExperimentalCameraProviderConfiguration::class)
     fun initAndGetProvider(context: Context): com.google.common.util.concurrent.ListenableFuture<ProcessCameraProvider> {
         if (!initialized) {
             try {
