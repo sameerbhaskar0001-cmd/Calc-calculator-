@@ -1255,7 +1255,20 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             }
             android.util.Log.d("Vault", "Vault copy success: ${destFile.absolutePath}")
             
-            val fileSerialized = "$id|||$timestamp|||$originalName|||$mimeType|||${destFile.absolutePath}|||$readableSize"
+            var durationMs = 0L
+            if (mimeType.startsWith("video/")) {
+                try {
+                    val retriever = android.media.MediaMetadataRetriever()
+                    retriever.setDataSource(destFile.absolutePath)
+                    val timeStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    durationMs = timeStr?.toLongOrNull() ?: 0L
+                    retriever.release()
+                } catch (e: Exception) {
+                    android.util.Log.e("Vault", "Failed to extract duration", e)
+                }
+            }
+            
+            val fileSerialized = "$id|||$timestamp|||$originalName|||$mimeType|||${destFile.absolutePath}|||$readableSize|||$durationMs"
             val updatedFiles = _vaultFiles.value + fileSerialized
             _vaultFiles.value = updatedFiles.sortedByDescending { it }
             

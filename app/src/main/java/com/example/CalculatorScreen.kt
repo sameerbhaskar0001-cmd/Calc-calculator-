@@ -2235,7 +2235,7 @@ fun VaultTabUnlockedContent(
                                     Text("Your secrets are safe here.", color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp)
                                 }
                             } else {
-                                val recentFiles = vaultFiles.take(3)
+                                val recentFiles = vaultFiles
                                 recentFiles.forEach { file ->
                                     Row(
                                         modifier = Modifier
@@ -2256,17 +2256,47 @@ fun VaultTabUnlockedContent(
                                                 .background(ThemePurple.copy(alpha = 0.1f)),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(
-                                                imageVector = if (isMedia) Icons.Default.Image else Icons.Default.Description,
-                                                contentDescription = null,
-                                                tint = ThemePurple
-                                            )
+                                            if (isMedia && parts.size >= 5) {
+                                                val ctx = androidx.compose.ui.platform.LocalContext.current
+                                                val imageLoader = remember(ctx) {
+                                                    coil.ImageLoader.Builder(ctx)
+                                                        .components { add(coil.decode.VideoFrameDecoder.Factory()) }
+                                                        .build()
+                                                }
+                                                AsyncImage(
+                                                    model = coil.request.ImageRequest.Builder(ctx)
+                                                        .data(java.io.File(parts[4]))
+                                                        .crossfade(true)
+                                                        .build(),
+                                                    imageLoader = imageLoader,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                )
+                                            } else {
+                                                Icon(
+                                                    imageVector = if (isMedia) Icons.Default.Image else Icons.Default.Description,
+                                                    contentDescription = null,
+                                                    tint = ThemePurple
+                                                )
+                                            }
                                         }
                                         Column(modifier = Modifier.weight(1f)) {
-                                            val parts = file.split("|||")
                                             val title = if (parts.size >= 3) parts[2] else file.split("|||")[0].substringAfterLast('/')
-                                            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                            Text("Added recently", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
+                                            val cleanTitle = cleanDisplayName(title)
+                                            Text(cleanTitle, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                            val timestamp = parts.getOrNull(1)?.toLongOrNull() ?: 0L
+                                            val timeStr = if (timestamp > 0) {
+                                                val diff = System.currentTimeMillis() - timestamp
+                                                when {
+                                                    diff < 60_000 -> "Just now"
+                                                    diff < 3600_000 -> "${diff / 60_000} min ago"
+                                                    android.text.format.DateUtils.isToday(timestamp) -> "Today"
+                                                    android.text.format.DateUtils.isToday(timestamp + 86400_000) -> "Yesterday"
+                                                    else -> "${diff / 86400_000} days ago"
+                                                }
+                                            } else "Added recently"
+                                            Text(timeStr, color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
                                         }
                                         Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                                     }
@@ -2328,11 +2358,13 @@ fun VaultTabUnlockedContent(
                         when (activeSection) {
                             "Photos" -> vaultFiles.filter { it.contains("|||image/") }.map { fileStr ->
                                 val parts = fileStr.split("|||")
-                                VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "image", parts[4], fileStr)
+                                val duration = if (parts.size >= 7) parts[6].toLongOrNull() ?: 0L else 0L
+                                VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "image", parts[4], fileStr, duration)
                             }
                             "Videos" -> vaultFiles.filter { it.contains("|||video/") }.map { fileStr ->
                                 val parts = fileStr.split("|||")
-                                VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "video", parts[4], fileStr)
+                                val duration = if (parts.size >= 7) parts[6].toLongOrNull() ?: 0L else 0L
+                                VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "video", parts[4], fileStr, duration)
                             }
                             "Documents" -> vaultFiles.filter { 
                                 val parts = it.split("|||")
@@ -2340,11 +2372,11 @@ fun VaultTabUnlockedContent(
                                 parts.size >= 4 && !isMedia && !parts[3].startsWith("audio/")
                             }.map { fileStr ->
                                 val parts = fileStr.split("|||")
-                                VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "document", parts[4], fileStr)
+                                VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "document", parts[4], fileStr, 0L)
                             }
                             "Music & Audio" -> vaultFiles.filter { it.contains("|||audio/") }.map { fileStr ->
                                 val parts = fileStr.split("|||")
-                                VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "audio", parts[4], fileStr)
+                                VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "audio", parts[4], fileStr, 0L)
                             }
                             "Notes" -> vaultNotes.map { noteStr ->
                                 val parts = noteStr.split("|||")
@@ -2353,7 +2385,7 @@ fun VaultTabUnlockedContent(
                                 val timeMs = try {
                                     java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault()).parse(dateStr)?.time ?: 0L
                                 } catch (e: Exception) { 0L }
-                                VaultItemData(dateStr, timeMs, title, favoriteNotes.contains(noteStr), noteFolders[noteStr] ?: "", "note", "", noteStr)
+                                VaultItemData(dateStr, timeMs, title, favoriteNotes.contains(noteStr), noteFolders[noteStr] ?: "", "note", "", noteStr, 0L)
                             }
                             else -> emptyList()
                         }
@@ -2720,7 +2752,7 @@ fun VaultTabUnlockedContent(
                                                 }
                                                 Column(modifier = Modifier.weight(1f)) {
                                                     Text(
-                                                        text = originalName,
+                                                        text = cleanDisplayName(originalName),
                                                         fontSize = 13.sp,
                                                         fontWeight = FontWeight.Bold,
                                                         color = Color.White,
@@ -3482,7 +3514,7 @@ fun VaultTabUnlockedContent(
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(text = "Name: $originalName", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextDark, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(text = "Name: ${cleanDisplayName(originalName)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextDark, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(text = "Type: $mimeType", fontSize = 11.sp, color = TextMedium)
                                 Text(text = "Size: $sizeStr", fontSize = 11.sp, color = TextMedium)
                                 Text(text = "Secured on: $timestamp", fontSize = 11.sp, color = TextMedium)
@@ -3569,6 +3601,7 @@ fun VaultTabUnlockedContent(
                     activeViewerIndex = -1
                 }
                 
+                var currentScale by remember { mutableStateOf(1f) }
                 Box(modifier = Modifier.fillMaxSize()) {
                     var isViewerUiVisible by remember { mutableStateOf(true) }
                     val formatDuration = remember {
@@ -3589,6 +3622,7 @@ fun VaultTabUnlockedContent(
                         // HorizontalPager for left/right swipe
                         HorizontalPager(
                             state = pagerState,
+                            userScrollEnabled = currentScale <= 1.01f,
                             modifier = Modifier.fillMaxSize()
                         ) { page ->
                             val currentFileStr = activeViewerFiles[page]
@@ -3608,6 +3642,11 @@ fun VaultTabUnlockedContent(
                                     if (isImage) {
                                         // Dynamic Pinch-to-Zoom
                                         var scale by remember { mutableStateOf(1f) }
+                                        LaunchedEffect(scale, pagerState.currentPage) {
+                                            if (pagerState.currentPage == page) {
+                                                currentScale = scale
+                                            }
+                                        }
                                         var offset by remember { mutableStateOf(Offset.Zero) }
                                         val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
                                             scale = (scale * zoomChange).coerceIn(1f, 5f)
@@ -3630,20 +3669,12 @@ fun VaultTabUnlockedContent(
                                                         }
                                                     )
                                                 }
-                                                .pointerInput(Unit) {
-                                                    awaitEachGesture {
-                                                        awaitFirstDown()
-                                                        do {
-                                                            val event = awaitPointerEvent()
-                                                            if (scale > 1f && event.changes.size == 1) {
-                                                                val change = event.changes.first()
-                                                                val dragAmount = change.positionChange()
-                                                                if (dragAmount != Offset.Zero) {
-                                                                    offset += dragAmount
-                                                                    change.consume()
-                                                                }
-                                                            }
-                                                        } while (event.changes.any { it.pressed })
+                                                .pointerInput(scale) {
+                                                    if (scale > 1f) {
+                                                        detectDragGestures { change, dragAmount ->
+                                                            offset += dragAmount
+                                                            change.consume()
+                                                        }
                                                     }
                                                 }
                                                 .transformable(state = transformState)
@@ -3657,6 +3688,20 @@ fun VaultTabUnlockedContent(
                                         )
                                     } else if (mimeType.startsWith("video/") || originalName.lowercase().endsWith(".mp4")) {
                                         // Video Player
+                                        var playbackPosition by androidx.compose.runtime.saveable.rememberSaveable(path) { androidx.compose.runtime.mutableIntStateOf(0) }
+                                        var videoViewRef by remember { mutableStateOf<android.widget.VideoView?>(null) }
+                                        
+                                        LaunchedEffect(videoViewRef) {
+                                            while (true) {
+                                                kotlinx.coroutines.delay(1000)
+                                                videoViewRef?.let {
+                                                    if (it.isPlaying) {
+                                                        playbackPosition = it.currentPosition
+                                                    }
+                                                }
+                                            }
+                                        }
+
                                         AndroidView(
                                             factory = { ctx ->
                                                 android.widget.VideoView(ctx).apply {
@@ -3666,13 +3711,17 @@ fun VaultTabUnlockedContent(
                                                     setMediaController(mediaController)
                                                     setOnPreparedListener { mp ->
                                                         mp.isLooping = true
+                                                        seekTo(playbackPosition)
                                                         start()
                                                     }
+                                                    videoViewRef = this
                                                 }
                                             },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .aspectRatio(16 / 9f)
+                                            modifier = Modifier.fillMaxSize(),
+                                            onRelease = {
+                                                playbackPosition = it.currentPosition
+                                                videoViewRef = null
+                                            }
                                         )
                                     } else if (mimeType.equals("application/pdf", ignoreCase = true) || originalName.endsWith(".pdf", ignoreCase = true)) {
                                         // PDF Viewer
@@ -3812,7 +3861,7 @@ fun VaultTabUnlockedContent(
                                             }
                                             Spacer(modifier = Modifier.height(32.dp))
                                             Text(
-                                                text = originalName,
+                                                text = cleanDisplayName(originalName),
                                                 color = Color.White,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 18.sp,
@@ -3926,7 +3975,7 @@ fun VaultTabUnlockedContent(
                                                 modifier = Modifier.size(64.dp)
                                             )
                                             Spacer(modifier = Modifier.height(16.dp))
-                                            Text(originalName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                            Text(cleanDisplayName(originalName), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                             Text("$sizeStr • $mimeType", color = TextMedium, fontSize = 12.sp)
                                         }
                                     }
@@ -4306,7 +4355,7 @@ fun VaultTabUnlockedContent(
                                                     modifier = Modifier.size(16.dp)
                                                 )
                                                 Column(modifier = Modifier.weight(1f)) {
-                                                    Text(originalName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    Text(cleanDisplayName(originalName), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                     Text(sizeStr, color = TextMedium, fontSize = 10.sp)
                                                 }
                                             }

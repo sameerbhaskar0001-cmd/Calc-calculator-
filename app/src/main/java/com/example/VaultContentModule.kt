@@ -40,6 +40,21 @@ import coil.compose.AsyncImage
 import com.example.ui.theme.LocalAppThemeColors
 import java.io.File
 
+fun cleanDisplayName(rawName: String): String {
+    var cleaned = rawName
+    val prefixes = listOf("IMG_", "VID_", "AUD_", "DOC_", "PXL_")
+    for (prefix in prefixes) {
+        if (cleaned.startsWith(prefix, ignoreCase = true)) {
+            cleaned = cleaned.substring(prefix.length)
+        }
+    }
+    val lastDot = cleaned.lastIndexOf('.')
+    if (lastDot > 0) {
+        cleaned = cleaned.substring(0, lastDot)
+    }
+    return cleaned
+}
+
 data class VaultItemData(
     val id: String,
     val timestamp: Long,
@@ -48,8 +63,11 @@ data class VaultItemData(
     val folder: String,
     val type: String, // "image", "video", "document", "audio", "note"
     val path: String = "",
-    val rawString: String // needed for favorite logic
-)
+    val rawString: String, // needed for favorite logic
+    val durationMs: Long = 0L
+) {
+    val cleanTitle: String get() = if (type == "note") title else cleanDisplayName(title)
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -100,7 +118,7 @@ fun VaultContentScreen(
         when (sortOrder) {
             "Newest" -> list.sortedByDescending { it.timestamp }
             "Oldest" -> list.sortedBy { it.timestamp }
-            "Name" -> list.sortedBy { it.title.lowercase() }
+            "Name" -> list.sortedBy { it.cleanTitle.lowercase() }
             else -> list
         }
     }
@@ -622,11 +640,18 @@ fun VaultItemCard(
     ) {
         when (item.type) {
             "image", "video" -> {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                val imageLoader = remember(ctx) {
+                    coil.ImageLoader.Builder(ctx)
+                        .components { add(coil.decode.VideoFrameDecoder.Factory()) }
+                        .build()
+                }
                 AsyncImage(
-                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                    model = coil.request.ImageRequest.Builder(ctx)
                         .data(File(item.path))
                         .crossfade(true)
                         .build(),
+                    imageLoader = imageLoader,
                     contentDescription = item.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -642,6 +667,20 @@ fun VaultItemCard(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(28.dp))
+                        }
+                    }
+                    if (item.durationMs > 0) {
+                        val sec = (item.durationMs / 1000) % 60
+                        val min = (item.durationMs / 1000) / 60
+                        val durStr = String.format("%02d:%02d", min, sec)
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(8.dp)
+                                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Text(durStr, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -672,30 +711,7 @@ fun VaultItemCard(
             }
         }
         
-        // Premium Gradient overlay for titles on media
-        if (item.type in listOf("image", "video")) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .background(androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))
-                    ))
-                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 24.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    Text(item.title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    if (item.type == "video") {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        VideoDurationText(path = item.path)
-                    }
-                }
-            }
-        }
+        // Overlay removed for cleaner gallery view. Duration is handled inside the video Box.
         
         // Favorite Badge
         if (item.isFav && !isSelectionMode) {
