@@ -387,23 +387,23 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _pendingDeleteSender = MutableStateFlow<android.content.IntentSender?>(null)
     val pendingDeleteSender: StateFlow<android.content.IntentSender?> = _pendingDeleteSender.asStateFlow()
 
-    var pendingDeleteOriginalPath: String = ""
+    var pendingDeleteOriginalPaths: List<String> = emptyList()
 
     fun clearPendingDelete() {
         _pendingDeleteSender.value = null
-        pendingDeleteOriginalPath = ""
+        pendingDeleteOriginalPaths = emptyList()
     }
 
     fun onOriginalFileDeleted(context: android.content.Context) {
-        if (pendingDeleteOriginalPath.isNotEmpty()) {
+        if (pendingDeleteOriginalPaths.isNotEmpty()) {
             android.media.MediaScannerConnection.scanFile(
                 context, 
-                arrayOf(pendingDeleteOriginalPath), 
+                pendingDeleteOriginalPaths.toTypedArray(), 
                 null 
             ) { path, _ ->
                 android.util.Log.d("Vault", "Scanned $path after deletion")
             }
-            pendingDeleteOriginalPath = ""
+            pendingDeleteOriginalPaths = emptyList()
         }
     }
 
@@ -1153,14 +1153,78 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     fun batchDeleteOriginalFiles(context: Context, uris: List<Uri>) {
         if (uris.isEmpty()) return
         try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                val pendingIntent = android.provider.MediaStore.createDeleteRequest(context.contentResolver, uris)
-                _pendingDeleteSender.value = pendingIntent.intentSender
-            } else {
-                for (uri in uris) {
-                    context.contentResolver.delete(uri, null, null)
+            val contentResolver = context.contentResolver
+            val mediaStoreUris = mutableListOf<Uri>()
+            val pathsToScan = mutableListOf<String>()
+
+            for (uri in uris) {
+                var path = ""
+                try {
+                    contentResolver.query(uri, null, null, null, null)?.use {
+                        if (it.moveToFirst()) {
+                            val dataIdx = it.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
+                            if (dataIdx != -1) path = it.getString(dataIdx) ?: ""
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("Vault", "Failed to query path for uri: $uri", e)
                 }
-                onOriginalFileDeleted(context)
+                
+                if (path.isNotEmpty()) {
+                    pathsToScan.add(path)
+                    try {
+                        val mediaCursor = contentResolver.query(
+                            android.provider.MediaStore.Files.getContentUri("external"),
+                            arrayOf(android.provider.MediaStore.Files.FileColumns._ID),
+                            "${android.provider.MediaStore.Files.FileColumns.DATA} = ?",
+                            arrayOf(path),
+                            null
+                        )
+                        mediaCursor?.use {
+                            if (it.moveToFirst()) {
+                                val id = it.getLong(it.getColumnIndexOrThrow(android.provider.MediaStore.Files.FileColumns._ID))
+                                val realUri = android.content.ContentUris.withAppendedId(android.provider.MediaStore.Files.getContentUri("external"), id)
+                                mediaStoreUris.add(realUri)
+                            } else {
+                                mediaStoreUris.add(uri)
+                            }
+                        } ?: mediaStoreUris.add(uri)
+                    } catch (e: Exception) {
+                        android.util.Log.e("Vault", "Failed to resolve MediaStore URI for path: $path", e)
+                        mediaStoreUris.add(uri)
+                    }
+                } else {
+                    // Fallback
+                    mediaStoreUris.add(uri)
+                }
+            }
+            
+            val targetUris = if (mediaStoreUris.isNotEmpty()) mediaStoreUris else uris
+
+            pendingDeleteOriginalPaths = pathsToScan
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                if (targetUris.isNotEmpty()) {
+                    val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, targetUris)
+                    _pendingDeleteSender.value = pendingIntent.intentSender
+                }
+            } else {
+                for (uri in targetUris) {
+                    try {
+                        contentResolver.delete(uri, null, null)
+                    } catch (e: Exception) {
+                        android.util.Log.e("Vault", "Failed to delete uri: $uri", e)
+                    }
+                }
+                if (pathsToScan.isNotEmpty()) {
+                    android.media.MediaScannerConnection.scanFile(
+                        context, 
+                        pathsToScan.toTypedArray(), 
+                        null 
+                    ) { p, _ ->
+                        android.util.Log.d("Vault", "Scanned $p after batch deletion")
+                    }
+                }
             }
         } catch (e: Exception) {
             android.util.Log.e("Vault", "Batch delete exception", e)
@@ -1302,14 +1366,14 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                     android.util.Log.d("Vault", "Delete request created")
                     val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, listOf(uri))
-                    pendingDeleteOriginalPath = originalPath
+                    pendingDeleteOriginalPaths = if (originalPath.isNotEmpty()) listOf(originalPath) else emptyList()
                     _pendingDeleteSender.value = pendingIntent.intentSender
                 } else {
                     android.util.Log.d("Vault", "Deleting original file directly (API < 30)")
                     val deletedRows = contentResolver.delete(uri, null, null)
                     if (deletedRows > 0) {
                         android.util.Log.d("Vault", "Delete success/failure: Delete success")
-                        pendingDeleteOriginalPath = originalPath
+                        pendingDeleteOriginalPaths = if (originalPath.isNotEmpty()) listOf(originalPath) else emptyList()
                         onOriginalFileDeleted(context)
                     } else {
                         android.util.Log.e("Vault", "Delete success/failure: Delete failure")
@@ -1828,7 +1892,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     fun registerDirectVaultFile(context: Context, file: File, originalName: String, mimeType: String) {
         val size = file.length()
         val readableSize = formatFileSize(size)
-        val id = file.nameWithoutExtension
+        val id = System.currentTimeMillis().toString()
         val timestamp = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
         
         val fileSerialized = "$id|||$timestamp|||$originalName|||$mimeType|||${file.absolutePath}|||$readableSize"

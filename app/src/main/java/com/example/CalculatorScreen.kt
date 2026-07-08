@@ -1577,7 +1577,7 @@ fun VaultTabUnlockedContent(
         // Photo/Video Picker launcher
         val coroutineScope = rememberCoroutineScope()
         val photoPickerLauncher = rememberLauncherForActivityResult(
-            contract = androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia(),
+            contract = androidx.activity.result.contract.ActivityResultContracts.GetMultipleContents(),
             onResult = { uris ->
                 if (uris.isNotEmpty()) {
                     isImporting = true
@@ -4589,10 +4589,7 @@ fun VaultTabUnlockedContent(
                                 showMediaAddOptions = false
                                 val isPhoto = activeSection == "Photos"
                                 photoPickerLauncher.launch(
-                                    androidx.activity.result.PickVisualMediaRequest(
-                                        if (isPhoto) androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly
-                                        else androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.VideoOnly
-                                    )
+                                    if (isPhoto) "image/*" else "video/*"
                                 )
                             }.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
