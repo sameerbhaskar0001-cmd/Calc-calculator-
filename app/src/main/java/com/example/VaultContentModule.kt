@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -269,43 +270,33 @@ fun VaultContentScreen(
                 )
             }
 
-            // Sleek Folders Row
+
+            // Small Information Row
             if (!isSelectionMode) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 24.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    val allFolders = listOf("All", "Favorites") + folders + listOf("Uncategorized")
-                    allFolders.forEach { folder ->
-                        val isLocked = lockedFolders.contains(folder) && !tempUnlockedFolders.contains(folder)
-                        val isFolderSelected = selectedFolder == folder
-                        FolderChip(
-                            label = folder,
-                            selected = isFolderSelected,
-                            isLocked = isLocked,
-                            icon = if (folder == "Favorites") Icons.Default.Star else if (folder != "All" && folder != "Uncategorized") Icons.Default.Folder else null,
-                            onClick = { selectedFolder = folder }
-                        )
+                    Text(
+                        text = "${filteredItems.size} ${if (filteredItems.size == 1) title.removeSuffix("s") else title}",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                    val infoSubtitle = when (title) {
+                        "Photos", "Videos" -> "Encrypted • Recently Added"
+                        "Documents" -> "Encrypted • Secure Storage"
+                        "Notes" -> "Encrypted • Private Notes"
+                        else -> "Encrypted • Secured"
                     }
-                    
-                    // Add Folder Chip
-                    Surface(
-                        color = Color.White.copy(alpha = 0.05f),
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier.clickable { showCreateFolderDialog = true }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "Add Folder", tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
-                            Text("New Folder", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
+                    Text(
+                        text = infoSubtitle,
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 13.sp
+                    )
                 }
             } else {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -468,12 +459,6 @@ fun VaultContentScreen(
                                     isSelectionMode = false
                                     selectedItemRaws = emptySet()
                                 }
-                            )
-                            SelectionActionButton(
-                                icon = Icons.AutoMirrored.Filled.DriveFileMove,
-                                label = "Move",
-                                color = Color.White,
-                                onClick = { showMoveDialog = true }
                             )
                             SelectionActionButton(
                                 icon = Icons.Default.Delete,
@@ -816,3 +801,4 @@ fun SelectionActionButton(icon: ImageVector, label: String, color: Color, onClic
         Text(label, color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
+

@@ -1844,10 +1844,10 @@ fun VaultTabUnlockedContent(
                     }
                     val currentHour = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).get(java.util.Calendar.HOUR_OF_DAY)
                     val greeting = when (currentHour) {
-                        in 5..11 -> "Good Morning"
-                        in 12..16 -> "Good Afternoon"
-                        in 17..20 -> "Good Evening"
-                        else -> "Good Night"
+                        in 5..11 -> "Good Morning 🌅"
+                        in 12..16 -> "Good Afternoon ☀️"
+                        in 17..20 -> "Good Evening 🌆"
+                        else -> "Good Night 🌙"
                     }
                     
                     val totalVaultItems = vaultFiles.size + vaultNotes.size
@@ -2066,40 +2066,143 @@ fun VaultTabUnlockedContent(
                                     title = "Photos", 
                                     count = let { val c = vaultFiles.count { it.contains("|||image/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
                                     icon = Icons.Default.Image,
-                                    modifier = Modifier.weight(1f)
-                                ) { 
-                                    viewModel.triggerKeypressEffects(context)
-                                    activeSection = "Photos" 
-                                }
+                                    modifier = Modifier.weight(1f),
+                                    previewContent = {
+                                        val photos = vaultFiles.filter { it.contains("|||image/") }.take(3)
+                                        if (photos.isEmpty()) {
+                                            Row(modifier = Modifier.fillMaxSize().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
+                                                Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
+                                                Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
+                                            }
+                                        } else {
+                                            Row(modifier = Modifier.fillMaxSize().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                photos.forEach { file ->
+                                                    val path = file.split("|||").getOrNull(4) ?: ""
+                                                    Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236))) {
+                                                        if (path.isNotEmpty()) {
+                                                            coil.compose.AsyncImage(
+                                                                model = java.io.File(path),
+                                                                contentDescription = null,
+                                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                                                modifier = Modifier.fillMaxSize()
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                // Fill remaining space if less than 3 photos
+                                                repeat(3 - photos.size) {
+                                                    Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onClick = { 
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "Photos" 
+                                    }
+                                )
                                 EnhancedVaultCard(
                                     title = "Videos", 
                                     count = let { val c = vaultFiles.count { it.contains("|||video/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
                                     icon = Icons.Default.PlayArrow,
-                                    modifier = Modifier.weight(1f)
-                                ) { 
-                                    viewModel.triggerKeypressEffects(context)
-                                    activeSection = "Videos" 
-                                }
+                                    modifier = Modifier.weight(1f),
+                                    previewContent = {
+                                        val latestVideo = vaultFiles.firstOrNull { it.contains("|||video/") }
+                                        if (latestVideo != null) {
+                                            val path = latestVideo.split("|||").getOrNull(4) ?: ""
+                                            Box(modifier = Modifier.fillMaxSize().padding(4.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)), contentAlignment = Alignment.Center) {
+                                                if (path.isNotEmpty()) {
+                                                    val bitmap = remember(path) {
+                                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                                            try { android.media.ThumbnailUtils.createVideoThumbnail(java.io.File(path), android.util.Size(200, 200), null) } catch (e: Exception) { null }
+                                                        } else {
+                                                            @Suppress("DEPRECATION")
+                                                            try { android.media.ThumbnailUtils.createVideoThumbnail(path, android.provider.MediaStore.Video.Thumbnails.MINI_KIND) } catch (e: Exception) { null }
+                                                        }
+                                                    }
+                                                    if (bitmap != null) {
+                                                        androidx.compose.foundation.Image(
+                                                            bitmap = bitmap.asImageBitmap(),
+                                                            contentDescription = null,
+                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                                            modifier = Modifier.fillMaxSize().alpha(0.6f)
+                                                        )
+                                                    }
+                                                }
+                                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
+                                            }
+                                        } else {
+                                            Box(modifier = Modifier.fillMaxSize().padding(4.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)), contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+                                    },
+                                    onClick = { 
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "Videos" 
+                                    }
+                                )
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 EnhancedVaultCard(
                                     title = "Documents", 
                                     count = let { val c = vaultFiles.count { val parts = it.split("|||"); parts.size >= 4 && !parts[3].startsWith("image/") && !parts[3].startsWith("video/") && !parts[3].startsWith("audio/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
                                     icon = Icons.Default.Description,
-                                    modifier = Modifier.weight(1f)
-                                ) { 
-                                    viewModel.triggerKeypressEffects(context)
-                                    activeSection = "Documents" 
-                                }
+                                    modifier = Modifier.weight(1f),
+                                    previewContent = {
+                                        val latestDoc = vaultFiles.firstOrNull { val parts = it.split("|||"); parts.size >= 4 && !parts[3].startsWith("image/") && !parts[3].startsWith("video/") && !parts[3].startsWith("audio/") }
+                                        if (latestDoc != null) {
+                                            val parts = latestDoc.split("|||")
+                                            val title = if (parts.size >= 3) parts[2] else latestDoc.split("|||")[0].substringAfterLast('/')
+                                            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                val isPdf = latestDoc.lowercase().contains("pdf")
+                                                Icon(if (isPdf) Icons.Default.PictureAsPdf else Icons.Default.Description, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(16.dp))
+                                                Text(title, color = Color.White, fontSize = 10.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                            }
+                                        } else {
+                                            Column(
+                                                modifier = Modifier.fillMaxSize().padding(8.dp),
+                                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Box(modifier = Modifier.fillMaxWidth(0.8f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                                Box(modifier = Modifier.fillMaxWidth(0.9f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                                Box(modifier = Modifier.fillMaxWidth(0.6f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                            }
+                                        }
+                                    },
+                                    onClick = { 
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "Documents" 
+                                    }
+                                )
                                 EnhancedVaultCard(
                                     title = "Notes", 
                                     count = let { val c = vaultNotes.size; "$c ${if (c == 1) "Item" else "Items"}" }, 
                                     icon = Icons.Default.List,
-                                    modifier = Modifier.weight(1f)
-                                ) { 
-                                    viewModel.triggerKeypressEffects(context)
-                                    activeSection = "Notes" 
-                                }
+                                    modifier = Modifier.weight(1f),
+                                    previewContent = {
+                                        val latestNote = vaultNotes.firstOrNull()
+                                        if (latestNote != null) {
+                                            val parts = latestNote.split("|||")
+                                            val body = if (parts.size >= 4) parts[3] else ""
+                                            Text(body, color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(8.dp).fillMaxWidth(), lineHeight = 12.sp)
+                                        } else {
+                                            Column(
+                                                modifier = Modifier.fillMaxSize().padding(8.dp),
+                                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Box(modifier = Modifier.fillMaxWidth(0.5f).height(6.dp).clip(CircleShape).background(ThemePurple.copy(alpha = 0.4f)))
+                                                Box(modifier = Modifier.fillMaxWidth(0.9f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                                Box(modifier = Modifier.fillMaxWidth(0.8f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                            }
+                                        }
+                                    },
+                                    onClick = { 
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "Notes" 
+                                    }
+                                )
                             }
                             
                             // Recent Activity
@@ -2144,6 +2247,8 @@ fun VaultTabUnlockedContent(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
+                                        val parts = file.split("|||")
+                                        val isMedia = parts.size >= 4 && (parts[3].startsWith("image/") || parts[3].startsWith("video/")) || file.lowercase().endsWith(".jpg") || file.lowercase().endsWith(".png") || file.lowercase().endsWith(".mp4")
                                         Box(
                                             modifier = Modifier
                                                 .size(40.dp)
@@ -2152,13 +2257,15 @@ fun VaultTabUnlockedContent(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
-                                                imageVector = if (file.lowercase().endsWith(".jpg") || file.lowercase().endsWith(".png")) Icons.Default.Image else Icons.Default.Description,
+                                                imageVector = if (isMedia) Icons.Default.Image else Icons.Default.Description,
                                                 contentDescription = null,
                                                 tint = ThemePurple
                                             )
                                         }
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(file.substringAfterLast('/'), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                            val parts = file.split("|||")
+                                            val title = if (parts.size >= 3) parts[2] else file.split("|||")[0].substringAfterLast('/')
+                                            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                             Text("Added recently", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
                                         }
                                         Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
@@ -3461,6 +3568,7 @@ fun VaultTabUnlockedContent(
                 }
                 
                 Box(modifier = Modifier.fillMaxSize()) {
+                    var isViewerUiVisible by remember { mutableStateOf(true) }
                     val formatDuration = remember {
                         { ms: Int ->
                             val sec = (ms / 1000) % 60
@@ -3471,7 +3579,10 @@ fun VaultTabUnlockedContent(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color(0xFF0A0C16))
+                            .background(Color.Black)
+                            .pointerInput(Unit) {
+                                detectTapGestures(onTap = { isViewerUiVisible = !isViewerUiVisible })
+                            }
                     ) {
                         // HorizontalPager for left/right swipe
                         HorizontalPager(
@@ -3504,6 +3615,17 @@ fun VaultTabUnlockedContent(
                                             contentDescription = originalName,
                                             modifier = Modifier
                                                 .fillMaxSize()
+                                                .pointerInput(Unit) {
+                                                    detectTapGestures(
+                                                        onDoubleTap = {
+                                                            scale = if (scale > 1f) 1f else 2.5f
+                                                            offset = Offset.Zero
+                                                        },
+                                                        onTap = {
+                                                            isViewerUiVisible = !isViewerUiVisible
+                                                        }
+                                                    )
+                                                }
                                                 .transformable(state = transformState)
                                                 .graphicsLayer(
                                                     scaleX = scale,
@@ -3798,16 +3920,21 @@ fun VaultTabUnlockedContent(
                             val activeId = activeParts[0]
                             val activeName = activeParts[2]
                             val activeIsFav = favoriteFiles.contains(activeId)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(Color.Black.copy(alpha = 0.6f))
-                                    .statusBarsPadding()
-                                    .padding(horizontal = 8.dp, vertical = 12.dp)
-                                    .align(Alignment.TopCenter),
-                                verticalAlignment = Alignment.CenterVertically
+                            AnimatedVisibility(
+                                visible = isViewerUiVisible,
+                                enter = fadeIn(),
+                                exit = fadeOut(),
+                                modifier = Modifier.align(Alignment.TopCenter)
                             ) {
-                                IconButton(
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color.Black.copy(alpha = 0.6f))
+                                        .statusBarsPadding()
+                                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    IconButton(
                                     onClick = {
                                         viewModel.triggerKeypressEffects(context)
                                         activeViewerFiles = emptyList()
@@ -3892,6 +4019,7 @@ fun VaultTabUnlockedContent(
                                         tint = Color(0xFFEF5350)
                                     )
                                 }
+                            }
                             }
                         }
                     }
@@ -4238,7 +4366,7 @@ fun VaultTabUnlockedContent(
             ) {
                 // Vault (Home)
                 Box(
-                    modifier = Modifier.weight(1f).height(56.dp).clickable(
+                    modifier = Modifier.height(56.dp).clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = { activeSection = "Home" }
@@ -4247,27 +4375,28 @@ fun VaultTabUnlockedContent(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier
                             .clip(RoundedCornerShape(24.dp))
                             .background(if (activeSection == "Home") ThemePurple.copy(alpha = 0.15f) else Color.Transparent)
-                            .padding(horizontal = if (activeSection == "Home") 16.dp else 0.dp, vertical = 10.dp)
+                            .padding(horizontal = if (activeSection == "Home") 12.dp else 0.dp, vertical = 10.dp)
+                            .animateContentSize()
                     ) {
                         Icon(
                             imageVector = Icons.Default.Dashboard,
-                            contentDescription = "Workspace",
+                            contentDescription = "Vault",
                             tint = if (activeSection == "Home") ThemePurple else Color.White.copy(alpha = 0.4f),
                             modifier = Modifier.size(22.dp)
                         )
                         if (activeSection == "Home") {
-                            Text("Space", color = ThemePurple, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Vault", color = ThemePurple, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                     }
                 }
                 
                 // Browser
                 Box(
-                    modifier = Modifier.weight(1f).height(56.dp).clickable(
+                    modifier = Modifier.height(56.dp).clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = { activeSection = "Private Browser" }
@@ -4276,11 +4405,12 @@ fun VaultTabUnlockedContent(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier
                             .clip(RoundedCornerShape(24.dp))
                             .background(if (activeSection == "Private Browser") ThemePurple.copy(alpha = 0.15f) else Color.Transparent)
-                            .padding(horizontal = if (activeSection == "Private Browser") 16.dp else 0.dp, vertical = 10.dp)
+                            .padding(horizontal = if (activeSection == "Private Browser") 12.dp else 0.dp, vertical = 10.dp)
+                            .animateContentSize()
                     ) {
                         Icon(
                             imageVector = Icons.Default.Language,
@@ -4289,14 +4419,14 @@ fun VaultTabUnlockedContent(
                             modifier = Modifier.size(22.dp)
                         )
                         if (activeSection == "Private Browser") {
-                            Text("Browse", color = ThemePurple, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Browser", color = ThemePurple, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                     }
                 }
                 
                 // Settings
                 Box(
-                    modifier = Modifier.weight(1f).height(56.dp).clickable(
+                    modifier = Modifier.height(56.dp).clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = { activeSection = "More" }
@@ -4305,11 +4435,12 @@ fun VaultTabUnlockedContent(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier
                             .clip(RoundedCornerShape(24.dp))
                             .background(if (activeSection == "More") ThemePurple.copy(alpha = 0.15f) else Color.Transparent)
-                            .padding(horizontal = if (activeSection == "More") 16.dp else 0.dp, vertical = 10.dp)
+                            .padding(horizontal = if (activeSection == "More") 12.dp else 0.dp, vertical = 10.dp)
+                            .animateContentSize()
                     ) {
                         Icon(
                             imageVector = Icons.Default.Settings,
@@ -4318,7 +4449,7 @@ fun VaultTabUnlockedContent(
                             modifier = Modifier.size(22.dp)
                         )
                         if (activeSection == "More") {
-                            Text("Settings", color = ThemePurple, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Settings", color = ThemePurple, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -6031,7 +6162,7 @@ fun VaultFolderCard(title: String, count: String, icon: androidx.compose.ui.grap
     }
 }
 @Composable
-fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, previewContent: @Composable () -> Unit = {}, onClick: () -> Unit) {
     val themePurple = LocalAppThemeColors.current.themePurple
     UnifiedGlassCard(
         modifier = modifier.fillMaxWidth(),
@@ -6068,7 +6199,7 @@ fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.gr
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Faux preview content based on title
+            // Preview content
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -6078,38 +6209,7 @@ fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.gr
                     .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                if (title == "Photos") {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
-                    }
-                } else if (title == "Videos") {
-                    Box(modifier = Modifier.fillMaxSize().padding(4.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(16.dp))
-                    }
-                } else if (title == "Documents") {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Box(modifier = Modifier.fillMaxWidth(0.8f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
-                        Box(modifier = Modifier.fillMaxWidth(0.9f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
-                        Box(modifier = Modifier.fillMaxWidth(0.6f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
-                    }
-                } else if (title == "Notes") {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Box(modifier = Modifier.fillMaxWidth(0.5f).height(6.dp).clip(CircleShape).background(themePurple.copy(alpha = 0.4f)))
-                        Box(modifier = Modifier.fillMaxWidth(0.9f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
-                        Box(modifier = Modifier.fillMaxWidth(0.8f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
-                    }
-                }
+                previewContent()
             }
         }
     }
