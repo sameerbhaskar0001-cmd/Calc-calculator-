@@ -51,7 +51,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -185,7 +185,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -225,7 +225,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.Canvas
@@ -2336,7 +2336,8 @@ fun VaultTabUnlockedContent(
                             }
                             "Documents" -> vaultFiles.filter { 
                                 val parts = it.split("|||")
-                                parts.size >= 4 && !parts[3].startsWith("image/") && !parts[3].startsWith("video/") && !parts[3].startsWith("audio/")
+                                val isMedia = parts.size >= 4 && (parts[3].startsWith("image/") || parts[3].startsWith("video/")) || it.lowercase().endsWith(".jpg") || it.lowercase().endsWith(".png") || it.lowercase().endsWith(".mp4") || it.lowercase().endsWith(".jpeg") || it.lowercase().endsWith(".webp")
+                                parts.size >= 4 && !isMedia && !parts[3].startsWith("audio/")
                             }.map { fileStr ->
                                 val parts = fileStr.split("|||")
                                 VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "document", parts[4], fileStr)
@@ -2391,7 +2392,8 @@ fun VaultTabUnlockedContent(
                             }
                         },
                         onItemClick = { item, index, allFiltered -> 
-                            if (item.type in listOf("image", "video")) {
+                            val isMedia = item.type in listOf("image", "video") || item.rawString.lowercase().endsWith(".jpg") || item.rawString.lowercase().endsWith(".png") || item.rawString.lowercase().endsWith(".mp4") || item.rawString.lowercase().endsWith(".jpeg") || item.rawString.lowercase().endsWith(".webp")
+                            if (isMedia) {
                                 activeViewerFiles = allFiltered.map { it.rawString }
                                 activeViewerIndex = index
                             } else if (item.type == "note") {
@@ -3602,13 +3604,15 @@ fun VaultTabUnlockedContent(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    if (mimeType.startsWith("image/")) {
+                                    val isImage = mimeType.startsWith("image/") || originalName.lowercase().endsWith(".jpg") || originalName.lowercase().endsWith(".png") || originalName.lowercase().endsWith(".jpeg") || originalName.lowercase().endsWith(".webp")
+                                    if (isImage) {
                                         // Dynamic Pinch-to-Zoom
                                         var scale by remember { mutableStateOf(1f) }
                                         var offset by remember { mutableStateOf(Offset.Zero) }
                                         val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
                                             scale = (scale * zoomChange).coerceIn(1f, 5f)
                                             offset += offsetChange
+                                            if (scale <= 1f) offset = Offset.Zero
                                         }
                                         AsyncImage(
                                             model = java.io.File(path),
@@ -3626,6 +3630,22 @@ fun VaultTabUnlockedContent(
                                                         }
                                                     )
                                                 }
+                                                .pointerInput(Unit) {
+                                                    awaitEachGesture {
+                                                        awaitFirstDown()
+                                                        do {
+                                                            val event = awaitPointerEvent()
+                                                            if (scale > 1f && event.changes.size == 1) {
+                                                                val change = event.changes.first()
+                                                                val dragAmount = change.positionChange()
+                                                                if (dragAmount != Offset.Zero) {
+                                                                    offset += dragAmount
+                                                                    change.consume()
+                                                                }
+                                                            }
+                                                        } while (event.changes.any { it.pressed })
+                                                    }
+                                                }
                                                 .transformable(state = transformState)
                                                 .graphicsLayer(
                                                     scaleX = scale,
@@ -3635,7 +3655,7 @@ fun VaultTabUnlockedContent(
                                                 ),
                                             contentScale = androidx.compose.ui.layout.ContentScale.Fit
                                         )
-                                    } else if (mimeType.startsWith("video/")) {
+                                    } else if (mimeType.startsWith("video/") || originalName.lowercase().endsWith(".mp4")) {
                                         // Video Player
                                         AndroidView(
                                             factory = { ctx ->
