@@ -40,18 +40,72 @@ import coil.compose.AsyncImage
 import com.example.ui.theme.LocalAppThemeColors
 import java.io.File
 
-fun cleanDisplayName(rawName: String): String {
+private val numericNameCounters = mutableMapOf<String, Int>()
+private val currentTypeCounters = mutableMapOf<String, Int>()
+
+fun generateUserFriendlyName(type: String, id: String, isScreenshot: Boolean = false): String {
+    val effectiveId = if (id.isEmpty()) "unknown_id_${System.identityHashCode(Any())}" else id
+    if (isScreenshot) {
+        val key = "Screenshot-$effectiveId"
+        if (!numericNameCounters.containsKey(key)) {
+            val c = currentTypeCounters.getOrDefault("Screenshot", 1)
+            numericNameCounters[key] = c
+            currentTypeCounters["Screenshot"] = c + 1
+        }
+        val count = numericNameCounters[key]
+        return if (count == 1) "Screenshot" else "Screenshot $count"
+    }
+
+    val displayType = when(type.lowercase()) {
+        "image", "photo" -> "Photo"
+        "video" -> "Video"
+        "audio", "music" -> "Audio"
+        "document", "doc" -> "Document"
+        else -> type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+    }
+    val key = "$displayType-$effectiveId"
+    if (!numericNameCounters.containsKey(key)) {
+        val c = currentTypeCounters.getOrDefault(displayType, 1)
+        numericNameCounters[key] = c
+        currentTypeCounters[displayType] = c + 1
+    }
+    return "$displayType ${numericNameCounters[key]}"
+}
+
+fun cleanDisplayName(rawName: String, fallbackType: String = "file", id: String = ""): String {
     var cleaned = rawName
-    val prefixes = listOf("IMG_", "VID_", "AUD_", "DOC_", "PXL_")
+    val prefixes = listOf("IMG_", "VID_", "AUD_", "DOC_", "PXL_", "Screenshot_")
+    var hasScreenshotPrefix = false
     for (prefix in prefixes) {
         if (cleaned.startsWith(prefix, ignoreCase = true)) {
             cleaned = cleaned.substring(prefix.length)
+            if (prefix.equals("Screenshot_", ignoreCase = true)) {
+                hasScreenshotPrefix = true
+            }
+            break
         }
     }
     val lastDot = cleaned.lastIndexOf('.')
+    val ext = if (lastDot > 0) cleaned.substring(lastDot + 1).lowercase() else ""
     if (lastDot > 0) {
         cleaned = cleaned.substring(0, lastDot)
     }
+    
+    val isNumeric = cleaned.all { it.isDigit() || it == '_' || it == '-' }
+    if (isNumeric || cleaned.trim().isEmpty()) {
+        val typeToUse = if (fallbackType != "file" && fallbackType.isNotEmpty()) fallbackType else {
+            when (ext) {
+                "jpg", "jpeg", "png", "webp", "gif" -> "Photo"
+                "mp4", "mkv", "avi", "mov" -> "Video"
+                "mp3", "wav", "ogg", "m4a", "aac" -> "Audio"
+                "pdf", "doc", "docx", "txt" -> "Document"
+                else -> "File"
+            }
+        }
+        val effectiveId = if (id.isNotEmpty()) id else rawName
+        return generateUserFriendlyName(typeToUse, effectiveId, hasScreenshotPrefix)
+    }
+    
     return cleaned
 }
 
@@ -66,7 +120,7 @@ data class VaultItemData(
     val rawString: String, // needed for favorite logic
     val durationMs: Long = 0L
 ) {
-    val cleanTitle: String get() = if (type == "note") title else cleanDisplayName(title)
+    val cleanTitle: String get() = if (type == "note") title else cleanDisplayName(title, type, id)
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)

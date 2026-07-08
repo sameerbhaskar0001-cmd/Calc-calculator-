@@ -239,6 +239,28 @@ private val ThemeLightPurple: Color @Composable get() = LocalAppThemeColors.curr
 private val ThemeContainerBorder: Color @Composable get() = LocalAppThemeColors.current.themeContainerBorder
 private val KeypadBg: Color @Composable get() = LocalAppThemeColors.current.keypadBg
 private val DigitBg: Color @Composable get() = LocalAppThemeColors.current.digitBg
+
+fun rememberBackStack(initial: String): androidx.compose.runtime.MutableState<String> {
+    return object : androidx.compose.runtime.MutableState<String> {
+        var backStack by androidx.compose.runtime.mutableStateOf(listOf(initial))
+        override var value: String
+            get() = backStack.last()
+            set(v) {
+                if (v == "Home") {
+                    backStack = listOf("Home")
+                } else if (v == "__BACK__") {
+                    if (backStack.size > 1) {
+                        backStack = backStack.dropLast(1)
+                    }
+                } else if (v != backStack.last()) {
+                    backStack = backStack + v
+                }
+            }
+        override fun component1() = value
+        override fun component2(): (String) -> Unit = { value = it }
+    }
+}
+
 enum class ActiveTab {
     CALCULATOR,
     VAULT
@@ -1710,7 +1732,7 @@ fun VaultTabUnlockedContent(
     }
         // Vault Unlocked Content: Advanced Private Media Hub
         val vaultFiles by viewModel.vaultFiles.collectAsState()
-        var activeSection by remember { mutableStateOf("Home") } // "Home", "Notes", "Photos & Videos", "Documents", "Explore", "Settings"
+        var activeSection by remember { rememberBackStack("Home") } // "Home", "Notes", "Photos & Videos", "Documents", "Explore", "Settings"
         var selectedFileForDetails by remember { mutableStateOf<String?>(null) }
         var textFileContentToRead by remember { mutableStateOf<Pair<String, String>?>(null) } // Pair(Name, Content)
         var selectedMediaFolder by remember { mutableStateOf("All") }
@@ -1742,7 +1764,7 @@ fun VaultTabUnlockedContent(
                 viewNoteToShow != null -> viewNoteToShow = null
                 selectedFileForDetails != null -> selectedFileForDetails = null
                 textFileContentToRead != null -> textFileContentToRead = null
-                activeSection != "Home" -> activeSection = "Home"
+                activeSection != "Home" -> activeSection = "__BACK__"
                 else -> {
                     viewModel.lockVault()
                     onLockExit()
@@ -1771,7 +1793,7 @@ fun VaultTabUnlockedContent(
                 PrivateBrowserSection(
                     modifier = Modifier.fillMaxSize(),
                     onExit = {
-                        activeSection = "Home"
+                        activeSection = "__BACK__"
                     },
                     onPanic = {
                         viewModel.lockVault()
@@ -1892,7 +1914,7 @@ fun VaultTabUnlockedContent(
                             IconButton(
                                 onClick = {
                                     viewModel.triggerKeypressEffects(context)
-                                    activeSection = "Home"
+                                    activeSection = "__BACK__"
                                 },
                                 modifier = Modifier
                                     .size(40.dp)
@@ -2158,7 +2180,7 @@ fun VaultTabUnlockedContent(
                                             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                 val isPdf = latestDoc.lowercase().contains("pdf")
                                                 Icon(if (isPdf) Icons.Default.PictureAsPdf else Icons.Default.Description, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(16.dp))
-                                                Text(title, color = Color.White, fontSize = 10.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                                Text(cleanDisplayName(title, "document", parts.getOrNull(0) ?: ""), color = Color.White, fontSize = 10.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                             }
                                         } else {
                                             Column(
@@ -2235,7 +2257,7 @@ fun VaultTabUnlockedContent(
                                     Text("Your secrets are safe here.", color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp)
                                 }
                             } else {
-                                val recentFiles = vaultFiles
+                                val recentFiles = vaultFiles.take(5)
                                 recentFiles.forEach { file ->
                                     Row(
                                         modifier = Modifier
@@ -2285,17 +2307,18 @@ fun VaultTabUnlockedContent(
                                             val title = if (parts.size >= 3) parts[2] else file.split("|||")[0].substringAfterLast('/')
                                             val cleanTitle = cleanDisplayName(title)
                                             Text(cleanTitle, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                            val timestamp = parts.getOrNull(1)?.toLongOrNull() ?: 0L
+                                            val timestamp = parts.getOrNull(0)?.toLongOrNull() ?: 0L
                                             val timeStr = if (timestamp > 0) {
                                                 val diff = System.currentTimeMillis() - timestamp
                                                 when {
                                                     diff < 60_000 -> "Just now"
                                                     diff < 3600_000 -> "${diff / 60_000} min ago"
+                                                    diff < 86400_000 && android.text.format.DateUtils.isToday(timestamp) -> "${diff / 3600_000} ${if (diff / 3600_000 == 1L) "hour" else "hours"} ago"
                                                     android.text.format.DateUtils.isToday(timestamp) -> "Today"
                                                     android.text.format.DateUtils.isToday(timestamp + 86400_000) -> "Yesterday"
-                                                    else -> "${diff / 86400_000} days ago"
+                                                    else -> java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
                                                 }
-                                            } else "Added recently"
+                                            } else ""
                                             Text(timeStr, color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
                                         }
                                         Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
@@ -2414,7 +2437,7 @@ fun VaultTabUnlockedContent(
                         folders = vaultFolders.toList(),
                         lockedFolders = lockedFolders,
                         tempUnlockedFolders = tempUnlockedFolders,
-                        onNavigateBack = { activeSection = "Home" },
+                        onNavigateBack = { activeSection = "__BACK__" },
                         onAddClick = { 
                             when (activeSection) {
                                 "Notes" -> showAddNoteDialog = true
@@ -3596,12 +3619,9 @@ fun VaultTabUnlockedContent(
                         activeViewerIndex = pagerState.currentPage
                     }
                 }
-                BackHandler {
-                    activeViewerFiles = emptyList()
-                    activeViewerIndex = -1
-                }
                 
                 var currentScale by remember { mutableStateOf(1f) }
+                
                 Box(modifier = Modifier.fillMaxSize()) {
                     var isViewerUiVisible by remember { mutableStateOf(true) }
                     val formatDuration = remember {
@@ -3648,14 +3668,9 @@ fun VaultTabUnlockedContent(
                                             }
                                         }
                                         var offset by remember { mutableStateOf(Offset.Zero) }
-                                        val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
-                                            scale = (scale * zoomChange).coerceIn(1f, 5f)
-                                            offset += offsetChange
-                                            if (scale <= 1f) offset = Offset.Zero
-                                        }
                                         AsyncImage(
                                             model = java.io.File(path),
-                                            contentDescription = originalName,
+                                            contentDescription = cleanDisplayName(originalName),
                                             modifier = Modifier
                                                 .fillMaxSize()
                                                 .pointerInput(Unit) {
@@ -3669,15 +3684,37 @@ fun VaultTabUnlockedContent(
                                                         }
                                                     )
                                                 }
-                                                .pointerInput(scale) {
-                                                    if (scale > 1f) {
-                                                        detectDragGestures { change, dragAmount ->
-                                                            offset += dragAmount
-                                                            change.consume()
-                                                        }
+                                                .pointerInput(Unit) {
+                                                    awaitEachGesture {
+                                                        awaitFirstDown(requireUnconsumed = false)
+                                                        do {
+                                                            val event = awaitPointerEvent()
+                                                            val zoom = event.calculateZoom()
+                                                            val pan = event.calculatePan()
+                                                            
+                                                            val isMultiTouch = event.changes.size > 1
+                                                            val isZoomedIn = scale > 1f
+                                                            
+                                                            if (zoom != 1f && isMultiTouch) {
+                                                                scale = (scale * zoom).coerceIn(1f, 5f)
+                                                            }
+                                                            
+                                                            if (isZoomedIn || isMultiTouch) {
+                                                                if (pan != Offset.Zero) {
+                                                                    offset += pan
+                                                                }
+                                                                if (scale <= 1f) {
+                                                                    offset = Offset.Zero
+                                                                }
+                                                                event.changes.forEach {
+                                                                    if (it.positionChanged()) {
+                                                                        it.consume()
+                                                                    }
+                                                                }
+                                                            }
+                                                        } while (event.changes.any { it.pressed })
                                                     }
                                                 }
-                                                .transformable(state = transformState)
                                                 .graphicsLayer(
                                                     scaleX = scale,
                                                     scaleY = scale,
@@ -4011,8 +4048,8 @@ fun VaultTabUnlockedContent(
                                     }
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Close Viewer",
+                                        imageVector = Icons.Default.ArrowBack,
+                                        contentDescription = "Back",
                                         tint = Color.White
                                     )
                                 }
