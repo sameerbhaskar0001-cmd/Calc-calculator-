@@ -555,9 +555,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
         if (vibrator != null && vibrator.hasVibrator()) {
             val duration = when (_hapticProfile.value) {
-                "Crisp" -> 12L
-                "Soft" -> 5L
-                "Heavy" -> 30L
+                "Crisp" -> 30L
+                "Soft" -> 15L
+                "Heavy" -> 80L
                 else -> 0L
             }
             if (duration > 0) {

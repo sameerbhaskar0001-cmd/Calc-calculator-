@@ -325,20 +325,24 @@ fun CalculatorScreen(
     LaunchedEffect(vaultUnlocked) {
         if (vaultUnlocked) {
             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+            viewModel.triggerKeypressEffects(context)
             
             // Step A: Show authentication overlay
             transitionState = 1 
-            delay(2000)         // 2 seconds overlay display
+            delay(1000)         // Snappy 1 second overlay display
             
             // Step B: Initialize Welcome screen state at full visibility
             welcomeAlpha.snapTo(1f)
             transitionState = 2 
-            delay(1200)         // Hold solid welcome state for 1.2 seconds
+            delay(2000)         // Stay visible for 2 seconds so user can read everything clearly
             
-            // Step C: Smoothly fade out and blur over the remaining 600ms (Total 1.8s)
+            // Step C: Smoothly fade out and blur over 1.8 seconds (1800ms)
             welcomeAlpha.animateTo(
                 targetValue = 0f,
-                animationSpec = androidx.compose.animation.core.tween(durationMillis = 600)
+                animationSpec = androidx.compose.animation.core.tween(
+                    durationMillis = 1800,
+                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                )
             )
             
             // Step D: Clean switch to Dashboard after the animation completes
@@ -515,14 +519,16 @@ fun CalculatorScreen(
                     }
                 // 1. Dashboard Content: Keep it ready in background
                 if (activeTab == ActiveTab.VAULT || transitionState >= 2) {
-                    val dashboardAlpha by androidx.compose.animation.core.animateFloatAsState(
-                        targetValue = if (transitionState == 3) 1f else 0f,
-                        animationSpec = androidx.compose.animation.core.tween(durationMillis = 500)
-                    )
+                    val dashboardAlpha = if (transitionState == 3) 1f else (1f - welcomeAlpha.value)
+                    val dashboardScale = if (transitionState == 3) 1f else (0.96f + 0.04f * (1f - welcomeAlpha.value))
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .graphicsLayer { alpha = dashboardAlpha }
+                            .graphicsLayer {
+                                alpha = dashboardAlpha
+                                scaleX = dashboardScale
+                                scaleY = dashboardScale
+                            }
                     ) {
                         VaultTabUnlockedContent(
                             viewModel = viewModel,
