@@ -1164,7 +1164,6 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     
     fun batchDeleteOriginalFiles(context: Context, uris: List<Uri>) {
-        android.util.Log.d("Vault", "batchDeleteOriginalFiles called with ${uris.size} uris")
         if (uris.isEmpty()) return
         try {
             val contentResolver = context.contentResolver
@@ -1173,18 +1172,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             
             for (uri in uris) {
                 var resolvedUri = uri
-                var path = ""
-                try {
-                    contentResolver.query(uri, null, null, null, null)?.use {
-                        if (it.moveToFirst()) {
-                            val dataIdx = it.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
-                            if (dataIdx != -1) path = it.getString(dataIdx) ?: ""
-                        }
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("Vault", "Failed to query path for uri: $uri", e)
-                }
-
+                
                 if (android.provider.DocumentsContract.isDocumentUri(context, uri) && uri.authority == "com.android.providers.media.documents") {
                     try {
                         val docId = android.provider.DocumentsContract.getDocumentId(uri)
@@ -1202,67 +1190,69 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                                 resolvedUri = android.content.ContentUris.withAppendedId(baseUri, id)
                             }
                         }
-                    } catch (e: Exception) {
-                        android.util.Log.e("Vault", "Failed to resolve SAF URI in batch", e)
-                    }
-                } else if (uri.scheme == "content" && uri.authority?.startsWith("media") == false && path.isNotEmpty()) {
-                    try {
-                        val mediaCursor = contentResolver.query(
-                            android.provider.MediaStore.Files.getContentUri("external"),
-                            arrayOf(android.provider.MediaStore.Files.FileColumns._ID),
-                            "${android.provider.MediaStore.Files.FileColumns.DATA} = ?",
-                            arrayOf(path),
-                            null
-                        )
-                        mediaCursor?.use {
-                            if (it.moveToFirst()) {
-                                val id = it.getLong(it.getColumnIndexOrThrow(android.provider.MediaStore.Files.FileColumns._ID))
-                                resolvedUri = android.content.ContentUris.withAppendedId(android.provider.MediaStore.Files.getContentUri("external"), id)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("Vault", "Failed to resolve MediaStore URI for path: $path", e)
-                    }
+                    } catch (e: Exception) {}
                 }
                 
-                // ONLY add to mediaStoreUris if it's a valid media store URI
-                if (resolvedUri.authority?.startsWith("media") == true) {
-                    mediaStoreUris.add(resolvedUri)
-                } else {
-                    android.util.Log.w("Vault", "Cannot delete non-media URI: $resolvedUri")
+                if (!resolvedUri.toString().contains("media/external")) {
+                    try {
+                        var fileName = ""
+                        var fileSize = -1L
+                        contentResolver.query(uri, null, null, null, null)?.use {
+                            if (it.moveToFirst()) {
+                                val nameIdx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                                if (nameIdx != -1) fileName = it.getString(nameIdx) ?: ""
+                                val sizeIdx = it.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                                if (sizeIdx != -1) fileSize = it.getLong(sizeIdx)
+                            }
+                        }
+                        
+                        if (fileName.isNotEmpty() && fileSize > 0) {
+                            val mediaCursor = contentResolver.query(
+                                android.provider.MediaStore.Files.getContentUri("external"),
+                                arrayOf(android.provider.MediaStore.Files.FileColumns._ID),
+                                "${android.provider.MediaStore.Files.FileColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.Files.FileColumns.SIZE} = ?",
+                                arrayOf(fileName, fileSize.toString()),
+                                null
+                            )
+                            mediaCursor?.use {
+                                if (it.moveToFirst()) {
+                                    val id = it.getLong(it.getColumnIndexOrThrow(android.provider.MediaStore.Files.FileColumns._ID))
+                                    resolvedUri = android.content.ContentUris.withAppendedId(android.provider.MediaStore.Files.getContentUri("external"), id)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {}
                 }
-                urisToPersist.add(resolvedUri.toString())
+                
+                if (resolvedUri.toString().contains("media/external")) {
+                    mediaStoreUris.add(resolvedUri)
+                    urisToPersist.add(resolvedUri.toString())
+                } else {
+                    android.util.Log.e("Vault", "Aborting batch delete: Could not resolve MediaStore URI for $uri")
+                    return
+                }
             }
             
             pendingDeleteOriginalPaths = urisToPersist
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                if (mediaStoreUris.isNotEmpty()) {
-                    try {
-                        val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, mediaStoreUris)
-                        _pendingDeleteSender.value = pendingIntent.intentSender
-                    } catch (e: Exception) {
-                        android.util.Log.e("Vault", "createDeleteRequest failed", e)
-                        // If delete fails, still commit the vault files!
-                        onOriginalFileDeleted(context)
-                    }
-                } else {
-                    // Nothing to delete, just commit
-                    onOriginalFileDeleted(context)
-                }
+                val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, mediaStoreUris)
+                _pendingDeleteSender.value = pendingIntent.intentSender
             } else {
+                var allDeleted = true
                 for (uri in mediaStoreUris) {
                     try {
-                        contentResolver.delete(uri, null, null)
+                        val deletedRows = contentResolver.delete(uri, null, null)
+                        if (deletedRows <= 0) allDeleted = false
                     } catch (e: Exception) {
-                        android.util.Log.e("Vault", "Failed to delete uri: $uri", e)
+                        allDeleted = false
                     }
                 }
-                onOriginalFileDeleted(context)
+                if (allDeleted) {
+                    onOriginalFileDeleted(context)
+                }
             }
         } catch (e: Exception) {
             android.util.Log.e("Vault", "Batch delete exception", e)
-            // Ensure we commit the files even if delete crashes
-            onOriginalFileDeleted(context)
         }
     }
     fun addVaultFile(context: Context, uri: Uri, skipDelete: Boolean = false): Boolean {
@@ -1393,11 +1383,27 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                             resolvedUri = android.content.ContentUris.withAppendedId(baseUri, id)
                         }
                     }
-                } catch (e: Exception) {
-                    android.util.Log.e("Vault", "Failed to resolve SAF URI", e)
-                }
+                } catch (e: Exception) {}
             }
             
+            if (!resolvedUri.toString().contains("media/external")) {
+                try {
+                    val mediaCursor = contentResolver.query(
+                        android.provider.MediaStore.Files.getContentUri("external"),
+                        arrayOf(android.provider.MediaStore.Files.FileColumns._ID),
+                        "${android.provider.MediaStore.Files.FileColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.Files.FileColumns.SIZE} = ?",
+                        arrayOf(originalName, size.toString()),
+                        null
+                    )
+                    mediaCursor?.use {
+                        if (it.moveToFirst()) {
+                            val id = it.getLong(it.getColumnIndexOrThrow(android.provider.MediaStore.Files.FileColumns._ID))
+                            resolvedUri = android.content.ContentUris.withAppendedId(android.provider.MediaStore.Files.getContentUri("external"), id)
+                        }
+                    }
+                } catch (e: Exception) {}
+            }
+
             // Persist the resolved URI instead of DATA path
             val uriToPersist = resolvedUri.toString()
 
@@ -1405,29 +1411,26 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 if (skipDelete) {
                     // Skip deletion for batch processing
+                } else if (!resolvedUri.toString().contains("media/external")) {
+                    android.util.Log.e("Vault", "Aborting single delete: Could not resolve MediaStore URI for $uri")
+                    return false
                 } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                    if (resolvedUri.authority?.startsWith("media") == true) {
-                        android.util.Log.d("Vault", "Delete request created for $resolvedUri")
-                        val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, listOf(resolvedUri))
-                        pendingDeleteOriginalPaths = listOf(uriToPersist)
-                        _pendingDeleteSender.value = pendingIntent.intentSender
-                    } else {
-                        android.util.Log.w("Vault", "Cannot delete non-media URI: $resolvedUri")
-                        onOriginalFileDeleted(context)
-                    }
+                    val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, listOf(resolvedUri))
+                    pendingDeleteOriginalPaths = listOf(uriToPersist)
+                    _pendingDeleteSender.value = pendingIntent.intentSender
                 } else {
-                    android.util.Log.d("Vault", "Deleting original file directly (API < 30)")
                     val deletedRows = contentResolver.delete(resolvedUri, null, null)
                     if (deletedRows > 0) {
-                        android.util.Log.d("Vault", "Delete success/failure: Delete success")
                         pendingDeleteOriginalPaths = listOf(uriToPersist)
                         onOriginalFileDeleted(context)
                     } else {
-                        android.util.Log.e("Vault", "Delete success/failure: Delete failure")
+                        android.util.Log.e("Vault", "Delete failure")
+                        return false
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("Vault", "Any exception with full stack trace", e)
+                android.util.Log.e("Vault", "Exception", e)
+                return false
             }
             true
         } catch (e: Exception) {
