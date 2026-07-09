@@ -3,6 +3,7 @@ import re
 with open('app/src/main/java/com/example/CalculatorViewModel.kt', 'r') as f:
     vm = f.read()
 
+# Replace batchDeleteOriginalFiles and addVaultFile
 start_idx = vm.find("    fun batchDeleteOriginalFiles")
 end_idx = vm.find("    fun deleteVaultFile")
 
@@ -92,13 +93,9 @@ new_code = """    fun batchDeleteOriginalFiles(context: Context, uris: List<Uri>
                     mediaStoreUris.add(resolvedUri)
                     urisToPersist.add(resolvedUri.toString())
                 } else {
-                    android.util.Log.e("Vault", "Could not resolve MediaStore URI for batch item $uri, skipping deletion.")
+                    android.util.Log.e("Vault", "Aborting batch delete: Could not resolve MediaStore URI for $uri")
+                    return
                 }
-            }
-            
-            if (mediaStoreUris.isEmpty()) {
-                onOriginalFileDeleted(context)
-                return
             }
             
             pendingDeleteOriginalPaths = urisToPersist
@@ -115,11 +112,12 @@ new_code = """    fun batchDeleteOriginalFiles(context: Context, uris: List<Uri>
                         allDeleted = false
                     }
                 }
-                onOriginalFileDeleted(context)
+                if (allDeleted) {
+                    onOriginalFileDeleted(context)
+                }
             }
         } catch (e: Exception) {
             android.util.Log.e("Vault", "Batch delete exception", e)
-            onOriginalFileDeleted(context)
         }
     }
 
@@ -201,10 +199,6 @@ new_code = """    fun batchDeleteOriginalFiles(context: Context, uris: List<Uri>
             val fileSerialized = "$id|||$timestamp|||$originalName|||$mimeType|||${destFile.absolutePath}|||$readableSize|||$durationMs"
             stagedVaultFiles.add(fileSerialized)
 
-            if (skipDelete) {
-                return true
-            }
-
             var resolvedUri = uri
             if (android.provider.DocumentsContract.isDocumentUri(context, uri) && uri.authority == "com.android.providers.media.documents") {
                 try {
@@ -260,11 +254,16 @@ new_code = """    fun batchDeleteOriginalFiles(context: Context, uris: List<Uri>
                     }
                 } catch (e: Exception) {}
             }
+
+            if (skipDelete) {
+                return true
+            }
             
             if (!resolvedUri.toString().contains("media/external")) {
-                android.util.Log.e("Vault", "Could not resolve MediaStore URI for $uri. File secured, but skipping gallery delete.")
-                onOriginalFileDeleted(context)
-                return true
+                android.util.Log.e("Vault", "Aborting single delete: Could not resolve MediaStore URI for $uri")
+                destFile.delete()
+                stagedVaultFiles.remove(fileSerialized)
+                return false
             }
 
             val uriToPersist = resolvedUri.toString()
@@ -273,9 +272,15 @@ new_code = """    fun batchDeleteOriginalFiles(context: Context, uris: List<Uri>
                 pendingDeleteOriginalPaths = listOf(uriToPersist)
                 _pendingDeleteSender.value = pendingIntent.intentSender
             } else {
-                contentResolver.delete(resolvedUri, null, null)
-                pendingDeleteOriginalPaths = listOf(uriToPersist)
-                onOriginalFileDeleted(context)
+                val deletedRows = contentResolver.delete(resolvedUri, null, null)
+                if (deletedRows > 0) {
+                    pendingDeleteOriginalPaths = listOf(uriToPersist)
+                    onOriginalFileDeleted(context)
+                } else {
+                    destFile.delete()
+                    stagedVaultFiles.remove(fileSerialized)
+                    return false
+                }
             }
             return true
         } catch (e: Exception) {
@@ -292,3 +297,4 @@ if start_idx != -1 and end_idx != -1:
     print("Replaced successfully")
 else:
     print("Not found")
+

@@ -1662,11 +1662,12 @@ fun VaultTabUnlockedContent(
                 android.util.Log.d("Vault", "User accepted/cancelled: User accepted")
                 android.util.Log.d("Vault", "Delete success/failure: Delete success")
                 android.widget.Toast.makeText(context, "Original photo hidden successfully!", android.widget.Toast.LENGTH_SHORT).show()
-                viewModel.onOriginalFileDeleted(context)
             } else {
                 android.util.Log.d("Vault", "User accepted/cancelled: User cancelled")
                 android.util.Log.d("Vault", "Delete success/failure: Delete failure")
+                android.widget.Toast.makeText(context, "File secured in vault, but original was not deleted from gallery.", android.widget.Toast.LENGTH_LONG).show()
             }
+            viewModel.onOriginalFileDeleted(context)
             viewModel.clearPendingDelete()
         }
     // Unified sensor detector for Panic Gesture (Shake and Face Down)
@@ -1780,6 +1781,7 @@ fun VaultTabUnlockedContent(
                     )
                 } catch (e: Exception) {
                     android.util.Log.e("Vault", "Any exception with full stack trace", e)
+                    viewModel.onOriginalFileDeleted(context)
                     viewModel.clearPendingDelete()
                 }
             }
@@ -4020,8 +4022,8 @@ fun VaultTabUnlockedContent(
                             }
                         }
                         // Top Action Bar overlaying everything
-                        val activeFile = activeViewerFiles[activeViewerIndex]
-                        val activeParts = activeFile.split("|||")
+                        val activeFile = activeViewerFiles.getOrNull(activeViewerIndex)
+                        val activeParts = activeFile?.split("|||") ?: emptyList()
                         if (activeParts.size >= 6) {
                             val activeId = activeParts[0]
                             val activeName = activeParts[2]
@@ -4091,7 +4093,7 @@ fun VaultTabUnlockedContent(
                                         viewModel.triggerKeypressEffects(context)
                                         viewModel.exportVaultFile(
                                             context = context,
-                                            fileSerialized = activeFile,
+                                            fileSerialized = activeFile!!,
                                             onSuccess = { msg -> android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show() },
                                             onFailure = { err -> android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show() }
                                         )
@@ -4106,7 +4108,7 @@ fun VaultTabUnlockedContent(
                                 IconButton(
                                     onClick = {
                                         viewModel.triggerKeypressEffects(context)
-                                        viewModel.deleteVaultFile(activeFile)
+                                        viewModel.deleteVaultFile(activeFile!!)
                                         android.widget.Toast.makeText(context, "Moved to Recently Deleted!", android.widget.Toast.LENGTH_SHORT).show()
                                         val nextIndex = if (activeViewerIndex < activeViewerFiles.size - 1) activeViewerIndex else activeViewerIndex - 1
                                         val remainingList = activeViewerFiles.toMutableList().apply { removeAt(activeViewerIndex) }
