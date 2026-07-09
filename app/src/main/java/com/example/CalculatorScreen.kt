@@ -306,10 +306,7 @@ fun CalculatorScreen(
         targetValue = if (transitionState >= 3) 1f else if (transitionState == 2) 0.95f else 0.9f,
         animationSpec = tween(450, easing = FastOutSlowInEasing)
     )
-    val welcomeAlpha by animateFloatAsState(
-        targetValue = if (transitionState == 2) 1f else 0f,
-        animationSpec = tween(500)
-    )
+    val welcomeAlpha = remember { androidx.compose.animation.core.Animatable(1f) }
     
     val vaultAlpha by animateFloatAsState(
         targetValue = if (transitionState >= 3) 1f else 0f,
@@ -328,13 +325,28 @@ fun CalculatorScreen(
     LaunchedEffect(vaultUnlocked) {
         if (vaultUnlocked) {
             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-            transitionState = 1 // Authenticating
-            delay(2000)
-            transitionState = 2 // Welcome Transition
-            delay(1800)
+            
+            // Step A: Show authentication overlay
+            transitionState = 1 
+            delay(2000)         // 2 seconds overlay display
+            
+            // Step B: Initialize Welcome screen state at full visibility
+            welcomeAlpha.snapTo(1f)
+            transitionState = 2 
+            delay(1200)         // Hold solid welcome state for 1.2 seconds
+            
+            // Step C: Smoothly fade out and blur over the remaining 600ms (Total 1.8s)
+            welcomeAlpha.animateTo(
+                targetValue = 0f,
+                animationSpec = androidx.compose.animation.core.tween(durationMillis = 600)
+            )
+            
+            // Step D: Clean switch to Dashboard after the animation completes
             activeTab = ActiveTab.VAULT
-            transitionState = 3 // Vault fully emerges
+            transitionState = 3 
         } else {
+            // Reset states when the vault is locked
+            welcomeAlpha.snapTo(1f)
             transitionState = 0
             activeTab = ActiveTab.CALCULATOR
         }
@@ -354,7 +366,7 @@ fun CalculatorScreen(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Calculator Layout
-            if (activeTab == ActiveTab.CALCULATOR || welcomeAlpha > 0f || authOverlayAlpha > 0f) {
+            if (activeTab == ActiveTab.CALCULATOR || welcomeAlpha.value > 0f || authOverlayAlpha > 0f) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -501,151 +513,151 @@ fun CalculatorScreen(
                             }
                         }
                     }
-                    if (welcomeAlpha > 0f) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .alpha(welcomeAlpha)
-                                .background(Color(0xFF0F121C)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                // Glowing Shield
-                                Box(
-                                    modifier = Modifier
-                                        .size(120.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    val localThemePurple = ThemePurple
-                                    Canvas(modifier = Modifier.fillMaxSize()) {
-                                        // Simple glow effect
-                                        drawCircle(
-                                            color = localThemePurple.copy(alpha = 0.15f),
-                                            radius = size.width / 2,
-                                            style = androidx.compose.ui.graphics.drawscope.Fill
-                                        )
-                                        drawCircle(
-                                            color = localThemePurple.copy(alpha = 0.1f),
-                                            radius = size.width / 1.5f,
-                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
-                                        )
-                                    }
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Private",
-                                        tint = ThemePurple,
-                                        modifier = Modifier.size(64.dp)
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = "Private",
-                                        tint = Color(0xFF0F121C),
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                                
-                                Spacer(modifier = Modifier.height(32.dp))
-                                
-                                Text(
-                                    text = "Your Workspace",
-                                    fontSize = 28.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Preparing your private space...",
-                                    fontSize = 16.sp,
-                                    color = Color.White.copy(alpha = 0.6f)
-                                )
-                                
-                                Spacer(modifier = Modifier.height(16.dp))
-                                
-                                // Accent line
-                                Box(
-                                    modifier = Modifier
-                                        .width(40.dp)
-                                        .height(3.dp)
-                                        .clip(RoundedCornerShape(1.5.dp))
-                                        .background(ThemePurple)
-                                )
-                                
-                                Spacer(modifier = Modifier.height(64.dp))
-                                
-                                // Preview Grid
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                    modifier = Modifier.padding(horizontal = 32.dp)
-                                ) {
-                                    VaultFolderCard(
-                                        title = "Photos", 
-                                        count = let { val c = vaultFiles.count { it.contains("|||image/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
-                                        icon = Icons.Default.Image, 
-                                        iconTint = ThemePurple,
-                                        modifier = Modifier.weight(1f)
-                                    ) {}
-                                    VaultFolderCard(
-                                        title = "Videos", 
-                                        count = let { val c = vaultFiles.count { it.contains("|||video/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
-                                        icon = Icons.Default.PlayArrow, 
-                                        iconTint = ThemePurple,
-                                        modifier = Modifier.weight(1f)
-                                    ) {}
-                                }
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                    modifier = Modifier.padding(horizontal = 32.dp)
-                                ) {
-                                    VaultFolderCard(
-                                        title = "Documents", 
-                                        count = let { val c = vaultFiles.count { val parts = it.split("|||"); parts.size >= 4 && !parts[3].startsWith("image/") && !parts[3].startsWith("video/") && !parts[3].startsWith("audio/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
-                                        icon = Icons.Default.Description, 
-                                        iconTint = ThemePurple,
-                                        modifier = Modifier.weight(1f)
-                                    ) {}
-                                    VaultFolderCard(
-                                        title = "Notes", 
-                                        count = let { val c = vaultNotes.size; "$c ${if (c == 1) "Item" else "Items"}" }, 
-                                        icon = Icons.Default.List, 
-                                        iconTint = ThemePurple,
-                                        modifier = Modifier.weight(1f)
-                                    ) {}
-                                }
-                            }
-                        }
-                    }
-                // We render Vault if transition has started or is complete
-                if (transitionState > 0 || activeTab == ActiveTab.VAULT) {
-                    Box(modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            scaleX = if (vaultUnlocked) vaultScale else 1f
-                            scaleY = if (vaultUnlocked) vaultScale else 1f
-                            alpha = if (vaultUnlocked) vaultAlpha else 1f
-                        }
-                        .then(
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                                Modifier.blur(if (vaultUnlocked) vaultBlurRadius else 0.dp)
-                            } else {
-                                Modifier
-                            }
-                        )
+                // 1. Dashboard Content: Keep it ready in background
+                if (activeTab == ActiveTab.VAULT || transitionState >= 2) {
+                    val dashboardAlpha by androidx.compose.animation.core.animateFloatAsState(
+                        targetValue = if (transitionState == 3) 1f else 0f,
+                        animationSpec = androidx.compose.animation.core.tween(durationMillis = 500)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { alpha = dashboardAlpha }
                     ) {
-                        if (!vaultUnlocked) {
-                            VaultTabLockedContent(
-                                viewModel = viewModel,
-                                onLockExit = { activeTab = ActiveTab.CALCULATOR }
+                        VaultTabUnlockedContent(
+                            viewModel = viewModel,
+                            onLockExit = { activeTab = ActiveTab.CALCULATOR }
+                        )
+                    }
+                }
+
+                // 2. Welcome Screen: Layered directly on top of the Dashboard, fades out smoothly
+                if (transitionState == 2 || (transitionState == 3 && welcomeAlpha.value > 0f)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                alpha = welcomeAlpha.value // GPU par smooth fade-out
+                                scaleX = 1f + (1f - welcomeAlpha.value) * 0.04f
+                                scaleY = 1f + (1f - welcomeAlpha.value) * 0.04f
+                            }
+                            .then(
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                                    Modifier.blur(( (1f - welcomeAlpha.value) * 16f ).dp) // Smooth progressive blur
+                                } else {
+                                    Modifier
+                                }
                             )
-                        } else {
-                            VaultTabUnlockedContent(
-                                viewModel = viewModel,
-                                onLockExit = { activeTab = ActiveTab.CALCULATOR }
+                            .background(Color(0xFF0F121C)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            // Glowing Shield
+                            Box(
+                                modifier = Modifier
+                                    .size(120.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val localThemePurple = ThemePurple
+                                Canvas(modifier = Modifier.fillMaxSize()) {
+                                    // Simple glow effect
+                                    drawCircle(
+                                        color = localThemePurple.copy(alpha = 0.15f),
+                                        radius = size.width / 2,
+                                        style = androidx.compose.ui.graphics.drawscope.Fill
+                                    )
+                                    drawCircle(
+                                        color = localThemePurple.copy(alpha = 0.1f),
+                                        radius = size.width / 1.5f,
+                                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Private",
+                                    tint = ThemePurple,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = "Private",
+                                    tint = Color(0xFF0F121C),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.height(32.dp))
+                            
+                            Text(
+                                text = "Your Workspace",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
                             )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Preparing your private space...",
+                                fontSize = 16.sp,
+                                color = Color.White.copy(alpha = 0.6f)
+                            )
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            // Accent line
+                            Box(
+                                modifier = Modifier
+                                    .width(40.dp)
+                                    .height(3.dp)
+                                    .clip(RoundedCornerShape(1.5.dp))
+                                    .background(ThemePurple)
+                            )
+                            
+                            Spacer(modifier = Modifier.height(64.dp))
+                            
+                            // Preview Grid
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.padding(horizontal = 32.dp)
+                            ) {
+                                VaultFolderCard(
+                                    title = "Photos", 
+                                    count = let { val c = vaultFiles.count { it.contains("|||image/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
+                                    icon = Icons.Default.Image, 
+                                    iconTint = ThemePurple,
+                                    modifier = Modifier.weight(1f)
+                                ) {}
+                                VaultFolderCard(
+                                    title = "Videos", 
+                                    count = let { val c = vaultFiles.count { it.contains("|||video/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
+                                    icon = Icons.Default.PlayArrow, 
+                                    iconTint = ThemePurple,
+                                    modifier = Modifier.weight(1f)
+                                ) {}
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.padding(horizontal = 32.dp)
+                            ) {
+                                VaultFolderCard(
+                                    title = "Documents", 
+                                    count = let { val c = vaultFiles.count { val parts = it.split("|||"); parts.size >= 4 && !parts[3].startsWith("image/") && !parts[3].startsWith("video/") && !parts[3].startsWith("audio/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
+                                    icon = Icons.Default.Description, 
+                                    iconTint = ThemePurple,
+                                    modifier = Modifier.weight(1f)
+                                ) {}
+                                VaultFolderCard(
+                                    title = "Notes", 
+                                    count = let { val c = vaultNotes.size; "$c ${if (c == 1) "Item" else "Items"}" }, 
+                                    icon = Icons.Default.List, 
+                                    iconTint = ThemePurple,
+                                    modifier = Modifier.weight(1f)
+                                ) {}
+                            }
                         }
                     }
                 }
@@ -977,6 +989,7 @@ fun GlassCalculatorKey(
     themePurple: Color,
     themeLightPurple: Color
 ) {
+    val haptic = LocalHapticFeedback.current
     val themeColors = com.example.ui.theme.LocalAppThemeColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -1019,7 +1032,10 @@ fun GlassCalculatorKey(
             bgColor = bgColor,
             elevation = if (!isUtility && !isEquals) 4.dp else 0.dp,
             glowAlpha = glowAlpha,
-            onClick = onClick,
+            onClick = {
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                onClick()
+            },
             interactionSource = interactionSource,
             shape = CircleShape
         ) {
@@ -1326,6 +1342,7 @@ fun VaultTabLockedContent(
     onLockExit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     val vaultUnlocked by viewModel.vaultUnlocked.collectAsState()
     val vaultFiles by viewModel.vaultFiles.collectAsState()
     val vaultNotes by viewModel.vaultNotes.collectAsState()
@@ -1513,15 +1530,35 @@ fun VaultTabLockedContent(
                         ) {
                             rowKeys.forEach { key ->
                                 val isSpecial = key == "Clear" || key == "Unlock"
-                                val buttonColor = if (isSpecial) Color(0xFF635BFF).copy(alpha = 0.2f) else Color(0xFF1B2031)
+                                val pinKeyInteractionSource = remember { MutableInteractionSource() }
+                                val isPinKeyPressed by pinKeyInteractionSource.collectIsPressedAsState()
+                                val pinKeyScale by animateFloatAsState(
+                                    targetValue = if (isPinKeyPressed) 0.92f else 1.0f,
+                                    animationSpec = androidx.compose.animation.core.spring(
+                                        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                                        stiffness = androidx.compose.animation.core.Spring.StiffnessLow
+                                    ),
+                                    label = "pin_key_scale"
+                                )
+                                val baseColor = if (isSpecial) Color(0xFF635BFF).copy(alpha = 0.2f) else Color(0xFF1B2031)
+                                val pressedColor = if (isSpecial) Color(0xFF635BFF).copy(alpha = 0.4f) else Color(0xFF242B42)
+                                val buttonColor = if (isPinKeyPressed) pressedColor else baseColor
                                 val contentColor = if (isSpecial) Color(0xFF8C84FF) else Color.White
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(52.dp)
+                                        .graphicsLayer {
+                                            scaleX = pinKeyScale
+                                            scaleY = pinKeyScale
+                                        }
                                         .clip(RoundedCornerShape(14.dp))
                                         .background(buttonColor)
-                                        .clickable {
+                                        .clickable(
+                                            interactionSource = pinKeyInteractionSource,
+                                            indication = null
+                                        ) {
+                                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                             viewModel.triggerKeypressEffects(context)
                                             pinError = false
                                             when (key) {
@@ -1887,7 +1924,7 @@ fun VaultTabUnlockedContent(
                     val greeting = when (currentHour) {
                         in 5..11 -> "Good Morning 🌅"
                         in 12..16 -> "Good Afternoon ☀️"
-                        in 17..20 -> "Good Evening 🌆"
+                        in 17..19 -> "Good Evening 🌆"
                         else -> "Good Night 🌙"
                     }
                     
