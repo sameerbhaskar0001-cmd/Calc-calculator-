@@ -612,14 +612,13 @@ fun CalculatorScreen(
                     }
                 // We render Vault if transition has started or is complete
                 if (transitionState > 0 || activeTab == ActiveTab.VAULT) {
-                    val isVaultUnlocked by viewModel.vaultUnlocked.collectAsState()
                     Box(modifier = Modifier
                         .fillMaxSize()
-                        .scale(if (isVaultUnlocked) vaultScale else 1f)
-                        .alpha(if (isVaultUnlocked) vaultAlpha else 1f)
-                        .blur(if (isVaultUnlocked) vaultBlurRadius else 0.dp)
+                        .scale(if (vaultUnlocked) vaultScale else 1f)
+                        .alpha(if (vaultUnlocked) vaultAlpha else 1f)
+                        .blur(if (vaultUnlocked) vaultBlurRadius else 0.dp)
                     ) {
-                        if (!isVaultUnlocked) {
+                        if (!vaultUnlocked) {
                             VaultTabLockedContent(
                                 viewModel = viewModel,
                                 onLockExit = { activeTab = ActiveTab.CALCULATOR }

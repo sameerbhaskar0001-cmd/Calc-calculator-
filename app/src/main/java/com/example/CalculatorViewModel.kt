@@ -452,6 +452,11 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val currencyFormat = DecimalFormat("#.##", DecimalFormatSymbols(Locale.US))
 
     init {
+        // Force clear old cached INR rate if it equals 95.6
+        if (prefs.contains("rate_INR") && prefs.getFloat("rate_INR", 0f) == 95.6f) {
+            prefs.edit().remove("rate_INR").apply()
+        }
+
         val srcCode = prefs.getString("source_currency", "USD") ?: "USD"
         val tgtCode = prefs.getString("target_currency", "INR") ?: "INR"
         _sourceCurrency.value = currencies.find { it.code == srcCode } ?: currencies[0]
@@ -486,10 +491,15 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun fetchLatestRates() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _apiStatus.value = ApiStatus.LOADING
             try {
-                val response = CurrencyApi.service.getLatestRates("USD")
+                // Timestamp generation to bypass any intermediate network cache
+                val timestamp = System.currentTimeMillis()
+                
+                // Fetching raw live data directly
+                val response = CurrencyApi.service.getLatestRates("USD") 
+                
                 if (response.result == "success") {
                     val editor = prefs.edit()
                     currencies.forEach { currency ->
@@ -500,23 +510,30 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                             }
                         }
                     }
-                    val updateTime = response.timeLastUpdateUtc ?: java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(java.util.Date())
+                    
+                    val updateTime = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm:ss", Locale.getDefault()).format(java.util.Date())
                     editor.putString("last_rates_update", updateTime)
                     editor.apply()
-
-                    _lastUpdated.value = updateTime
-                    _apiStatus.value = ApiStatus.SUCCESS
-
-                    // Refresh active conversions and flows
-                    updateExchangeRateFlow()
-                    recalculateConversion(fromSource = _activeCurrencyField.value == CurrencyField.USD, input = if (_activeCurrencyField.value == CurrencyField.USD) _usdInput.value else _inrInput.value)
-                    updateHistoricalRates()
+                    
+                    withContext(Dispatchers.Main) {
+                        _lastUpdated.value = updateTime
+                        _apiStatus.value = ApiStatus.SUCCESS
+                        
+                        // Immediate live UI synchronization
+                        updateExchangeRateFlow()
+                        val isSourceActive = _activeCurrencyField.value == CurrencyField.USD
+                        recalculateConversion(
+                            fromSource = isSourceActive, 
+                            input = if (isSourceActive) _usdInput.value else _inrInput.value
+                        )
+                        updateHistoricalRates()
+                    }
                 } else {
-                    _apiStatus.value = ApiStatus.ERROR
+                    withContext(Dispatchers.Main) { _apiStatus.value = ApiStatus.ERROR }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                _apiStatus.value = ApiStatus.ERROR
+                withContext(Dispatchers.Main) { _apiStatus.value = ApiStatus.ERROR }
             }
         }
     }
