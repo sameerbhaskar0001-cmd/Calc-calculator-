@@ -1,21 +1,45 @@
-import re
-
 vm_path = 'app/src/main/java/com/example/CalculatorViewModel.kt'
 with open(vm_path, 'r') as f:
-    vm = f.read()
+    lines = f.readlines()
 
-# I will find the EXACT string and replace it
-bad_code = """    }
+start_idx = -1
+for i, line in enumerate(lines):
+    if "fun batchDeleteOriginalFiles(context: Context, uris: List<Uri>)" in line:
+        start_idx = i
+        break
+
+# The function addVaultFile comes right after batchDeleteOriginalFiles
+end_idx = -1
+for i in range(start_idx + 1, len(lines)):
+    if "fun addVaultFile(context: Context" in line or "fun addVaultFile(" in lines[i]:
+        end_idx = i
+        break
+
+if start_idx != -1 and end_idx != -1:
+    print(f"batchDeleteOriginalFiles is from {start_idx} to {end_idx}")
+    
+    new_batch = """    fun batchDeleteOriginalFiles(context: Context, uris: List<Uri>) {
+        android.util.Log.d("Vault", "batchDeleteOriginalFiles called with ${uris.size} uris")
+        if (uris.isEmpty()) return
+        try {
+            val contentResolver = context.contentResolver
+            val mediaStoreUris = mutableListOf<Uri>()
+            val urisToPersist = mutableListOf<String>()
+            
+            for (uri in uris) {
+                var resolvedUri = uri
+                var path = ""
+                try {
+                    contentResolver.query(uri, null, null, null, null)?.use {
+                        if (it.moveToFirst()) {
+                            val dataIdx = it.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
+                            if (dataIdx != -1) path = it.getString(dataIdx) ?: ""
+                        }
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("Vault", "Failed to query path for uri: $uri", e)
                 }
-                
-                if (path.isNotEmpty()) {
-                    pathsToScan.add(path)
-                }
-                
-                var resolvedUri = uri
+
                 if (android.provider.DocumentsContract.isDocumentUri(context, uri) && uri.authority == "com.android.providers.media.documents") {
                     try {
                         val docId = android.provider.DocumentsContract.getDocumentId(uri)
@@ -55,18 +79,33 @@ bad_code = """    }
                         android.util.Log.e("Vault", "Failed to resolve MediaStore URI for path: $path", e)
                     }
                 }
-                mediaStoreUris.add(resolvedUri)
+                
+                // ONLY add to mediaStoreUris if it's a valid media store URI
+                if (resolvedUri.authority?.startsWith("media") == true) {
+                    mediaStoreUris.add(resolvedUri)
+                } else {
+                    android.util.Log.w("Vault", "Cannot delete non-media URI: $resolvedUri")
+                }
+                urisToPersist.add(resolvedUri.toString())
             }
             
-            val targetUris = if (mediaStoreUris.isNotEmpty()) mediaStoreUris else uris
-            pendingDeleteOriginalPaths = pathsToScan
+            pendingDeleteOriginalPaths = urisToPersist
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                if (targetUris.isNotEmpty()) {
-                    val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, targetUris)
-                    _pendingDeleteSender.value = pendingIntent.intentSender
+                if (mediaStoreUris.isNotEmpty()) {
+                    try {
+                        val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, mediaStoreUris)
+                        _pendingDeleteSender.value = pendingIntent.intentSender
+                    } catch (e: Exception) {
+                        android.util.Log.e("Vault", "createDeleteRequest failed", e)
+                        // If delete fails, still commit the vault files!
+                        onOriginalFileDeleted(context)
+                    }
+                } else {
+                    // Nothing to delete, just commit
+                    onOriginalFileDeleted(context)
                 }
             } else {
-                for (uri in targetUris) {
+                for (uri in mediaStoreUris) {
                     try {
                         contentResolver.delete(uri, null, null)
                     } catch (e: Exception) {
@@ -77,14 +116,16 @@ bad_code = """    }
             }
         } catch (e: Exception) {
             android.util.Log.e("Vault", "Batch delete exception", e)
+            // Ensure we commit the files even if delete crashes
+            onOriginalFileDeleted(context)
         }
-    }"""
-
-if bad_code in vm:
-    vm = vm.replace(bad_code, "\n")
+    }
+"""
+    
+    new_lines = lines[:start_idx] + [new_batch] + lines[end_idx:]
     with open(vm_path, 'w') as f:
-        f.write(vm)
+        f.writelines(new_lines)
     print("Fixed!")
 else:
-    print("Not found!")
+    print(f"Could not find bounds: {start_idx} {end_idx}")
 
