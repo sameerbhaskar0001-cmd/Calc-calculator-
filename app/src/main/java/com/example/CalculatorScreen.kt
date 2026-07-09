@@ -358,9 +358,18 @@ fun CalculatorScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .blur(blurRadius)
-                        .scale(calcScale)
-                        .alpha(calcAlpha),
+                        .graphicsLayer {
+                            scaleX = calcScale
+                            scaleY = calcScale
+                            alpha = calcAlpha
+                        }
+                        .then(
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                                Modifier.blur(blurRadius)
+                            } else {
+                                Modifier
+                            }
+                        ),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // Header Bar
@@ -614,9 +623,18 @@ fun CalculatorScreen(
                 if (transitionState > 0 || activeTab == ActiveTab.VAULT) {
                     Box(modifier = Modifier
                         .fillMaxSize()
-                        .scale(if (vaultUnlocked) vaultScale else 1f)
-                        .alpha(if (vaultUnlocked) vaultAlpha else 1f)
-                        .blur(if (vaultUnlocked) vaultBlurRadius else 0.dp)
+                        .graphicsLayer {
+                            scaleX = if (vaultUnlocked) vaultScale else 1f
+                            scaleY = if (vaultUnlocked) vaultScale else 1f
+                            alpha = if (vaultUnlocked) vaultAlpha else 1f
+                        }
+                        .then(
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                                Modifier.blur(if (vaultUnlocked) vaultBlurRadius else 0.dp)
+                            } else {
+                                Modifier
+                            }
+                        )
                     ) {
                         if (!vaultUnlocked) {
                             VaultTabLockedContent(
