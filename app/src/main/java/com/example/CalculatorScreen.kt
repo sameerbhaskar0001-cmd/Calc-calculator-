@@ -7157,11 +7157,24 @@ private fun applyStyleRange(builder: AnnotatedString.Builder, type: String, valu
     }
 }
 
+fun safeTextFieldValue(text: String, selectionStart: Int, selectionEnd: Int = selectionStart): TextFieldValue {
+    val len = text.length
+    val start = selectionStart.coerceIn(0, len)
+    val end = selectionEnd.coerceIn(0, len)
+    return TextFieldValue(text, TextRange(minOf(start, end), maxOf(start, end)))
+}
+
 fun applyTagToSelection(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): TextFieldValue {
     val text = fieldValue.text
-    val selection = fieldValue.selection
-    val start = selection.start
-    val end = selection.end
+    val textLength = text.length
+    val rawStart = fieldValue.selection.start
+    val rawEnd = fieldValue.selection.end
+    
+    val normStart = minOf(rawStart, rawEnd)
+    val normEnd = maxOf(rawStart, rawEnd)
+    
+    val start = normStart.coerceIn(0, textLength)
+    val end = normEnd.coerceIn(0, textLength)
     
     val selectedText = text.substring(start, end)
     val newText = text.substring(0, start) + tagOpen + selectedText + tagClose + text.substring(end)
@@ -7169,22 +7182,25 @@ fun applyTagToSelection(fieldValue: TextFieldValue, tagOpen: String, tagClose: S
     val newSelectionStart = start + tagOpen.length
     val newSelectionEnd = newSelectionStart + selectedText.length
     
-    return TextFieldValue(
-        text = newText,
-        selection = TextRange(newSelectionStart, newSelectionEnd)
-    )
+    return safeTextFieldValue(newText, newSelectionStart, newSelectionEnd)
 }
 
 fun toggleTag(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): TextFieldValue {
     val text = fieldValue.text
-    val selection = fieldValue.selection
-    val start = selection.start
-    val end = selection.end
+    val textLength = text.length
+    val rawStart = fieldValue.selection.start
+    val rawEnd = fieldValue.selection.end
+    
+    val normStart = minOf(rawStart, rawEnd)
+    val normEnd = maxOf(rawStart, rawEnd)
+    
+    val start = normStart.coerceIn(0, textLength)
+    val end = normEnd.coerceIn(0, textLength)
 
     if (start == end) {
-        val lastOpen = text.lastIndexOf(tagOpen, start - 1)
+        val lastOpen = if (start > 0) text.lastIndexOf(tagOpen, start - 1) else -1
         if (lastOpen != -1) {
-            val lastCloseBeforeOpen = text.lastIndexOf(tagClose, start - 1)
+            val lastCloseBeforeOpen = if (start > 0) text.lastIndexOf(tagClose, start - 1) else -1
             if (lastCloseBeforeOpen < lastOpen) {
                 val nextClose = text.indexOf(tagClose, start)
                 val nextOpenBeforeClose = text.indexOf(tagOpen, start)
@@ -7194,44 +7210,48 @@ fun toggleTag(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): Te
                     val openTagEnd = lastOpen + tagOpen.length
                     if (openTagEnd == start && nextClose == start) {
                         val newText = text.substring(0, lastOpen) + text.substring(nextClose + tagClose.length)
-                        return TextFieldValue(newText, TextRange(lastOpen))
+                        return safeTextFieldValue(newText, lastOpen)
                     }
                     if (nextClose == start) {
-                        return TextFieldValue(text, TextRange(start + tagClose.length))
+                        return safeTextFieldValue(text, start + tagClose.length)
                     } else {
                         val newText = text.substring(0, start) + tagClose + tagOpen + text.substring(start)
-                        return TextFieldValue(newText, TextRange(start + tagClose.length))
+                        return safeTextFieldValue(newText, start + tagClose.length)
                     }
                 } else {
                     val newText = text.substring(0, start) + tagClose + text.substring(start)
-                    return TextFieldValue(newText, TextRange(start + tagClose.length))
+                    return safeTextFieldValue(newText, start + tagClose.length)
                 }
             }
         }
         val newText = text.substring(0, start) + tagOpen + tagClose + text.substring(start)
-        return TextFieldValue(newText, TextRange(start + tagOpen.length))
+        return safeTextFieldValue(newText, start + tagOpen.length)
     } else {
         val selectedText = text.substring(start, end)
         if (selectedText.startsWith(tagOpen) && selectedText.endsWith(tagClose)) {
-            val unwrapped = selectedText.substring(tagOpen.length, selectedText.length - tagClose.length)
+            val unwrapped = if (selectedText.length >= tagOpen.length + tagClose.length) {
+                selectedText.substring(tagOpen.length, selectedText.length - tagClose.length)
+            } else {
+                ""
+            }
             val newText = text.substring(0, start) + unwrapped + text.substring(end)
-            return TextFieldValue(newText, TextRange(start, start + unwrapped.length))
+            return safeTextFieldValue(newText, start, start + unwrapped.length)
         }
         if (start >= tagOpen.length && end + tagClose.length <= text.length) {
             val potentialOpen = text.substring(start - tagOpen.length, start)
             val potentialClose = text.substring(end, end + tagClose.length)
             if (potentialOpen == tagOpen && potentialClose == tagClose) {
                 val newText = text.substring(0, start - tagOpen.length) + selectedText + text.substring(end + tagClose.length)
-                return TextFieldValue(newText, TextRange(start - tagOpen.length, end - tagOpen.length))
+                return safeTextFieldValue(newText, start - tagOpen.length, end - tagOpen.length)
             }
         }
         if (selectedText.contains(tagOpen) || selectedText.contains(tagClose)) {
             val cleaned = selectedText.replace(tagOpen, "").replace(tagClose, "")
             val newText = text.substring(0, start) + cleaned + text.substring(end)
-            return TextFieldValue(newText, TextRange(start, start + cleaned.length))
+            return safeTextFieldValue(newText, start, start + cleaned.length)
         }
         val newText = text.substring(0, start) + tagOpen + selectedText + tagClose + text.substring(end)
-        return TextFieldValue(newText, TextRange(start + tagOpen.length, start + tagOpen.length + selectedText.length))
+        return safeTextFieldValue(newText, start + tagOpen.length, start + tagOpen.length + selectedText.length)
     }
 }
 
@@ -7466,18 +7486,20 @@ class RichTextVisualTransformation(private val themePurple: Color) : VisualTrans
                     break
                 }
             }
-            transformedToOriginalMap[transformedIdx] = originalIdx
+            val prevVal = if (transformedIdx > 0) transformedToOriginalMap[transformedIdx - 1] else 0
+            transformedToOriginalMap[transformedIdx] = maxOf(originalIdx, prevVal).coerceIn(0, n)
         }
+        transformedToOriginalMap[transformedLength] = n
         
         val offsetMapping = object : OffsetMapping {
             override fun originalToTransformed(offset: Int): Int {
                 val clamped = offset.coerceIn(0, n)
-                return originalToTransformedMap[clamped]
+                return originalToTransformedMap[clamped].coerceIn(0, transformedLength)
             }
             
             override fun transformedToOriginal(offset: Int): Int {
                 val clamped = offset.coerceIn(0, transformedLength)
-                return transformedToOriginalMap[clamped]
+                return transformedToOriginalMap[clamped].coerceIn(0, n)
             }
         }
         
