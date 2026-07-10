@@ -308,7 +308,7 @@ fun CalculatorScreen(
         targetValue = if (transitionState >= 3) 1f else if (transitionState == 2) 0.95f else 0.9f,
         animationSpec = tween(450, easing = FastOutSlowInEasing)
     )
-    val welcomeAlpha = remember { androidx.compose.animation.core.Animatable(1f) }
+    val welcomeAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
     
     val vaultAlpha by animateFloatAsState(
         targetValue = if (transitionState >= 3) 1f else 0f,
@@ -356,7 +356,7 @@ fun CalculatorScreen(
             transitionState = 3 
         } else {
             // Reset states when the vault is locked
-            welcomeAlpha.snapTo(1f)
+            welcomeAlpha.snapTo(0f)
             transitionState = 0
             activeTab = ActiveTab.CALCULATOR
         }
@@ -525,23 +525,12 @@ fun CalculatorScreen(
                     }
                 // 1. Dashboard Content: Keep it ready in background
                 if (activeTab == ActiveTab.VAULT || transitionState >= 2) {
-                    val dashboardAlpha = if (transitionState == 3) 1f else (1f - welcomeAlpha.value)
-                    val dashboardScale = if (transitionState == 3) 1f else (0.96f + 0.04f * (1f - welcomeAlpha.value))
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .graphicsLayer {
-                                alpha = dashboardAlpha
-                                scaleX = dashboardScale
-                                scaleY = dashboardScale
+                                alpha = 1f
                             }
-                            .then(
-                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                                    Modifier.blur((welcomeAlpha.value * 24f).dp)
-                                } else {
-                                    Modifier
-                                }
-                            )
                     ) {
                         VaultTabUnlockedContent(
                             viewModel = viewModel,
@@ -551,18 +540,19 @@ fun CalculatorScreen(
                 }
 
                 // 2. Welcome Screen: Layered directly on top of the Dashboard, fades out smoothly
-                if (transitionState == 2 || (transitionState == 3 && welcomeAlpha.value > 0f)) {
+                if (welcomeAlpha.value > 0f) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .graphicsLayer {
                                 alpha = welcomeAlpha.value // GPU par smooth fade-out
-                                scaleX = 1f + (1f - welcomeAlpha.value) * 0.04f
-                                scaleY = 1f + (1f - welcomeAlpha.value) * 0.04f
+                                scaleX = 1f + (1f - welcomeAlpha.value) * 0.03f
+                                scaleY = 1f + (1f - welcomeAlpha.value) * 0.03f
                             }
                             .then(
                                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                                    Modifier.blur(( (1f - welcomeAlpha.value) * 16f ).dp) // Smooth progressive blur
+                                    val currentBlur = (1f - welcomeAlpha.value) * 16f
+                                    Modifier.blur(currentBlur.dp)
                                 } else {
                                     Modifier
                                 }
@@ -1712,6 +1702,9 @@ fun VaultTabUnlockedContent(
                         }
                         isImporting = false
                         if (successCount > 0) {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                viewModel.onOriginalFileDeleted(context)
+                            }
                             viewModel.batchDeleteOriginalFiles(context, uris)
                             importSuccessCount = successCount
                             showImportSuccess = true
