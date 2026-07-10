@@ -540,7 +540,7 @@ fun CalculatorScreen(
                 }
 
                 // 2. Welcome Screen: Layered directly on top of the Dashboard, fades out smoothly
-                if (welcomeAlpha.value > 0f) {
+                if (welcomeAlpha.value > 0f || transitionState == 2) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
