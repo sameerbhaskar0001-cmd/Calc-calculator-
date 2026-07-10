@@ -177,6 +177,16 @@ fun VaultContentScreen(
         }
     }
 
+    val pinnedNotes by viewModel.pinnedNotes.collectAsState()
+
+    val (pinnedItems, otherItems) = remember(filteredItems, pinnedNotes, title) {
+        if (title == "Notes" && pinnedNotes.isNotEmpty()) {
+            filteredItems.partition { pinnedNotes.contains(it.rawString) }
+        } else {
+            Pair(emptyList(), filteredItems)
+        }
+    }
+
     // Ambient Premium Background
     Box(
         modifier = Modifier
@@ -431,20 +441,93 @@ fun VaultContentScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 140.dp) // Space for action button
                     ) {
-                        items(filteredItems.size, key = { index -> filteredItems[index].id }) { index ->
-                            val item = filteredItems[index]
+                        if (title == "Notes" && pinnedItems.isNotEmpty()) {
+                            // Pinned Section Header
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PushPin,
+                                        contentDescription = null,
+                                        tint = ThemePurple,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "PINNED",
+                                        color = Color.White.copy(alpha = 0.6f),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp
+                                    )
+                                }
+                            }
+
+                            // Pinned Items
+                            items(pinnedItems.size, key = { index -> "pinned_${pinnedItems[index].id}" }) { index ->
+                                val item = pinnedItems[index]
+                                val isSelected = selectedItemRaws.contains(item.rawString)
+                                
+                                VaultItemCard(
+                                    item = item,
+                                    isSelected = isSelected,
+                                    isSelectionMode = isSelectionMode,
+                                    isPinned = true,
+                                    onClick = {
+                                        if (isSelectionMode) {
+                                            selectedItemRaws = if (isSelected) selectedItemRaws - item.rawString else selectedItemRaws + item.rawString
+                                            if (selectedItemRaws.isEmpty()) isSelectionMode = false
+                                        } else {
+                                            onItemClick(item, filteredItems.indexOf(item), filteredItems)
+                                        }
+                                    },
+                                    onLongClick = {
+                                        if (!isSelectionMode) {
+                                            isSelectionMode = true
+                                            selectedItemRaws = setOf(item.rawString)
+                                        }
+                                    }
+                                )
+                            }
+
+                            // Others Section Header
+                            if (otherItems.isNotEmpty()) {
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "OTHERS",
+                                            color = Color.White.copy(alpha = 0.6f),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Others / Remaining Items
+                        items(otherItems.size, key = { index -> "other_${otherItems[index].id}" }) { index ->
+                            val item = otherItems[index]
                             val isSelected = selectedItemRaws.contains(item.rawString)
+                            val itemIsPinned = title == "Notes" && pinnedNotes.contains(item.rawString)
                             
                             VaultItemCard(
                                 item = item,
                                 isSelected = isSelected,
                                 isSelectionMode = isSelectionMode,
+                                isPinned = itemIsPinned,
                                 onClick = {
                                     if (isSelectionMode) {
                                         selectedItemRaws = if (isSelected) selectedItemRaws - item.rawString else selectedItemRaws + item.rawString
                                         if (selectedItemRaws.isEmpty()) isSelectionMode = false
                                     } else {
-                                        onItemClick(item, index, filteredItems)
+                                        onItemClick(item, filteredItems.indexOf(item), filteredItems)
                                     }
                                 },
                                 onLongClick = {
@@ -673,7 +756,8 @@ fun VaultItemCard(
     isSelected: Boolean,
     isSelectionMode: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    isPinned: Boolean = false
 ) {
     val themePurple = LocalAppThemeColors.current.themePurple
     
@@ -745,22 +829,125 @@ fun VaultItemCard(
                 }
             }
             "document" -> {
-                Box(modifier = Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF29B6F6).copy(alpha = 0.2f), Color.Transparent))), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Description, contentDescription = "Document", tint = Color(0xFF29B6F6).copy(alpha = 0.8f), modifier = Modifier.size(56.dp))
-                    Text(item.title.substringAfterLast('.').take(4).uppercase(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp))
+                val parts = item.rawString.split("|||")
+                val dateStr = if (parts.size >= 2) parts[1].substringBefore(",") else "" // e.g. "09 Jul 2026"
+                val sizeStr = if (parts.size >= 6) parts[5] else ""
+                val ext = item.title.substringAfterLast('.').lowercase()
+                
+                val (iconColor, icon) = when (ext) {
+                    "pdf" -> Pair(Color(0xFFEF5350), Icons.Default.PictureAsPdf)
+                    "txt" -> Pair(Color(0xFF42A5F5), Icons.Default.Description)
+                    else -> Pair(Color(0xFF29B6F6), Icons.Default.Article)
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Top Row with Icon / Extension Tag
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(iconColor.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = iconColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        
+                        // Small capsule showing extension
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color.White.copy(alpha = 0.05f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = ext.uppercase().take(4),
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Bottom info block
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = item.cleanTitle,
+                            color = Color.White.copy(alpha = 0.95f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (sizeStr.isNotEmpty()) {
+                                Text(
+                                    text = sizeStr,
+                                    color = Color.White.copy(alpha = 0.45f),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            if (dateStr.isNotEmpty()) {
+                                Text(
+                                    text = dateStr,
+                                    color = Color.White.copy(alpha = 0.45f),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
                 }
             }
             "note" -> {
-                Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                val parts = item.rawString.split("|||")
+                val content = if (parts.size >= 3) parts[2] else ""
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Text(
                         text = item.title, 
-                        color = Color.White.copy(alpha = 0.9f), 
-                        fontSize = 15.sp, 
-                        fontWeight = FontWeight.SemiBold, 
-                        maxLines = 4, 
-                        overflow = TextOverflow.Ellipsis,
-                        lineHeight = 22.sp
+                        color = Color.White.copy(alpha = 0.95f), 
+                        fontSize = 14.sp, 
+                        fontWeight = FontWeight.Bold, 
+                        maxLines = 1, 
+                        overflow = TextOverflow.Ellipsis
                     )
+                    if (content.isNotEmpty()) {
+                        Text(
+                            text = content, 
+                            color = Color.White.copy(alpha = 0.55f), 
+                            fontSize = 11.sp, 
+                            fontWeight = FontWeight.Normal, 
+                            maxLines = 4, 
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 15.sp
+                        )
+                    }
                 }
             }
         }
@@ -784,6 +971,27 @@ fun VaultItemCard(
                     contentDescription = "Favorite",
                     tint = Color(0xFFFFD600),
                     modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+
+        // Pinned Badge
+        if (isPinned && !isSelectionMode) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(10.dp)
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.PushPin,
+                    contentDescription = "Pinned",
+                    tint = themePurple,
+                    modifier = Modifier.size(14.dp)
                 )
             }
         }

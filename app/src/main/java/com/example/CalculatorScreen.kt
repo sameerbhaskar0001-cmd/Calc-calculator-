@@ -94,6 +94,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
@@ -274,6 +275,7 @@ fun CalculatorScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    val view = androidx.compose.ui.platform.LocalView.current
     var isImporting by remember { mutableStateOf(false) }
     var importProgress by remember { mutableStateOf(0f) }
     var importTotal by remember { mutableStateOf(0) }
@@ -324,7 +326,11 @@ fun CalculatorScreen(
     )
     LaunchedEffect(vaultUnlocked) {
         if (vaultUnlocked) {
-            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+            try {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+            } catch (e: Exception) {
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+            }
             viewModel.triggerKeypressEffects(context)
             
             // Step A: Show authentication overlay
@@ -334,13 +340,13 @@ fun CalculatorScreen(
             // Step B: Initialize Welcome screen state at full visibility
             welcomeAlpha.snapTo(1f)
             transitionState = 2 
-            delay(2000)         // Stay visible for 2 seconds so user can read everything clearly
+            delay(1200)         // Stay visible for 1.2 seconds so user can read everything clearly
             
-            // Step C: Smoothly fade out and blur over 1.8 seconds (1800ms)
+            // Step C: Smoothly fade out and blur over 1.2 seconds (1200ms)
             welcomeAlpha.animateTo(
                 targetValue = 0f,
                 animationSpec = androidx.compose.animation.core.tween(
-                    durationMillis = 1800,
+                    durationMillis = 1200,
                     easing = androidx.compose.animation.core.FastOutSlowInEasing
                 )
             )
@@ -529,6 +535,13 @@ fun CalculatorScreen(
                                 scaleX = dashboardScale
                                 scaleY = dashboardScale
                             }
+                            .then(
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                                    Modifier.blur((welcomeAlpha.value * 24f).dp)
+                                } else {
+                                    Modifier
+                                }
+                            )
                     ) {
                         VaultTabUnlockedContent(
                             viewModel = viewModel,
@@ -996,6 +1009,7 @@ fun GlassCalculatorKey(
     themeLightPurple: Color
 ) {
     val haptic = LocalHapticFeedback.current
+    val view = androidx.compose.ui.platform.LocalView.current
     val themeColors = com.example.ui.theme.LocalAppThemeColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -1039,7 +1053,11 @@ fun GlassCalculatorKey(
             elevation = if (!isUtility && !isEquals) 4.dp else 0.dp,
             glowAlpha = glowAlpha,
             onClick = {
-                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                try {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                } catch (e: Exception) {
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                }
                 onClick()
             },
             interactionSource = interactionSource,
@@ -1611,6 +1629,9 @@ fun VaultTabUnlockedContent(
     var showAddNoteDialog by remember { mutableStateOf(false) }
     var noteTitle by remember { mutableStateOf("") }
     var noteContent by remember { mutableStateOf("") }
+    var isEditingNote by remember { mutableStateOf(false) }
+    var editedNoteTitle by remember { mutableStateOf("") }
+    var editedNoteContent by remember { mutableStateOf("") }
     
     var pendingUnlockAction by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
     var activeCameraMode by remember { mutableStateOf<String?>(null) } // null, "camera", "scanner"
@@ -1639,6 +1660,7 @@ fun VaultTabUnlockedContent(
         val photoPickerLauncher = rememberLauncherForActivityResult(
             contract = androidx.activity.result.contract.ActivityResultContracts.GetMultipleContents(),
             onResult = { uris ->
+                viewModel.isPickingFile = false
                 if (uris.isNotEmpty()) {
                     isImporting = true
                     importTotal = uris.size
@@ -1671,6 +1693,7 @@ fun VaultTabUnlockedContent(
         val documentPickerLauncher = rememberLauncherForActivityResult(
             contract = androidx.activity.result.contract.ActivityResultContracts.GetMultipleContents(),
             onResult = { uris ->
+                viewModel.isPickingFile = false
                 if (uris.isNotEmpty()) {
                     isImporting = true
                     importTotal = uris.size
@@ -1703,6 +1726,7 @@ fun VaultTabUnlockedContent(
         val audioPickerLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.GetContent(),
             onResult = { uri ->
+                viewModel.isPickingFile = false
                 if (uri != null) {
                     val success = viewModel.addVaultFile(context, uri)
                     if (success) {
@@ -1718,6 +1742,7 @@ fun VaultTabUnlockedContent(
         val deleteSenderLauncher = rememberLauncherForActivityResult(
             contract = androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
         ) { result ->
+            viewModel.isPickingFile = false
             if (result.resultCode == android.app.Activity.RESULT_OK) {
                 android.util.Log.d("Vault", "User accepted/cancelled: User accepted")
                 android.util.Log.d("Vault", "Delete success/failure: Delete success")
@@ -1795,6 +1820,7 @@ fun VaultTabUnlockedContent(
         val vaultFiles by viewModel.vaultFiles.collectAsState()
         var activeSection by remember { rememberBackStack("Home") } // "Home", "Notes", "Photos & Videos", "Documents", "Explore", "Settings"
         var selectedFileForDetails by remember { mutableStateOf<String?>(null) }
+        var activeDocumentToView by remember { mutableStateOf<String?>(null) }
         var textFileContentToRead by remember { mutableStateOf<Pair<String, String>?>(null) } // Pair(Name, Content)
         var selectedMediaFolder by remember { mutableStateOf("All") }
         var selectedDocFolder by remember { mutableStateOf("All") }
@@ -1823,6 +1849,7 @@ fun VaultTabUnlockedContent(
                     activeViewerFiles = emptyList()
                 }
                 viewNoteToShow != null -> viewNoteToShow = null
+                activeDocumentToView != null -> activeDocumentToView = null
                 selectedFileForDetails != null -> selectedFileForDetails = null
                 textFileContentToRead != null -> textFileContentToRead = null
                 activeSection != "Home" -> activeSection = "__BACK__"
@@ -1835,11 +1862,13 @@ fun VaultTabUnlockedContent(
         LaunchedEffect(pendingDeleteSender) {
             pendingDeleteSender?.let { sender ->
                 try {
+                    viewModel.isPickingFile = true
                     android.util.Log.d("Vault", "IntentSender launched")
                     deleteSenderLauncher.launch(
                         androidx.activity.result.IntentSenderRequest.Builder(sender).build()
                     )
                 } catch (e: Exception) {
+                    viewModel.isPickingFile = false
                     android.util.Log.e("Vault", "Any exception with full stack trace", e)
                     viewModel.onOriginalFileDeleted(context)
                     viewModel.clearPendingDelete()
@@ -2505,7 +2534,10 @@ fun VaultTabUnlockedContent(
                                 "Notes" -> showAddNoteDialog = true
                                 "Photos", "Videos" -> showMediaAddOptions = true
                                 "Documents" -> showDocAddOptions = true
-                                "Music & Audio" -> audioPickerLauncher.launch("audio/*")
+                                "Music & Audio" -> {
+                                    viewModel.isPickingFile = true
+                                    audioPickerLauncher.launch("audio/*")
+                                }
                             }
                         },
                         onItemClick = { item, index, allFiltered -> 
@@ -2515,6 +2547,9 @@ fun VaultTabUnlockedContent(
                                 activeViewerIndex = index
                             } else if (item.type == "note") {
                                 viewNoteToShow = item.rawString
+                            } else if (item.type == "document") {
+                                viewModel.recordOpenedItem(item.id, "file", item.title, item.rawString)
+                                activeDocumentToView = item.rawString
                             } else {
                                 viewModel.recordOpenedItem(item.id, "file", item.title, item.rawString)
                                 selectedFileForDetails = item.rawString
@@ -4485,28 +4520,207 @@ fun VaultTabUnlockedContent(
                 val title = parts[1]
                 val body = parts[2]
                 
+                LaunchedEffect(viewNoteToShow) {
+                    editedNoteTitle = title
+                    editedNoteContent = body
+                    isEditingNote = false
+                }
+                
                 AlertDialog(
-                    onDismissRequest = { viewNoteToShow = null },
+                    onDismissRequest = { 
+                        viewNoteToShow = null
+                        isEditingNote = false
+                    },
                     containerColor = BrandBg,
+                    shape = RoundedCornerShape(28.dp),
+                    modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(28.dp)),
                     title = {
-                        Text(text = title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isEditingNote) {
+                                Text(
+                                    text = "Edit Note", 
+                                    fontWeight = FontWeight.ExtraBold, 
+                                    fontSize = 18.sp, 
+                                    color = Color.White
+                                )
+                            } else {
+                                Text(
+                                    text = title, 
+                                    fontWeight = FontWeight.ExtraBold, 
+                                    fontSize = 18.sp, 
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.triggerKeypressEffects(context)
+                                            isEditingNote = true
+                                        },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit note",
+                                            tint = ThemePurple,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    val isFav = viewModel.favoriteNotes.collectAsState().value.contains(noteStr)
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.triggerKeypressEffects(context)
+                                            viewModel.toggleFavoriteNote(noteStr)
+                                        },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isFav) Icons.Default.Star else Icons.Default.StarBorder,
+                                            contentDescription = "Toggle favorite",
+                                            tint = if (isFav) Color(0xFFFFD600) else Color.White.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    val isPinned = viewModel.pinnedNotes.collectAsState().value.contains(noteStr)
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.triggerKeypressEffects(context)
+                                            viewModel.togglePinnedNote(noteStr)
+                                        },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PushPin,
+                                            contentDescription = "Toggle pin",
+                                            tint = if (isPinned) ThemePurple else Color.White.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     },
                     text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
-                            Text(text = body, fontSize = 13.sp, color = Color(0xFFE2E4E9), lineHeight = 18.sp)
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(text = "Created At: $timestamp", fontSize = 10.sp, color = TextMedium)
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (isEditingNote) {
+                                OutlinedTextField(
+                                    value = editedNoteTitle,
+                                    onValueChange = { editedNoteTitle = it },
+                                    label = { Text("Title", fontSize = 12.sp) },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = ThemePurple,
+                                        unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                                        focusedLabelColor = ThemePurple,
+                                        unfocusedLabelColor = Color.White.copy(alpha = 0.5f)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedTextField(
+                                    value = editedNoteContent,
+                                    onValueChange = { editedNoteContent = it },
+                                    label = { Text("Note content", fontSize = 12.sp) },
+                                    minLines = 4,
+                                    maxLines = 8,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = ThemePurple,
+                                        unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                                        focusedLabelColor = ThemePurple,
+                                        unfocusedLabelColor = Color.White.copy(alpha = 0.5f)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                                )
+                            } else {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 260.dp)
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    Text(
+                                        text = body, 
+                                        fontSize = 14.sp, 
+                                        color = Color(0xFFF1F5F9), 
+                                        lineHeight = 22.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Last updated: $timestamp", 
+                                    fontSize = 11.sp, 
+                                    color = TextMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     },
                     confirmButton = {
-                        Button(
-                            onClick = {
-                                viewModel.triggerKeypressEffects(context)
-                                viewNoteToShow = null
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
-                        ) {
-                            Text("OK", color = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White)
+                        if (isEditingNote) {
+                            Button(
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    if (editedNoteTitle.isNotBlank() && editedNoteContent.isNotBlank()) {
+                                        viewModel.editVaultNote(noteStr, editedNoteTitle, editedNoteContent)
+                                        viewNoteToShow = null
+                                        isEditingNote = false
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Save", color = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Button(
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    viewNoteToShow = null
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Close", color = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        if (isEditingNote) {
+                            TextButton(
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    isEditingNote = false
+                                }
+                            ) {
+                                Text("Cancel", color = ThemePurple, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            TextButton(
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    viewModel.deleteVaultNote(noteStr)
+                                    viewNoteToShow = null
+                                }
+                            ) {
+                                Text("Delete", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 )
@@ -4650,6 +4864,7 @@ fun VaultTabUnlockedContent(
                             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable {
                                 showMediaAddOptions = false
                                 val isPhoto = activeSection == "Photos"
+                                viewModel.isPickingFile = true
                                 photoPickerLauncher.launch(
                                     if (isPhoto) "image/*" else "video/*"
                                 )
@@ -4689,6 +4904,7 @@ fun VaultTabUnlockedContent(
                         Row(
                             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable {
                                 showDocAddOptions = false
+                                viewModel.isPickingFile = true
                                 documentPickerLauncher.launch("application/*")
                             }.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -5124,6 +5340,13 @@ fun VaultTabUnlockedContent(
                 onDismiss = { activeCameraMode = null }
             )
         }
+    }
+    if (activeDocumentToView != null) {
+        SecureDocumentViewer(
+            fileStr = activeDocumentToView!!,
+            viewModel = viewModel,
+            onDismiss = { activeDocumentToView = null }
+        )
     }
 }
 @Composable

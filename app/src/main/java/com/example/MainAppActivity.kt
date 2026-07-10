@@ -77,7 +77,7 @@ class MainAppActivity : FragmentActivity() {
 
   override fun onStop() {
     super.onStop()
-    if (!isChangingConfigurations) {
+    if (!isChangingConfigurations && viewModel?.isPickingFile != true) {
       try {
           viewModel?.lockVault()
       } catch (e: Exception) {

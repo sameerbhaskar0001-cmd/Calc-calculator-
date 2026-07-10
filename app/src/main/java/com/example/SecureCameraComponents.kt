@@ -88,6 +88,7 @@ fun SecureCameraView(
     val permissionsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { perms ->
+        viewModel.isPickingFile = false
         val cameraGranted = perms[Manifest.permission.CAMERA] ?: false
         if (!cameraGranted) {
             showPermissionError = true
@@ -99,6 +100,7 @@ fun SecureCameraView(
         val audioPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
         
         if (cameraPermission != PackageManager.PERMISSION_GRANTED || audioPermission != PackageManager.PERMISSION_GRANTED) {
+            viewModel.isPickingFile = true
             permissionsLauncher.launch(
                 arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
             )
@@ -457,11 +459,13 @@ fun SecureScannerView(
     val permissionsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
+        viewModel.isPickingFile = false
         if (!granted) showPermissionError = true
     }
 
     LaunchedEffect(Unit) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            viewModel.isPickingFile = true
             permissionsLauncher.launch(Manifest.permission.CAMERA)
         }
     }

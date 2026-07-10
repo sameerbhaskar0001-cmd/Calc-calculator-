@@ -143,6 +143,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _favoriteNotes = MutableStateFlow<Set<String>>(emptySet())
     val favoriteNotes: StateFlow<Set<String>> = _favoriteNotes.asStateFlow()
 
+    private val _pinnedNotes = MutableStateFlow<Set<String>>(emptySet())
+    val pinnedNotes: StateFlow<Set<String>> = _pinnedNotes.asStateFlow()
+
     private val _recentlyOpened = MutableStateFlow<List<RecentItem>>(emptyList())
     val recentlyOpened: StateFlow<List<RecentItem>> = _recentlyOpened.asStateFlow()
 
@@ -233,6 +236,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     fun loadFavorites() {
         _favoriteFiles.value = prefs.getStringSet("favorite_files", emptySet()) ?: emptySet()
         _favoriteNotes.value = prefs.getStringSet("favorite_notes", emptySet()) ?: emptySet()
+        _pinnedNotes.value = prefs.getStringSet("pinned_notes", emptySet()) ?: emptySet()
     }
 
     fun toggleFavoriteFile(id: String) {
@@ -255,6 +259,17 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         }
         _favoriteNotes.value = current
         prefs.edit().putStringSet("favorite_notes", current).apply()
+    }
+
+    fun togglePinnedNote(noteStr: String) {
+        val current = _pinnedNotes.value.toMutableSet()
+        if (current.contains(noteStr)) {
+            current.remove(noteStr)
+        } else {
+            current.add(noteStr)
+        }
+        _pinnedNotes.value = current
+        prefs.edit().putStringSet("pinned_notes", current).apply()
     }
 
     fun loadRecentlyOpened() {
@@ -358,6 +373,8 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _lastInteractionTime = MutableStateFlow(System.currentTimeMillis())
     val lastInteractionTime: StateFlow<Long> = _lastInteractionTime.asStateFlow()
+
+    var isPickingFile = false
 
     // --- Advanced Stealth & Vault States ---
     private val _biometricEnabled = MutableStateFlow(prefs.getBoolean("biometric_enabled", false))
@@ -479,6 +496,10 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             while (true) {
                 kotlinx.coroutines.delay(2000)
+                if (isPickingFile) {
+                    _lastInteractionTime.value = System.currentTimeMillis()
+                    continue
+                }
                 if (_vaultUnlocked.value && _autoLockDuration.value != -1) {
                     val idleMillis = System.currentTimeMillis() - _lastInteractionTime.value
                     val limitMillis = _autoLockDuration.value * 1000L
@@ -554,16 +575,54 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         // play haptic feedback
         val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
         if (vibrator != null && vibrator.hasVibrator()) {
-            val duration = when (_hapticProfile.value) {
-                "Crisp" -> 30L
-                "Soft" -> 15L
-                "Heavy" -> 80L
-                else -> 0L
-            }
-            if (duration > 0) {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                // API 29+ (Android 10+)
+                val effectId = when (_hapticProfile.value) {
+                    "Crisp" -> android.os.VibrationEffect.EFFECT_CLICK
+                    "Soft" -> android.os.VibrationEffect.EFFECT_TICK
+                    "Heavy" -> android.os.VibrationEffect.EFFECT_HEAVY_CLICK
+                    else -> -1
+                }
+                if (effectId != -1) {
+                    try {
+                        val effect = android.os.VibrationEffect.createPredefined(effectId)
+                        val attributes = android.os.VibrationAttributes.Builder()
+                            .setUsage(android.os.VibrationAttributes.USAGE_TOUCH)
+                            .build()
+                        vibrator.vibrate(effect, attributes)
+                    } catch (e: Exception) {
+                        // Fallback in case of custom OEM failure
+                        val fallbackDuration = when (_hapticProfile.value) {
+                            "Crisp" -> 35L
+                            "Soft" -> 18L
+                            "Heavy" -> 85L
+                            else -> 0L
+                        }
+                        if (fallbackDuration > 0) {
+                            vibrator.vibrate(android.os.VibrationEffect.createOneShot(fallbackDuration, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                        }
+                    }
+                }
+            } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                // API 26+ (Android 8.0+)
+                val duration = when (_hapticProfile.value) {
+                    "Crisp" -> 35L
+                    "Soft" -> 18L
+                    "Heavy" -> 85L
+                    else -> 0L
+                }
+                if (duration > 0) {
                     vibrator.vibrate(android.os.VibrationEffect.createOneShot(duration, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
-                } else {
+                }
+            } else {
+                // Older devices
+                val duration = when (_hapticProfile.value) {
+                    "Crisp" -> 35L
+                    "Soft" -> 18L
+                    "Heavy" -> 85L
+                    else -> 0L
+                }
+                if (duration > 0) {
                     @Suppress("DEPRECATION")
                     vibrator.vibrate(duration)
                 }
@@ -1162,12 +1221,59 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         prefs.edit().putStringSet(notesKey, updatedNotes.toSet()).apply()
     }
 
+    fun editVaultNote(oldNoteSerialized: String, newTitle: String, newContent: String) {
+        val parts = oldNoteSerialized.split("|||")
+        val timestamp = if (parts.isNotEmpty()) parts[0] else java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(java.util.Date())
+        val newNoteSerialized = "$timestamp|||$newTitle|||$newContent"
+        
+        val updatedNotes = _vaultNotes.value.map { 
+            if (it == oldNoteSerialized) newNoteSerialized else it 
+        }
+        _vaultNotes.value = updatedNotes.sortedByDescending { it }
+        
+        val isDecoy = _decoyActive.value
+        val notesKey = if (isDecoy) "decoy_notes" else "vault_notes"
+        prefs.edit().putStringSet(notesKey, updatedNotes.toSet()).apply()
+        
+        val currentFolders = _noteFolders.value.toMutableMap()
+        if (currentFolders.containsKey(oldNoteSerialized)) {
+            val folder = currentFolders.remove(oldNoteSerialized)!!
+            currentFolders[newNoteSerialized] = folder
+            prefs.edit().remove("folder_note_$oldNoteSerialized")
+                .putString("folder_note_$newNoteSerialized", folder).apply()
+            _noteFolders.value = currentFolders
+        }
+        
+        val currentFavs = _favoriteNotes.value.toMutableSet()
+        if (currentFavs.contains(oldNoteSerialized)) {
+            currentFavs.remove(oldNoteSerialized)
+            currentFavs.add(newNoteSerialized)
+            _favoriteNotes.value = currentFavs
+            prefs.edit().putStringSet("favorite_notes", currentFavs).apply()
+        }
+
+        val currentPinned = _pinnedNotes.value.toMutableSet()
+        if (currentPinned.contains(oldNoteSerialized)) {
+            currentPinned.remove(oldNoteSerialized)
+            currentPinned.add(newNoteSerialized)
+            _pinnedNotes.value = currentPinned
+            prefs.edit().putStringSet("pinned_notes", currentPinned).apply()
+        }
+    }
+
     fun deleteVaultNote(noteSerialized: String) {
         val updatedNotes = _vaultNotes.value - noteSerialized
         _vaultNotes.value = updatedNotes
         val isDecoy = _decoyActive.value
         val notesKey = if (isDecoy) "decoy_notes" else "vault_notes"
         prefs.edit().putStringSet(notesKey, updatedNotes.toSet()).apply()
+
+        val currentPinned = _pinnedNotes.value.toMutableSet()
+        if (currentPinned.contains(noteSerialized)) {
+            currentPinned.remove(noteSerialized)
+            _pinnedNotes.value = currentPinned
+            prefs.edit().putStringSet("pinned_notes", currentPinned).apply()
+        }
     }
 
     // --- Option 4: Secret Vault File Management ---
@@ -1940,6 +2046,184 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         val isDecoy = _decoyActive.value
         val filesKey = if (isDecoy) "decoy_files" else "vault_files"
         prefs.edit().putStringSet(filesKey, updatedFiles.toSet()).apply()
+    }
+
+    fun createSamplePdfToVault(context: Context) {
+        try {
+            val pdfDocument = android.graphics.pdf.PdfDocument()
+            
+            // Page 1: Welcome & Overview
+            val pageInfo1 = android.graphics.pdf.PdfDocument.PageInfo.Builder(595, 842, 1).create() // A4 size
+            val page1 = pdfDocument.startPage(pageInfo1)
+            val canvas1 = page1.canvas
+            val paint = android.graphics.Paint()
+            
+            // Background
+            canvas1.drawColor(android.graphics.Color.rgb(15, 19, 31)) // Deep dark brand background
+            
+            // Header box
+            paint.color = android.graphics.Color.rgb(141, 110, 210) // ThemePurple color
+            canvas1.drawRect(0f, 0f, 595f, 150f, paint)
+            
+            // Title
+            paint.color = android.graphics.Color.WHITE
+            paint.textSize = 24f
+            paint.isFakeBoldText = true
+            paint.textAlign = android.graphics.Paint.Align.CENTER
+            canvas1.drawText("SECURE CALCULATOR VAULT", 297f, 75f, paint)
+            
+            paint.textSize = 14f
+            paint.isFakeBoldText = false
+            canvas1.drawText("Official Welcome & User Guide", 297f, 110f, paint)
+            
+            // Content
+            paint.textAlign = android.graphics.Paint.Align.LEFT
+            paint.color = android.graphics.Color.rgb(230, 230, 230)
+            paint.textSize = 16f
+            paint.isFakeBoldText = true
+            canvas1.drawText("1. Introduction", 50f, 200f, paint)
+            
+            paint.textSize = 12f
+            paint.isFakeBoldText = false
+            paint.color = android.graphics.Color.rgb(180, 185, 200)
+            val lines1 = listOf(
+                "Welcome to your ultra-secure offline vault! This space is hidden behind a fully",
+                "functional calculator interface. Only you know the secret PIN combination that",
+                "unlocks these hidden vaults.",
+                "",
+                "Your files are kept completely offline, stored safely within the application's",
+                "isolated internal storage container. There are no background server connections,",
+                "no external API leaks, and zero cloud uploads, ensuring absolute privacy."
+            )
+            var yPos = 230f
+            for (line in lines1) {
+                canvas1.drawText(line, 50f, yPos, paint)
+                yPos += 20f
+            }
+            
+            paint.textSize = 16f
+            paint.isFakeBoldText = true
+            paint.color = android.graphics.Color.rgb(230, 230, 230)
+            canvas1.drawText("2. Security Protocols & Vault Privacy", 50f, yPos + 20f, paint)
+            
+            paint.textSize = 12f
+            paint.isFakeBoldText = false
+            paint.color = android.graphics.Color.rgb(180, 185, 200)
+            yPos += 50f
+            val lines2 = listOf(
+                "- 100% Client-Side Isolation: Files reside purely in private internal directories.",
+                "- Anti-Leak Prevention: External applications cannot browse or automatically scan",
+                "  your documents, preventing metadata sniffing.",
+                "- Automatic Temporary Decryption: Files are decrypted purely on-the-fly and",
+                "  only in-memory during internal secure viewing. No temporary public files are",
+                "  ever written to external or shared storage locations.",
+                "- Decoy Safe Mode: Setup a secondary passcode to show a simulated, empty vault",
+                "  to bypass lookers or forced disclosure seamlessly."
+            )
+            for (line in lines2) {
+                canvas1.drawText(line, 50f, yPos, paint)
+                yPos += 20f
+            }
+            
+            // Footer page 1
+            paint.color = android.graphics.Color.rgb(100, 105, 120)
+            paint.textSize = 10f
+            paint.textAlign = android.graphics.Paint.Align.CENTER
+            canvas1.drawText("Page 1 of 2", 297f, 800f, paint)
+            
+            pdfDocument.finishPage(page1)
+            
+            // Page 2: Internal Document Viewer Guide
+            val pageInfo2 = android.graphics.pdf.PdfDocument.PageInfo.Builder(595, 842, 2).create()
+            val page2 = pdfDocument.startPage(pageInfo2)
+            val canvas2 = page2.canvas
+            
+            // Background
+            canvas2.drawColor(android.graphics.Color.rgb(15, 19, 31))
+            
+            // Header box
+            paint.color = android.graphics.Color.rgb(100, 80, 160)
+            canvas2.drawRect(0f, 0f, 595f, 100f, paint)
+            
+            paint.color = android.graphics.Color.WHITE
+            paint.textSize = 18f
+            paint.isFakeBoldText = true
+            paint.textAlign = android.graphics.Paint.Align.CENTER
+            canvas2.drawText("INTERNAL VIEWER MANUAL", 297f, 55f, paint)
+            
+            paint.textAlign = android.graphics.Paint.Align.LEFT
+            paint.color = android.graphics.Color.rgb(230, 230, 230)
+            paint.textSize = 16f
+            paint.isFakeBoldText = true
+            canvas2.drawText("3. Viewer Interaction Guide", 50f, 150f, paint)
+            
+            paint.textSize = 12f
+            paint.isFakeBoldText = false
+            paint.color = android.graphics.Color.rgb(180, 185, 200)
+            yPos = 180f
+            val lines3 = listOf(
+                "Our built-in document viewer is optimized to handle high-resolution documents",
+                "and heavy PDFs safely without leaking file references. Learn how to navigate:",
+                "",
+                "Pinch-to-zoom:",
+                "   Pinch with two fingers on any image or PDF page to zoom in up to 5x. Drag with",
+                "   a single finger to pan and inspect fine details easily.",
+                "",
+                "Double-tap:",
+                "   Double-tap with a single finger on any page or image to instantly zoom in",
+                "   by 2.5x, and double-tap again to reset back to normal scale.",
+                "",
+                "Fluid scrolling:",
+                "   Scroll vertically through multi-page PDF documents. The system loads and",
+                "   unloads pages dynamically in real-time to maintain extremely low memory usage",
+                "   and ensure large PDF files open instantly without crashes."
+            )
+            for (line in lines3) {
+                canvas2.drawText(line, 50f, yPos, paint)
+                yPos += 20f
+            }
+            
+            // Drawing a beautiful decorative lock icon on page 2 canvas using simple shapes
+            paint.color = android.graphics.Color.rgb(141, 110, 210)
+            paint.style = android.graphics.Paint.Style.STROKE
+            paint.strokeWidth = 3f
+            // Draw shackle
+            canvas2.drawArc(267f, 550f, 327f, 610f, 180f, 180f, false, paint)
+            // Draw body
+            paint.style = android.graphics.Paint.Style.FILL
+            canvas2.drawRoundRect(257f, 580f, 337f, 640f, 8f, 8f, paint)
+            // Draw keyhole
+            paint.color = android.graphics.Color.rgb(15, 19, 31)
+            canvas2.drawCircle(297f, 600f, 6f, paint)
+            canvas2.drawRect(294f, 600f, 300f, 615f, paint)
+            
+            // Text below icon
+            paint.color = android.graphics.Color.rgb(141, 110, 210)
+            paint.textSize = 12f
+            paint.isFakeBoldText = true
+            paint.textAlign = android.graphics.Paint.Align.CENTER
+            canvas2.drawText("MAXIMUM PRIVACY GUARANTEED", 297f, 675f, paint)
+            
+            // Footer page 2
+            paint.color = android.graphics.Color.rgb(100, 105, 120)
+            paint.textSize = 10f
+            paint.isFakeBoldText = false
+            canvas2.drawText("Page 2 of 2", 297f, 800f, paint)
+            
+            pdfDocument.finishPage(page2)
+            
+            // Save to file
+            val outputStream = java.io.ByteArrayOutputStream()
+            pdfDocument.writeTo(outputStream)
+            pdfDocument.close()
+            
+            val bytes = outputStream.toByteArray()
+            addDownloadedFileToVault(context, "Welcome Guide.pdf", "application/pdf", bytes)
+            android.widget.Toast.makeText(context, "Welcome Guide.pdf generated successfully!", android.widget.Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            android.widget.Toast.makeText(context, "Failed to generate Welcome Guide.pdf", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 }
 
