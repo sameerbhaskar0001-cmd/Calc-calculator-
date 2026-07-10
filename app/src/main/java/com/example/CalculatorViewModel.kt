@@ -1295,63 +1295,196 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch(Dispatchers.IO) {
             val resolver = context.contentResolver
             val authoritativeUris = mutableListOf<Uri>()
+            val documentUrisToDelete = mutableListOf<Uri>()
+            val pathsToScan = mutableListOf<String>()
 
-            // Step 1: Sabhi Picker URIs ko asli MediaStore URI me badlo
             for (uri in uris) {
+                var resolvedUri = uri
+                var originalName = "unnamed_file"
+                var mimeType = "application/octet-stream"
+                var size = 0L
+                var originalPath = ""
+
                 try {
-                    val id = android.content.ContentUris.parseId(uri)
-                    // Pata karo ki image hai ya video
-                    val mimeType = resolver.getType(uri) ?: ""
-                    val baseUri = if (mimeType.startsWith("video/")) {
-                        android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-                    } else {
-                        android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                    val cursor = resolver.query(uri, null, null, null, null)
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val nameIdx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            if (nameIdx != -1) {
+                                val nameVal = it.getString(nameIdx)
+                                if (!nameVal.isNullOrEmpty()) originalName = nameVal
+                            }
+                            val sizeIdx = it.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                            if (sizeIdx != -1) size = it.getLong(sizeIdx)
+                            val dataIdx = it.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
+                            if (dataIdx != -1) originalPath = it.getString(dataIdx) ?: ""
+                        }
                     }
-                    authoritativeUris.add(android.content.ContentUris.withAppendedId(baseUri, id))
-                } catch (e: Exception) {
-                    // Agar parseId fail ho toh backup ke liye wahi uri use karo
-                    authoritativeUris.add(uri)
+                } catch (e: Exception) {}
+
+                mimeType = resolver.getType(uri) ?: mimeType
+                if (mimeType.isEmpty() || mimeType == "application/octet-stream") {
+                    val ext = java.io.File(originalName).extension.lowercase()
+                    mimeType = when (ext) {
+                        "jpg", "jpeg", "png", "webp", "heic", "heif", "gif", "bmp" -> "image/$ext"
+                        "mp4", "mkv", "3gp", "avi", "mov", "webm" -> "video/$ext"
+                        "pdf" -> "application/pdf"
+                        "txt", "csv", "log" -> "text/plain"
+                        "zip" -> "application/zip"
+                        else -> "application/octet-stream"
+                    }
+                }
+
+                if (originalPath.isNotEmpty()) {
+                    pathsToScan.add(originalPath)
+                }
+
+                // Step 1.1: Try resolving via DocumentsContract if it's com.android.providers.media.documents
+                if (android.provider.DocumentsContract.isDocumentUri(context, uri) && uri.authority == "com.android.providers.media.documents") {
+                    try {
+                        val docId = android.provider.DocumentsContract.getDocumentId(uri)
+                        val split = docId.split(":")
+                        if (split.size >= 2) {
+                            val type = split[0]
+                            val mediaId = split[1].toLongOrNull()
+                            if (mediaId != null) {
+                                val baseUri = when (type) {
+                                    "image" -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                                    "video" -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                                    "audio" -> android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                                    else -> android.provider.MediaStore.Files.getContentUri("external")
+                                }
+                                resolvedUri = android.content.ContentUris.withAppendedId(baseUri, mediaId)
+                            }
+                        }
+                    } catch (e: Exception) {}
+                }
+
+                // Step 1.2: Resolve non-media external URIs using display name & size or path query
+                if (!resolvedUri.toString().contains("media/external")) {
+                    try {
+                        if (originalPath.isNotEmpty()) {
+                            val baseUri = when {
+                                mimeType.startsWith("image/") -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                                mimeType.startsWith("video/") -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                                mimeType.startsWith("audio/") -> android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                                else -> android.provider.MediaStore.Files.getContentUri("external")
+                            }
+                            val mediaCursor = resolver.query(
+                                baseUri,
+                                arrayOf(android.provider.MediaStore.MediaColumns._ID),
+                                "${android.provider.MediaStore.MediaColumns.DATA} = ?",
+                                arrayOf(originalPath),
+                                null
+                            )
+                            mediaCursor?.use {
+                                if (it.moveToFirst()) {
+                                    val mediaId = it.getLong(it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID))
+                                    resolvedUri = android.content.ContentUris.withAppendedId(baseUri, mediaId)
+                                }
+                            }
+                        }
+                        if (!resolvedUri.toString().contains("media/external") && originalName != "unnamed_file" && size > 0L) {
+                            val baseUri = when {
+                                mimeType.startsWith("image/") -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                                mimeType.startsWith("video/") -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                                mimeType.startsWith("audio/") -> android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                                else -> android.provider.MediaStore.Files.getContentUri("external")
+                            }
+                            val mediaCursor = resolver.query(
+                                baseUri,
+                                arrayOf(android.provider.MediaStore.MediaColumns._ID),
+                                "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.MediaColumns.SIZE} = ?",
+                                arrayOf(originalName, size.toString()),
+                                null
+                            )
+                            mediaCursor?.use {
+                                if (it.moveToFirst()) {
+                                    val mediaId = it.getLong(it.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID))
+                                    resolvedUri = android.content.ContentUris.withAppendedId(baseUri, mediaId)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {}
+                }
+
+                if (resolvedUri.toString().contains("media/external")) {
+                    authoritativeUris.add(resolvedUri)
+                } else {
+                    documentUrisToDelete.add(uri)
                 }
             }
 
-            if (authoritativeUris.isEmpty()) return@launch
-
-            // Step 2: Android Version ke mutabik Delete Request banao
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                try {
-                    // Android 11+ ke liye official system delete request
-                    val pendingIntent = android.provider.MediaStore.createDeleteRequest(resolver, authoritativeUris)
-                    withContext(Dispatchers.Main) {
-                        _pendingDeleteSender.value = pendingIntent.intentSender
+            // Step 2: Handle SAF Document Uri direct deletion in background
+            if (documentUrisToDelete.isNotEmpty()) {
+                for (docUri in documentUrisToDelete) {
+                    try {
+                        if (android.provider.DocumentsContract.isDocumentUri(context, docUri)) {
+                            android.provider.DocumentsContract.deleteDocument(resolver, docUri)
+                        } else {
+                            resolver.delete(docUri, null, null)
+                        }
+                    } catch (e: Exception) {
+                        try {
+                            resolver.delete(docUri, null, null)
+                        } catch (ex: Exception) {
+                            ex.printStackTrace()
+                        }
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
-            } else if (android.os.Build.VERSION.SDK_INT == android.os.Build.VERSION_CODES.Q) {
-                // Android 10 Fallback
-                try {
+                withContext(Dispatchers.Main) {
+                    onOriginalFileDeleted(context)
+                }
+            }
+
+            // Step 3: Handle authoritative MediaStore URIs deletion using version logic
+            if (authoritativeUris.isNotEmpty()) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    try {
+                        val pendingIntent = android.provider.MediaStore.createDeleteRequest(resolver, authoritativeUris)
+                        withContext(Dispatchers.Main) {
+                            _pendingDeleteSender.value = pendingIntent.intentSender
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                } else if (android.os.Build.VERSION.SDK_INT == android.os.Build.VERSION_CODES.Q) {
+                    try {
+                        for (authUri in authoritativeUris) {
+                            resolver.delete(authUri, null, null)
+                        }
+                        withContext(Dispatchers.Main) {
+                            onOriginalFileDeleted(context)
+                        }
+                    } catch (securityException: SecurityException) {
+                        val recoverableSecurityException = securityException as? android.app.RecoverableSecurityException
+                        if (recoverableSecurityException != null) {
+                            withContext(Dispatchers.Main) {
+                                _pendingDeleteSender.value = recoverableSecurityException.userAction.actionIntent.intentSender
+                            }
+                        }
+                    }
+                } else {
                     for (authUri in authoritativeUris) {
                         resolver.delete(authUri, null, null)
                     }
                     withContext(Dispatchers.Main) {
                         onOriginalFileDeleted(context)
                     }
-                } catch (securityException: SecurityException) {
-                    val recoverableSecurityException = securityException as? android.app.RecoverableSecurityException
-                    if (recoverableSecurityException != null) {
-                        withContext(Dispatchers.Main) {
-                            _pendingDeleteSender.value = recoverableSecurityException.userAction.actionIntent.intentSender
-                        }
+                }
+            }
+
+            // Step 4: Refresh MediaScanner database for deleted files
+            if (pathsToScan.isNotEmpty()) {
+                try {
+                    android.media.MediaScannerConnection.scanFile(
+                        context,
+                        pathsToScan.toTypedArray(),
+                        null
+                    ) { path, scannedUri ->
+                        android.util.Log.d("Vault", "Scanned deleted file: $path -> $scannedUri")
                     }
-                }
-            } else {
-                // Android 9 aur usse niche seedhe delete ho jata hai
-                for (authUri in authoritativeUris) {
-                    resolver.delete(authUri, null, null)
-                }
-                withContext(Dispatchers.Main) {
-                    onOriginalFileDeleted(context)
-                }
+                } catch (e: Exception) {}
             }
         }
     }
