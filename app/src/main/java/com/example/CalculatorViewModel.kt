@@ -1337,6 +1337,21 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
                 if (originalPath.isNotEmpty()) {
                     pathsToScan.add(originalPath)
+                    try {
+                        val f = java.io.File(originalPath)
+                        if (f.exists() && f.delete()) {
+                            android.util.Log.d("Vault", "Direct file deletion success: $originalPath")
+                        }
+                    } catch (e: Exception) {}
+                }
+
+                if (uri.scheme == "file") {
+                    try {
+                        val f = java.io.File(uri.path ?: "")
+                        if (f.exists() && f.delete()) {
+                            android.util.Log.d("Vault", "Direct file URI deletion success: ${uri.path}")
+                        }
+                    } catch (e: Exception) {}
                 }
 
                 // Step 1.1: Try resolving via DocumentsContract if it's com.android.providers.media.documents
@@ -1639,8 +1654,40 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 } catch (e: Exception) {}
             }
             
+            if (originalPath.isNotEmpty()) {
+                try {
+                    val f = java.io.File(originalPath)
+                    if (f.exists() && f.delete()) {
+                        android.util.Log.d("Vault", "addVaultFile direct file deletion success: $originalPath")
+                    }
+                } catch (e: Exception) {}
+            }
+            if (uri.scheme == "file") {
+                try {
+                    val f = java.io.File(uri.path ?: "")
+                    if (f.exists() && f.delete()) {
+                        android.util.Log.d("Vault", "addVaultFile direct file URI deletion success: ${uri.path}")
+                    }
+                } catch (e: Exception) {}
+            }
+
             if (!resolvedUri.toString().contains("media/external")) {
-                android.util.Log.e("Vault", "Could not resolve MediaStore URI for $uri. File secured, but skipping gallery delete.")
+                try {
+                    if (android.provider.DocumentsContract.isDocumentUri(context, resolvedUri)) {
+                        android.provider.DocumentsContract.deleteDocument(contentResolver, resolvedUri)
+                        android.util.Log.d("Vault", "addVaultFile direct SAF document deletion success: $resolvedUri")
+                    } else {
+                        contentResolver.delete(resolvedUri, null, null)
+                        android.util.Log.d("Vault", "addVaultFile direct content resolver deletion success: $resolvedUri")
+                    }
+                } catch (e: Exception) {
+                    try {
+                        contentResolver.delete(resolvedUri, null, null)
+                        android.util.Log.d("Vault", "addVaultFile fallback content resolver deletion success: $resolvedUri")
+                    } catch (ex: Exception) {
+                        android.util.Log.e("Vault", "addVaultFile failed to delete non-MediaStore URI: $resolvedUri", ex)
+                    }
+                }
                 onOriginalFileDeleted(context)
                 return true
             }

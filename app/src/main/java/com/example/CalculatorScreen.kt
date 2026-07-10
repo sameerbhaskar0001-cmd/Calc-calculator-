@@ -1696,7 +1696,7 @@ fun VaultTabUnlockedContent(
         // Photo/Video Picker launcher
         val coroutineScope = rememberCoroutineScope()
         val photoPickerLauncher = rememberLauncherForActivityResult(
-            contract = androidx.activity.result.contract.ActivityResultContracts.GetMultipleContents(),
+            contract = androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments(),
             onResult = { uris ->
                 viewModel.isPickingFile = false
                 if (uris.isNotEmpty()) {
@@ -1717,6 +1717,9 @@ fun VaultTabUnlockedContent(
                         }
                         isImporting = false
                         if (successCount > 0) {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                viewModel.onOriginalFileDeleted(context)
+                            }
                             viewModel.batchDeleteOriginalFiles(context, uris)
                             importSuccessCount = successCount
                             showImportSuccess = true
@@ -1729,7 +1732,7 @@ fun VaultTabUnlockedContent(
         )
         // Document/General File Picker launcher
         val documentPickerLauncher = rememberLauncherForActivityResult(
-            contract = androidx.activity.result.contract.ActivityResultContracts.GetMultipleContents(),
+            contract = androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments(),
             onResult = { uris ->
                 viewModel.isPickingFile = false
                 if (uris.isNotEmpty()) {
@@ -1765,7 +1768,7 @@ fun VaultTabUnlockedContent(
         )
         // Audio File Picker launcher
         val audioPickerLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent(),
+            contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
             onResult = { uri ->
                 viewModel.isPickingFile = false
                 if (uri != null) {
@@ -1805,46 +1808,77 @@ fun VaultTabUnlockedContent(
             var lastX = 0f
             var lastY = 0f
             var lastZ = 0f
+            var faceDownStartTime = 0L
             val listener = object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent) {
                     val curTime = System.currentTimeMillis()
                     val x = event.values[0]
                     val y = event.values[1]
                     val z = event.values[2]
+                    
                     // 1. Screen Down Lock detection (Z-axis negative gravity)
-                    if (screenDownLock && z < -8.5f) {
-                        viewModel.triggerKeypressEffects(context)
-                        viewModel.lockVault()
-                        Toast.makeText(context, "Vault locked: Face down detected!", Toast.LENGTH_SHORT).show()
-                        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
-                            addCategory(Intent.CATEGORY_HOME)
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        }
-                        context.startActivity(homeIntent)
-                        return
-                    }
-                    // 2. Shake detection
-                    if (panicEnabled && (curTime - lastUpdate) > 150) {
-                        val diffTime = (curTime - lastUpdate)
-                        lastUpdate = curTime
-                        val speed = Math.abs(x + y + z - lastX - lastY - lastZ) / diffTime * 10000
-                        if (speed > 1000) { // Shake detected
-                            viewModel.triggerKeypressEffects(context)
-                            viewModel.lockVault()
-                            if (panicAction == "lock") {
-                                Toast.makeText(context, "Vault locked via shake gesture!", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "Emergency lock initiated!", Toast.LENGTH_SHORT).show()
+                    // Must be held consistently face down for 1.0 second to avoid false positive triggers from typing vibration
+                    if (screenDownLock) {
+                        if (z < -8.5f) {
+                            if (faceDownStartTime == 0L) {
+                                faceDownStartTime = curTime
+                            } else if (curTime - faceDownStartTime >= 1000L) {
+                                viewModel.triggerKeypressEffects(context)
+                                viewModel.lockVault()
+                                Toast.makeText(context, "Vault locked: Face down detected!", Toast.LENGTH_SHORT).show()
                                 val homeIntent = Intent(Intent.ACTION_MAIN).apply {
                                     addCategory(Intent.CATEGORY_HOME)
                                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                 }
                                 context.startActivity(homeIntent)
+                                faceDownStartTime = 0L
+                                return
                             }
+                        } else {
+                            faceDownStartTime = 0L
                         }
-                        lastX = x
-                        lastY = y
-                        lastZ = z
+                    } else {
+                        faceDownStartTime = 0L
+                    }
+                    
+                    // 2. Shake detection
+                    // Uses precise Euclidean distance calculation for acceleration changes instead of coordinate summation,
+                    // with an intentional 15.0f threshold to ensure typing or picking up the device can never trigger it.
+                    if (panicEnabled) {
+                        if (lastUpdate == 0L) {
+                            lastUpdate = curTime
+                            lastX = x
+                            lastY = y
+                            lastZ = z
+                            return
+                        }
+                        val diffTime = curTime - lastUpdate
+                        if (diffTime > 150) {
+                            val deltaX = x - lastX
+                            val deltaY = y - lastY
+                            val deltaZ = z - lastZ
+                            val acceleration = Math.sqrt((deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ).toDouble()).toFloat()
+                            
+                            if (acceleration > 15.0f) { // Intentional shake
+                                viewModel.triggerKeypressEffects(context)
+                                viewModel.lockVault()
+                                if (panicAction == "lock") {
+                                    Toast.makeText(context, "Vault locked via shake gesture!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Emergency lock initiated!", Toast.LENGTH_SHORT).show()
+                                    val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                                        addCategory(Intent.ACTION_MAIN)
+                                        addCategory(Intent.CATEGORY_HOME)
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(homeIntent)
+                                }
+                            }
+                            lastUpdate = curTime
+                            lastX = x
+                            lastY = y
+                            lastZ = z
+                        }
                     }
                 }
                 override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}
@@ -2596,7 +2630,7 @@ fun VaultTabUnlockedContent(
                                 "Documents" -> showDocAddOptions = true
                                 "Music & Audio" -> {
                                     viewModel.isPickingFile = true
-                                    audioPickerLauncher.launch("audio/*")
+                                    audioPickerLauncher.launch(arrayOf("audio/*"))
                                 }
                             }
                         },
@@ -4787,7 +4821,7 @@ fun VaultTabUnlockedContent(
                                         // Title Input
                                         OutlinedTextField(
                                             value = editedNoteTitle,
-                                            onValueChange = { editedNoteTitle = it },
+                                            onValueChange = { editedNoteTitle = it; viewModel.updateLastInteraction() },
                                             placeholder = { Text("Title", fontSize = 22.sp, color = Color.White.copy(alpha = 0.4f), fontWeight = FontWeight.Bold) },
                                             textStyle = TextStyle(
                                                 fontSize = 22.sp,
@@ -4822,7 +4856,8 @@ fun VaultTabUnlockedContent(
                                             IconButton(
                                                 onClick = { 
                                                     viewModel.triggerKeypressEffects(context)
-                                                    editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<b>", "</b>") 
+                                                    editedNoteContentValue = toggleTag(editedNoteContentValue, "<b>", "</b>") 
+                                                    viewModel.updateLastInteraction()
                                                 },
                                                 modifier = Modifier.size(36.dp)
                                             ) {
@@ -4831,7 +4866,8 @@ fun VaultTabUnlockedContent(
                                             IconButton(
                                                 onClick = { 
                                                     viewModel.triggerKeypressEffects(context)
-                                                    editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<i>", "</i>") 
+                                                    editedNoteContentValue = toggleTag(editedNoteContentValue, "<i>", "</i>") 
+                                                    viewModel.updateLastInteraction()
                                                 },
                                                 modifier = Modifier.size(36.dp)
                                             ) {
@@ -4841,6 +4877,7 @@ fun VaultTabUnlockedContent(
                                                 onClick = { 
                                                     viewModel.triggerKeypressEffects(context)
                                                     editedNoteContentValue = toggleTag(editedNoteContentValue, "<u>", "</u>") 
+                                                    viewModel.updateLastInteraction()
                                                 },
                                                 modifier = Modifier.size(36.dp)
                                             ) {
@@ -4855,6 +4892,7 @@ fun VaultTabUnlockedContent(
                                                     showColorOptions = !showColorOptions
                                                     showBgColorOptions = false 
                                                     showFontOptions = false
+                                                    viewModel.updateLastInteraction()
                                                 },
                                                 modifier = Modifier
                                                     .size(36.dp)
@@ -4869,6 +4907,7 @@ fun VaultTabUnlockedContent(
                                                     showBgColorOptions = !showBgColorOptions
                                                     showColorOptions = false 
                                                     showFontOptions = false
+                                                    viewModel.updateLastInteraction()
                                                 },
                                                 modifier = Modifier
                                                     .size(36.dp)
@@ -4883,6 +4922,7 @@ fun VaultTabUnlockedContent(
                                                     showFontOptions = !showFontOptions
                                                     showColorOptions = false
                                                     showBgColorOptions = false
+                                                    viewModel.updateLastInteraction()
                                                 },
                                                 modifier = Modifier
                                                     .size(36.dp)
@@ -4897,6 +4937,7 @@ fun VaultTabUnlockedContent(
                                                 onClick = { 
                                                     viewModel.triggerKeypressEffects(context)
                                                     editedNoteContentValue = toggleLinePrefix(editedNoteContentValue, "• ") 
+                                                    viewModel.updateLastInteraction()
                                                 },
                                                 modifier = Modifier.size(36.dp)
                                             ) {
@@ -4907,6 +4948,7 @@ fun VaultTabUnlockedContent(
                                                 onClick = { 
                                                     viewModel.triggerKeypressEffects(context)
                                                     editedNoteContentValue = toggleLinePrefix(editedNoteContentValue, "1. ") 
+                                                    viewModel.updateLastInteraction()
                                                 },
                                                 modifier = Modifier.size(36.dp)
                                             ) {
@@ -4917,6 +4959,7 @@ fun VaultTabUnlockedContent(
                                                 onClick = { 
                                                     viewModel.triggerKeypressEffects(context)
                                                     editedNoteContentValue = toggleLinePrefix(editedNoteContentValue, "[ ] ") 
+                                                    viewModel.updateLastInteraction()
                                                 },
                                                 modifier = Modifier.size(36.dp)
                                             ) {
@@ -4951,7 +4994,7 @@ fun VaultTabUnlockedContent(
                                                             .border(1.5.dp, Color.White.copy(alpha = 0.4f), CircleShape)
                                                             .clickable {
                                                                 viewModel.triggerKeypressEffects(context)
-                                                                editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<color hex=\"$hex\">", "</color>")
+                                                                editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<color hex=\"$hex\">", "</color>"); viewModel.updateLastInteraction()
                                                                 showColorOptions = false
                                                             }
                                                     )
@@ -4987,7 +5030,7 @@ fun VaultTabUnlockedContent(
                                                             .clickable {
                                                                 viewModel.triggerKeypressEffects(context)
                                                                 if (hex != "#000000") {
-                                                                    editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<bg hex=\"$hex\">", "</bg>")
+                                                                    editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<bg hex=\"$hex\">", "</bg>"); viewModel.updateLastInteraction()
                                                                 }
                                                                 showBgColorOptions = false
                                                             }
@@ -5024,7 +5067,7 @@ fun VaultTabUnlockedContent(
                                                             .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
                                                             .clickable {
                                                                 viewModel.triggerKeypressEffects(context)
-                                                                editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<font face=\"$tag\">", "</font>")
+                                                                editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<font face=\"$tag\">", "</font>"); viewModel.updateLastInteraction()
                                                                 showFontOptions = false
                                                             }
                                                             .padding(horizontal = 10.dp, vertical = 4.dp)
@@ -5044,7 +5087,7 @@ fun VaultTabUnlockedContent(
                                         // Note Body Input with real-time visual transformation
                                         OutlinedTextField(
                                             value = editedNoteContentValue,
-                                            onValueChange = { editedNoteContentValue = it },
+                                            onValueChange = { editedNoteContentValue = it; viewModel.updateLastInteraction() },
                                             placeholder = { Text("Start typing your secret notes...", fontSize = 16.sp, color = Color.White.copy(alpha = 0.3f)) },
                                             textStyle = TextStyle(
                                                 fontSize = 16.sp,
@@ -5322,7 +5365,7 @@ fun VaultTabUnlockedContent(
                                 val isPhoto = activeSection == "Photos"
                                 viewModel.isPickingFile = true
                                 photoPickerLauncher.launch(
-                                    if (isPhoto) "image/*" else "video/*"
+                                    if (isPhoto) arrayOf("image/*") else arrayOf("video/*")
                                 )
                             }.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -5361,7 +5404,7 @@ fun VaultTabUnlockedContent(
                             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable {
                                 showDocAddOptions = false
                                 viewModel.isPickingFile = true
-                                documentPickerLauncher.launch("application/*")
+                                documentPickerLauncher.launch(arrayOf("*/*"))
                             }.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -5414,7 +5457,7 @@ fun VaultTabUnlockedContent(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = noteTitle,
-                        onValueChange = { noteTitle = it },
+                        onValueChange = { noteTitle = it; viewModel.updateLastInteraction() },
                         label = { Text("Title", fontSize = 12.sp) },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -5425,7 +5468,7 @@ fun VaultTabUnlockedContent(
                     )
                     OutlinedTextField(
                         value = noteContent,
-                        onValueChange = { noteContent = it },
+                        onValueChange = { noteContent = it; viewModel.updateLastInteraction() },
                         label = { Text("Secret Content", fontSize = 12.sp) },
                         minLines = 3,
                         maxLines = 5,
@@ -7198,39 +7241,39 @@ fun toggleTag(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): Te
     val end = normEnd.coerceIn(0, textLength)
 
     if (start == end) {
-        val lastOpen = if (start > 0) text.lastIndexOf(tagOpen, start - 1) else -1
+        val lastOpen = if (start > 0) text.lastIndexOf(tagOpen, (start - 1).coerceIn(0, textLength - 1)) else -1
         if (lastOpen != -1) {
-            val lastCloseBeforeOpen = if (start > 0) text.lastIndexOf(tagClose, start - 1) else -1
+            val lastCloseBeforeOpen = if (start > 0) text.lastIndexOf(tagClose, (start - 1).coerceIn(0, textLength - 1)) else -1
             if (lastCloseBeforeOpen < lastOpen) {
-                val nextClose = text.indexOf(tagClose, start)
-                val nextOpenBeforeClose = text.indexOf(tagOpen, start)
+                val nextClose = text.indexOf(tagClose, start.coerceIn(0, textLength))
+                val nextOpenBeforeClose = text.indexOf(tagOpen, start.coerceIn(0, textLength))
                 val hasNextClose = nextClose != -1 && (nextOpenBeforeClose == -1 || nextOpenBeforeClose > nextClose)
                 
                 if (hasNextClose) {
                     val openTagEnd = lastOpen + tagOpen.length
                     if (openTagEnd == start && nextClose == start) {
-                        val newText = text.substring(0, lastOpen) + text.substring(nextClose + tagClose.length)
+                        val newText = text.substring(0, lastOpen) + text.substring((nextClose + tagClose.length).coerceIn(0, textLength))
                         return safeTextFieldValue(newText, lastOpen)
                     }
                     if (nextClose == start) {
-                        return safeTextFieldValue(text, start + tagClose.length)
+                        return safeTextFieldValue(text, (start + tagClose.length).coerceIn(0, textLength))
                     } else {
                         val newText = text.substring(0, start) + tagClose + tagOpen + text.substring(start)
-                        return safeTextFieldValue(newText, start + tagClose.length)
+                        return safeTextFieldValue(newText, (start + tagClose.length).coerceIn(0, textLength))
                     }
                 } else {
                     val newText = text.substring(0, start) + tagClose + text.substring(start)
-                    return safeTextFieldValue(newText, start + tagClose.length)
+                    return safeTextFieldValue(newText, (start + tagClose.length).coerceIn(0, textLength))
                 }
             }
         }
         val newText = text.substring(0, start) + tagOpen + tagClose + text.substring(start)
-        return safeTextFieldValue(newText, start + tagOpen.length)
+        return safeTextFieldValue(newText, (start + tagOpen.length).coerceIn(0, textLength))
     } else {
         val selectedText = text.substring(start, end)
         if (selectedText.startsWith(tagOpen) && selectedText.endsWith(tagClose)) {
             val unwrapped = if (selectedText.length >= tagOpen.length + tagClose.length) {
-                selectedText.substring(tagOpen.length, selectedText.length - tagClose.length)
+                selectedText.substring(tagOpen.length, (selectedText.length - tagClose.length).coerceAtLeast(0))
             } else {
                 ""
             }
@@ -7238,10 +7281,10 @@ fun toggleTag(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): Te
             return safeTextFieldValue(newText, start, start + unwrapped.length)
         }
         if (start >= tagOpen.length && end + tagClose.length <= text.length) {
-            val potentialOpen = text.substring(start - tagOpen.length, start)
-            val potentialClose = text.substring(end, end + tagClose.length)
+            val potentialOpen = text.substring((start - tagOpen.length).coerceIn(0, textLength), start)
+            val potentialClose = text.substring(end, (end + tagClose.length).coerceIn(0, textLength))
             if (potentialOpen == tagOpen && potentialClose == tagClose) {
-                val newText = text.substring(0, start - tagOpen.length) + selectedText + text.substring(end + tagClose.length)
+                val newText = text.substring(0, (start - tagOpen.length).coerceIn(0, textLength)) + selectedText + text.substring((end + tagClose.length).coerceIn(0, textLength))
                 return safeTextFieldValue(newText, start - tagOpen.length, end - tagOpen.length)
             }
         }
@@ -7351,25 +7394,26 @@ class RichTextVisualTransformation(private val themePurple: Color) : VisualTrans
         )
         
         val activeStyles = mutableListOf<StyleInfo>()
-        val originalToTransformedMap = IntArray(n + 1)
+        val origToTrans = IntArray(n + 1)
+        val transToOrig = mutableListOf<Int>()
         
         var i = 0
-        var currentTransformedLength = 0
         var lineStartInTransformed = 0
         
         class LineStyle(val start: Int, val end: Int, val type: String)
         val lineStyles = mutableListOf<LineStyle>()
         
         while (i < n) {
+            origToTrans[i] = builder.length
             if (rawText[i] == '<') {
                 val closeIndex = rawText.indexOf('>', i)
                 if (closeIndex != -1) {
                     val tagContent = rawText.substring(i + 1, closeIndex).trim()
                     val isClosing = tagContent.startsWith("/")
                     val cleanTag = if (isClosing) tagContent.substring(1) else tagContent
+                    val tagName = cleanTag.substringBefore(" ").lowercase()
                     
                     if (isClosing) {
-                        val tagName = cleanTag.substringBefore(" ").lowercase()
                         val matchIndex = activeStyles.indexOfLast { it.type == tagName }
                         if (matchIndex != -1) {
                             val style = activeStyles[matchIndex]
@@ -7378,7 +7422,6 @@ class RichTextVisualTransformation(private val themePurple: Color) : VisualTrans
                             activeStyles.removeAt(matchIndex)
                         }
                     } else {
-                        val tagName = cleanTag.substringBefore(" ").lowercase()
                         var tagValue: String? = null
                         if (tagName == "color" || tagName == "bg") {
                             val hexMatch = Regex("""hex=["']?([^"'\s>]+)["']?""").find(cleanTag)
@@ -7395,7 +7438,7 @@ class RichTextVisualTransformation(private val themePurple: Color) : VisualTrans
                     }
                     
                     for (k in i..closeIndex) {
-                        originalToTransformedMap[k] = currentTransformedLength
+                        origToTrans[k] = builder.length
                     }
                     i = closeIndex + 1
                     continue
@@ -7414,20 +7457,19 @@ class RichTextVisualTransformation(private val themePurple: Color) : VisualTrans
                     lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "numbered"))
                 }
                 
-                originalToTransformedMap[i] = currentTransformedLength
+                transToOrig.add(i)
                 builder.append('\n')
-                currentTransformedLength++
-                lineStartInTransformed = currentTransformedLength
+                lineStartInTransformed = builder.length
                 i++
                 continue
             }
             
-            originalToTransformedMap[i] = currentTransformedLength
+            transToOrig.add(i)
             builder.append(rawText[i])
-            currentTransformedLength++
             i++
         }
-        originalToTransformedMap[n] = currentTransformedLength
+        origToTrans[n] = builder.length
+        transToOrig.add(n)
         
         val finalLineText = builder.toString().substring(lineStartInTransformed)
         if (finalLineText.startsWith("[x] ")) {
@@ -7469,37 +7511,15 @@ class RichTextVisualTransformation(private val themePurple: Color) : VisualTrans
         val transformedAnnotatedString = builder.toAnnotatedString()
         val transformedLength = transformedAnnotatedString.length
         
-        val transformedToOriginalMap = IntArray(transformedLength + 1)
-        var originalIdx = 0
-        for (transformedIdx in 0..transformedLength) {
-            while (originalIdx < n && originalToTransformedMap[originalIdx] < transformedIdx) {
-                originalIdx++
-            }
-            while (originalIdx < n && rawText[originalIdx] == '<') {
-                if (originalIdx + 1 < n && rawText[originalIdx + 1] == '/') {
-                    break
-                }
-                val closeIdx = rawText.indexOf('>', originalIdx)
-                if (closeIdx != -1) {
-                    originalIdx = closeIdx + 1
-                } else {
-                    break
-                }
-            }
-            val prevVal = if (transformedIdx > 0) transformedToOriginalMap[transformedIdx - 1] else 0
-            transformedToOriginalMap[transformedIdx] = maxOf(originalIdx, prevVal).coerceIn(0, n)
-        }
-        transformedToOriginalMap[transformedLength] = n
-        
         val offsetMapping = object : OffsetMapping {
             override fun originalToTransformed(offset: Int): Int {
                 val clamped = offset.coerceIn(0, n)
-                return originalToTransformedMap[clamped].coerceIn(0, transformedLength)
+                return origToTrans[clamped].coerceIn(0, transformedLength)
             }
             
             override fun transformedToOriginal(offset: Int): Int {
                 val clamped = offset.coerceIn(0, transformedLength)
-                return transformedToOriginalMap[clamped].coerceIn(0, n)
+                return transToOrig[clamped].coerceIn(0, n)
             }
         }
         
