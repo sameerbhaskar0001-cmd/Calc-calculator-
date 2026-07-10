@@ -1,5 +1,20 @@
 package com.example
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.material.icons.filled.FormatColorText
+import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.foundation.layout.wrapContentSize
 import android.content.Context
 import android.content.Intent
@@ -120,6 +135,9 @@ import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material3.Surface
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -1004,10 +1022,10 @@ fun GlassCalculatorKey(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.9f else 1.0f,
+        targetValue = if (isPressed) 0.95f else 1.0f,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMedium
         ),
         label = "button_scale"
     )
@@ -1016,18 +1034,38 @@ fun GlassCalculatorKey(
         animationSpec = androidx.compose.animation.core.tween(150),
         label = "glow_alpha"
     )
-    val bgColor = when {
+    val baseBgColor = when {
         isEquals -> Color(0xFFE3AB79) // Lighter beige/orange
         isUtility -> themeColors.keypadBg
         isOperator -> themeColors.keypadBg
         else -> themeColors.digitBg
     }
+    val bgColor = if (isPressed) {
+        when {
+            isEquals -> Color(0xFFEDC5A1) // Glowing warm orange/beige when pressed
+            isUtility -> baseBgColor.copy(alpha = 0.85f)
+            isOperator -> themePurple.copy(alpha = 0.25f) // Operator keys glow purple
+            else -> themePurple.copy(alpha = 0.15f) // Digit keys glow with a glass purple tint when pressed
+        }
+    } else {
+        baseBgColor
+    }
     
-    val contentColor = when {
+    val baseContentColor = when {
         isEquals -> Color.Black
         isUtility -> themePurple
         isOperator -> themePurple
         else -> themeColors.textDark
+    }
+    val contentColor = if (isPressed) {
+        when {
+            isEquals -> Color.Black
+            isUtility -> themePurple
+            isOperator -> Color.White // Operator text lights up white when pressed
+            else -> themePurple // Digit text turns glowing themePurple when pressed
+        }
+    } else {
+        baseContentColor
     }
     Box(
         modifier = modifier.fillMaxHeight(),
@@ -1547,17 +1585,22 @@ fun VaultTabLockedContent(
                                 val pinKeyInteractionSource = remember { MutableInteractionSource() }
                                 val isPinKeyPressed by pinKeyInteractionSource.collectIsPressedAsState()
                                 val pinKeyScale by animateFloatAsState(
-                                    targetValue = if (isPinKeyPressed) 0.92f else 1.0f,
+                                    targetValue = if (isPinKeyPressed) 0.95f else 1.0f,
                                     animationSpec = androidx.compose.animation.core.spring(
-                                        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
-                                        stiffness = androidx.compose.animation.core.Spring.StiffnessLow
+                                        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
+                                        stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
                                     ),
                                     label = "pin_key_scale"
                                 )
                                 val baseColor = if (isSpecial) Color(0xFF635BFF).copy(alpha = 0.2f) else Color(0xFF1B2031)
-                                val pressedColor = if (isSpecial) Color(0xFF635BFF).copy(alpha = 0.4f) else Color(0xFF242B42)
+                                val pressedColor = if (isSpecial) Color(0xFF635BFF).copy(alpha = 0.4f) else Color(0xFF635BFF).copy(alpha = 0.25f)
                                 val buttonColor = if (isPinKeyPressed) pressedColor else baseColor
-                                val contentColor = if (isSpecial) Color(0xFF8C84FF) else Color.White
+                                val baseContentColor = if (isSpecial) Color(0xFF8C84FF) else Color.White
+                                val contentColor = if (isPinKeyPressed) {
+                                    if (isSpecial) Color.White else Color(0xFF8C84FF)
+                                } else {
+                                    baseContentColor
+                                }
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
@@ -1570,7 +1613,10 @@ fun VaultTabLockedContent(
                                         .background(buttonColor)
                                         .clickable(
                                             interactionSource = pinKeyInteractionSource,
-                                            indication = null
+                                            indication = androidx.compose.material3.ripple(
+                                                bounded = true,
+                                                color = Color(0xFF635BFF).copy(alpha = 0.3f)
+                                            )
                                         ) {
                                             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                             viewModel.triggerKeypressEffects(context)
@@ -1622,6 +1668,8 @@ fun VaultTabUnlockedContent(
     var isEditingNote by remember { mutableStateOf(false) }
     var editedNoteTitle by remember { mutableStateOf("") }
     var editedNoteContent by remember { mutableStateOf("") }
+    var editedNoteContentValue by remember { mutableStateOf(TextFieldValue("")) }
+    var isNewDraftNote by remember { mutableStateOf(false) }
     
     var pendingUnlockAction by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
     var activeCameraMode by remember { mutableStateOf<String?>(null) } // null, "camera", "scanner"
@@ -2291,8 +2339,8 @@ fun VaultTabUnlockedContent(
                                         val latestNote = vaultNotes.firstOrNull()
                                         if (latestNote != null) {
                                             val parts = latestNote.split("|||")
-                                            val body = if (parts.size >= 4) parts[3] else ""
-                                            Text(body, color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(8.dp).fillMaxWidth(), lineHeight = 12.sp)
+                                            val body = if (parts.size >= 3) parts[2] else ""
+                                            Text(parseRichTextToAnnotatedString(body), color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(8.dp).fillMaxWidth(), lineHeight = 12.sp)
                                         } else {
                                             Column(
                                                 modifier = Modifier.fillMaxSize().padding(8.dp),
@@ -2524,7 +2572,12 @@ fun VaultTabUnlockedContent(
                         onNavigateBack = { activeSection = "__BACK__" },
                         onAddClick = { 
                             when (activeSection) {
-                                "Notes" -> showAddNoteDialog = true
+                                "Notes" -> {
+                                    val newNoteStr = viewModel.addVaultNote("Untitled Note", " ")
+                                    viewNoteToShow = newNoteStr
+                                    isEditingNote = true
+                                    isNewDraftNote = true
+                                }
                                 "Photos", "Videos" -> showMediaAddOptions = true
                                 "Documents" -> showDocAddOptions = true
                                 "Music & Audio" -> {
@@ -4504,220 +4557,629 @@ fun VaultTabUnlockedContent(
                 }
             )
         }
-        // 4. View Note Dialog
+        // 4. View/Edit Note Screen (Fullscreen Overlay with Premium Transition)
+        var lastNonNullNote by remember { mutableStateOf<String?>(null) }
         if (viewNoteToShow != null) {
-            val noteStr = viewNoteToShow!!
-            val parts = noteStr.split("|||")
-            if (parts.size == 3) {
-                val timestamp = parts[0]
-                val title = parts[1]
-                val body = parts[2]
-                
-                LaunchedEffect(viewNoteToShow) {
-                    editedNoteTitle = title
-                    editedNoteContent = body
-                    isEditingNote = false
-                }
-                
-                AlertDialog(
-                    onDismissRequest = { 
+            lastNonNullNote = viewNoteToShow
+        }
+        
+        AnimatedVisibility(
+            visible = viewNoteToShow != null,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(animationSpec = tween(300)),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(animationSpec = tween(300)),
+            modifier = Modifier.zIndex(100f)
+        ) {
+            val noteStr = lastNonNullNote
+            if (noteStr != null) {
+                val parts = noteStr.split("|||")
+                if (parts.size == 3) {
+                    val timestamp = parts[0]
+                    val title = parts[1]
+                    val body = parts[2]
+                    
+                    val noteId = remember(noteStr) { noteStr.split("|||").firstOrNull() ?: "" }
+                    LaunchedEffect(noteId) {
+                        editedNoteTitle = title
+                        editedNoteContentValue = TextFieldValue(
+                            text = body,
+                            selection = TextRange(body.length)
+                        )
+                    }
+                    
+                    LaunchedEffect(editedNoteTitle, editedNoteContentValue.text) {
+                        if (isEditingNote && (editedNoteTitle != title || editedNoteContentValue.text != body)) {
+                            delay(1000)
+                            viewModel.editVaultNote(noteStr, editedNoteTitle, editedNoteContentValue.text)
+                            val newNoteStr = "$timestamp|||$editedNoteTitle|||${editedNoteContentValue.text}"
+                            lastNonNullNote = newNoteStr
+                            viewNoteToShow = newNoteStr
+                        }
+                    }
+                    
+                    BackHandler(enabled = viewNoteToShow != null) {
+                        viewModel.triggerKeypressEffects(context)
+                        if (isEditingNote) {
+                            if (editedNoteTitle.isNotBlank() || editedNoteContentValue.text.isNotBlank()) {
+                                viewModel.editVaultNote(noteStr, editedNoteTitle, editedNoteContentValue.text)
+                            } else if (isNewDraftNote) {
+                                viewModel.deleteVaultNote(noteStr)
+                            }
+                        }
                         viewNoteToShow = null
                         isEditingNote = false
-                    },
-                    containerColor = BrandBg,
-                    shape = RoundedCornerShape(28.dp),
-                    modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(28.dp)),
-                    title = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        isNewDraftNote = false
+                    }
+                    
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = Color(0xFF070A14)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            Color(0xFF0C1020),
+                                            Color(0xFF05070E)
+                                        )
+                                    )
+                                )
                         ) {
-                            if (isEditingNote) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .statusBarsPadding()
+                            ) {
+                            // Header Row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                IconButton(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        if (isEditingNote) {
+                                            if (editedNoteTitle.isNotBlank() || editedNoteContentValue.text.isNotBlank()) {
+                                                viewModel.editVaultNote(noteStr, editedNoteTitle, editedNoteContentValue.text)
+                                            } else if (isNewDraftNote) {
+                                                viewModel.deleteVaultNote(noteStr)
+                                            }
+                                        }
+                                        viewNoteToShow = null
+                                        isEditingNote = false
+                                        isNewDraftNote = false
+                                    },
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(Color.White.copy(alpha = 0.04f), CircleShape)
+                                        .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowBack,
+                                        contentDescription = "Go Back & Save",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
                                 Text(
-                                    text = "Edit Note", 
-                                    fontWeight = FontWeight.ExtraBold, 
-                                    fontSize = 18.sp, 
-                                    color = Color.White
+                                    text = if (isEditingNote) "Editing Note" else "Secret Note",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    letterSpacing = 0.5.sp
                                 )
-                            } else {
-                                Text(
-                                    text = title, 
-                                    fontWeight = FontWeight.ExtraBold, 
-                                    fontSize = 18.sp, 
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
+
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    IconButton(
-                                        onClick = {
-                                            viewModel.triggerKeypressEffects(context)
-                                            isEditingNote = true
-                                        },
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Edit,
-                                            contentDescription = "Edit note",
-                                            tint = ThemePurple,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
                                     val isFav = viewModel.favoriteNotes.collectAsState().value.contains(noteStr)
                                     IconButton(
                                         onClick = {
                                             viewModel.triggerKeypressEffects(context)
                                             viewModel.toggleFavoriteNote(noteStr)
                                         },
-                                        modifier = Modifier.size(36.dp)
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(Color.White.copy(alpha = 0.04f), CircleShape)
+                                            .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
                                     ) {
                                         Icon(
                                             imageVector = if (isFav) Icons.Default.Star else Icons.Default.StarBorder,
-                                            contentDescription = "Toggle favorite",
+                                            contentDescription = "Favorite",
                                             tint = if (isFav) Color(0xFFFFD600) else Color.White.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
+
                                     val isPinned = viewModel.pinnedNotes.collectAsState().value.contains(noteStr)
                                     IconButton(
                                         onClick = {
                                             viewModel.triggerKeypressEffects(context)
                                             viewModel.togglePinnedNote(noteStr)
                                         },
-                                        modifier = Modifier.size(36.dp)
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(Color.White.copy(alpha = 0.04f), CircleShape)
+                                            .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.PushPin,
-                                            contentDescription = "Toggle pin",
+                                            contentDescription = "Pin",
                                             tint = if (isPinned) ThemePurple else Color.White.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.triggerKeypressEffects(context)
+                                            viewModel.deleteVaultNote(noteStr)
+                                            viewNoteToShow = null
+                                            isEditingNote = false
+                                            isNewDraftNote = false
+                                        },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(Color.White.copy(alpha = 0.04f), CircleShape)
+                                            .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete Note",
+                                            tint = Color(0xFFEF4444).copy(alpha = 0.8f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.triggerKeypressEffects(context)
+                                            if (isEditingNote) {
+                                                if (editedNoteTitle.isNotBlank() || editedNoteContentValue.text.isNotBlank()) {
+                                                    val newNoteStr = "$timestamp|||$editedNoteTitle|||${editedNoteContentValue.text}"
+                                                    viewModel.editVaultNote(noteStr, editedNoteTitle, editedNoteContentValue.text)
+                                                    viewNoteToShow = newNoteStr
+                                                    lastNonNullNote = newNoteStr
+                                                }
+                                                isEditingNote = false
+                                            } else {
+                                                isEditingNote = true
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(Color.White.copy(alpha = 0.04f), CircleShape)
+                                            .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isEditingNote) Icons.Default.Check else Icons.Default.Edit,
+                                            contentDescription = if (isEditingNote) "Done" else "Edit",
+                                            tint = ThemePurple,
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                 }
                             }
-                        }
-                    },
-                    text = {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+
+                            // Custom Divider
+                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+
+                            // Content Area
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                            ) {
+                                if (isEditingNote) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(16.dp),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        // Title Input
+                                        OutlinedTextField(
+                                            value = editedNoteTitle,
+                                            onValueChange = { editedNoteTitle = it },
+                                            placeholder = { Text("Title", fontSize = 22.sp, color = Color.White.copy(alpha = 0.4f), fontWeight = FontWeight.Bold) },
+                                            textStyle = TextStyle(
+                                                fontSize = 22.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            ),
+                                            singleLine = true,
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = Color.Transparent,
+                                                unfocusedBorderColor = Color.Transparent,
+                                                focusedContainerColor = Color.Transparent,
+                                                unfocusedContainerColor = Color.Transparent
+                                            ),
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+
+                                        // Rich Text Toolbar
+                                        var showColorOptions by remember { mutableStateOf(false) }
+                                        var showBgColorOptions by remember { mutableStateOf(false) }
+                                        var showFontOptions by remember { mutableStateOf(false) }
+
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .horizontalScroll(rememberScrollState())
+                                                .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(16.dp))
+                                                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            IconButton(
+                                                onClick = { 
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<b>", "</b>") 
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Text("B", fontWeight = FontWeight.ExtraBold, color = Color.White, fontSize = 16.sp)
+                                            }
+                                            IconButton(
+                                                onClick = { 
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<i>", "</i>") 
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Text("I", fontStyle = FontStyle.Italic, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                            IconButton(
+                                                onClick = { 
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<u>", "</u>") 
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Text("U", textDecoration = TextDecoration.Underline, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                            
+                                            Box(modifier = Modifier.width(1.dp).height(20.dp).background(Color.White.copy(alpha = 0.1f)))
+                                            
+                                            IconButton(
+                                                onClick = { 
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    showColorOptions = !showColorOptions
+                                                    showBgColorOptions = false 
+                                                    showFontOptions = false
+                                                },
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .background(if (showColorOptions) Color.White.copy(alpha = 0.08f) else Color.Transparent, RoundedCornerShape(8.dp))
+                                            ) {
+                                                Icon(Icons.Default.FormatColorText, contentDescription = "Text Color", tint = Color.White, modifier = Modifier.size(18.dp))
+                                            }
+                                            
+                                            IconButton(
+                                                onClick = { 
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    showBgColorOptions = !showBgColorOptions
+                                                    showColorOptions = false 
+                                                    showFontOptions = false
+                                                },
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .background(if (showBgColorOptions) Color.White.copy(alpha = 0.08f) else Color.Transparent, RoundedCornerShape(8.dp))
+                                            ) {
+                                                Icon(Icons.Default.Brush, contentDescription = "Highlight Color", tint = Color.White, modifier = Modifier.size(18.dp))
+                                            }
+                                            
+                                            IconButton(
+                                                onClick = { 
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    showFontOptions = !showFontOptions
+                                                    showColorOptions = false
+                                                    showBgColorOptions = false
+                                                },
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .background(if (showFontOptions) Color.White.copy(alpha = 0.08f) else Color.Transparent, RoundedCornerShape(8.dp))
+                                            ) {
+                                                Text("F", fontFamily = androidx.compose.ui.text.font.FontFamily.Serif, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                                            }
+                                            
+                                            Box(modifier = Modifier.width(1.dp).height(20.dp).background(Color.White.copy(alpha = 0.1f)))
+                                            
+                                            IconButton(
+                                                onClick = { 
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    editedNoteContentValue = toggleLinePrefix(editedNoteContentValue, "• ") 
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(Icons.Default.List, contentDescription = "Bullet List", tint = Color.White, modifier = Modifier.size(18.dp))
+                                            }
+                                            
+                                            IconButton(
+                                                onClick = { 
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    editedNoteContentValue = toggleLinePrefix(editedNoteContentValue, "1. ") 
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Text("1.", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                                            }
+                                            
+                                            IconButton(
+                                                onClick = { 
+                                                    viewModel.triggerKeypressEffects(context)
+                                                    editedNoteContentValue = toggleLinePrefix(editedNoteContentValue, "[ ] ") 
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(Icons.Default.CheckBox, contentDescription = "Checklist", tint = Color.White, modifier = Modifier.size(18.dp))
+                                            }
+                                        }
+
+                                        AnimatedVisibility(visible = showColorOptions) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(12.dp))
+                                                    .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                                                    .padding(10.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("Text Color:", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
+                                                val textColors = listOf(
+                                                    "#FF6B6B" to Color(0xFFFF6B6B),
+                                                    "#51CF66" to Color(0xFF51CF66),
+                                                    "#339AF0" to Color(0xFF339AF0),
+                                                    "#CC5DE8" to Color(0xFFCC5DE8),
+                                                    "#FFFFFF" to Color(0xFFFFFFFF)
+                                                )
+                                                textColors.forEach { (hex, color) ->
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(26.dp)
+                                                            .clip(CircleShape)
+                                                            .background(color)
+                                                            .border(1.5.dp, Color.White.copy(alpha = 0.4f), CircleShape)
+                                                            .clickable {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<color hex=\"$hex\">", "</color>")
+                                                                showColorOptions = false
+                                                            }
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        AnimatedVisibility(visible = showBgColorOptions) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(12.dp))
+                                                    .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                                                    .padding(10.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("Highlight:", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
+                                                val bgColors = listOf(
+                                                    "#FFF3BF" to Color(0xFFFFF3BF),
+                                                    "#FFE8CC" to Color(0xFFFFE8CC),
+                                                    "#E2F0D9" to Color(0xFFE2F0D9),
+                                                    "#E8EAFF" to Color(0xFFE8EAFF),
+                                                    "#000000" to Color.Transparent
+                                                )
+                                                bgColors.forEach { (hex, color) ->
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(26.dp)
+                                                            .clip(CircleShape)
+                                                            .background(if (color == Color.Transparent) Color.White.copy(alpha = 0.15f) else color)
+                                                            .border(1.5.dp, Color.White.copy(alpha = 0.4f), CircleShape)
+                                                            .clickable {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                if (hex != "#000000") {
+                                                                    editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<bg hex=\"$hex\">", "</bg>")
+                                                                }
+                                                                showBgColorOptions = false
+                                                            }
+                                                    ) {
+                                                        if (color == Color.Transparent) {
+                                                            Icon(Icons.Default.Clear, contentDescription = "Clear Highlight", tint = Color.White, modifier = Modifier.size(12.dp).align(Alignment.Center))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        AnimatedVisibility(visible = showFontOptions) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(12.dp))
+                                                    .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                                                    .padding(10.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("Font style:", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
+                                                val fontOptions = listOf(
+                                                    "Serif" to "serif",
+                                                    "Monospace" to "monospace",
+                                                    "Cursive" to "cursive",
+                                                    "Sans-Serif" to "sans-serif"
+                                                )
+                                                fontOptions.forEach { (name, tag) ->
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(Color.White.copy(alpha = 0.06f), RoundedCornerShape(8.dp))
+                                                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                                            .clickable {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<font face=\"$tag\">", "</font>")
+                                                                showFontOptions = false
+                                                            }
+                                                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                                                    ) {
+                                                        val previewFont = when (tag) {
+                                                            "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
+                                                            "monospace" -> androidx.compose.ui.text.font.FontFamily.Monospace
+                                                            "cursive" -> androidx.compose.ui.text.font.FontFamily.Cursive
+                                                            else -> androidx.compose.ui.text.font.FontFamily.SansSerif
+                                                        }
+                                                        Text(name, fontFamily = previewFont, color = Color.White, fontSize = 13.sp)
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Note Body Input with real-time visual transformation
+                                        OutlinedTextField(
+                                            value = editedNoteContentValue,
+                                            onValueChange = { editedNoteContentValue = it },
+                                            placeholder = { Text("Start typing your secret notes...", fontSize = 16.sp, color = Color.White.copy(alpha = 0.3f)) },
+                                            textStyle = TextStyle(
+                                                fontSize = 16.sp,
+                                                color = Color.White,
+                                                lineHeight = 26.sp
+                                            ),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = Color.Transparent,
+                                                unfocusedBorderColor = Color.Transparent,
+                                                focusedContainerColor = Color.Transparent,
+                                                unfocusedContainerColor = Color.Transparent
+                                            ),
+                                            visualTransformation = RichTextVisualTransformation(ThemePurple),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxWidth()
+                                                .verticalScroll(rememberScrollState())
+                                        )
+                                    }
+                                } else {
+                                    // Read-only view mode
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .verticalScroll(rememberScrollState())
+                                            .padding(24.dp),
+                                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        Text(
+                                            text = title,
+                                            fontSize = 26.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color.White,
+                                            lineHeight = 34.sp,
+                                            letterSpacing = (-0.5).sp
+                                        )
+
+                                        Text(
+                                            text = "Last updated: $timestamp",
+                                            fontSize = 12.sp,
+                                            color = Color.White.copy(alpha = 0.4f),
+                                            fontWeight = FontWeight.Medium
+                                        )
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+
+                                        RenderNoteContent(
+                                            content = body,
+                                            themePurple = ThemePurple,
+                                            onToggleChecklist = { lineIndex, checked ->
+                                                viewModel.triggerKeypressEffects(context)
+                                                val lines = body.split("\n").toMutableList()
+                                                if (lines.size > lineIndex) {
+                                                    val currentLine = lines[lineIndex]
+                                                    if (checked) {
+                                                        lines[lineIndex] = currentLine.replaceFirst("[ ] ", "[x] ")
+                                                    } else {
+                                                        lines[lineIndex] = currentLine.replaceFirst("[x] ", "[ ] ")
+                                                    }
+                                                    val newBody = lines.joinToString("\n")
+                                                    val newNoteStr = "$timestamp|||$title|||$newBody"
+                                                    viewModel.editVaultNote(noteStr, title, newBody)
+                                                    viewNoteToShow = newNoteStr
+                                                    lastNonNullNote = newNoteStr
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Auto save / actions bar at bottom in editing mode with premium dark footer
                             if (isEditingNote) {
-                                OutlinedTextField(
-                                    value = editedNoteTitle,
-                                    onValueChange = { editedNoteTitle = it },
-                                    label = { Text("Title", fontSize = 12.sp) },
-                                    singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        focusedBorderColor = ThemePurple,
-                                        unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                                        focusedLabelColor = ThemePurple,
-                                        unfocusedLabelColor = Color.White.copy(alpha = 0.5f)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                OutlinedTextField(
-                                    value = editedNoteContent,
-                                    onValueChange = { editedNoteContent = it },
-                                    label = { Text("Note content", fontSize = 12.sp) },
-                                    minLines = 4,
-                                    maxLines = 8,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        focusedBorderColor = ThemePurple,
-                                        unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                                        focusedLabelColor = ThemePurple,
-                                        unfocusedLabelColor = Color.White.copy(alpha = 0.5f)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-                                )
-                            } else {
-                                Column(
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .heightIn(max = 260.dp)
-                                        .verticalScroll(rememberScrollState())
+                                        .background(Color.White.copy(alpha = 0.015f))
+                                        .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.05f)), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                                        .padding(horizontal = 24.dp, vertical = 16.dp)
                                 ) {
-                                    Text(
-                                        text = body, 
-                                        fontSize = 14.sp, 
-                                        color = Color(0xFFF1F5F9), 
-                                        lineHeight = 22.sp,
-                                        fontWeight = FontWeight.Normal
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Last updated: $timestamp", 
-                                    fontSize = 11.sp, 
-                                    color = TextMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        if (isEditingNote) {
-                            Button(
-                                onClick = {
-                                    viewModel.triggerKeypressEffects(context)
-                                    if (editedNoteTitle.isNotBlank() && editedNoteContent.isNotBlank()) {
-                                        viewModel.editVaultNote(noteStr, editedNoteTitle, editedNoteContent)
-                                        viewNoteToShow = null
-                                        isEditingNote = false
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .clip(CircleShape)
+                                                    .background(ThemePurple)
+                                            )
+                                            Text(
+                                                text = "Auto-saved locally",
+                                                fontSize = 12.sp,
+                                                color = Color.White.copy(alpha = 0.4f),
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                        
+                                        Button(
+                                            onClick = {
+                                                viewModel.triggerKeypressEffects(context)
+                                                if (editedNoteTitle.isNotBlank() || editedNoteContentValue.text.isNotBlank()) {
+                                                    val newNoteStr = "$timestamp|||$editedNoteTitle|||${editedNoteContentValue.text}"
+                                                    viewModel.editVaultNote(noteStr, editedNoteTitle, editedNoteContentValue.text)
+                                                    viewNoteToShow = null
+                                                    lastNonNullNote = newNoteStr
+                                                } else {
+                                                    viewNoteToShow = null
+                                                }
+                                                isEditingNote = false
+                                                isNewDraftNote = false
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                                            shape = RoundedCornerShape(16.dp),
+                                            modifier = Modifier.height(44.dp)
+                                        ) {
+                                            Text(
+                                                "Save & Close",
+                                                color = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            )
+                                        }
                                     }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("Save", color = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White, fontWeight = FontWeight.Bold)
-                            }
-                        } else {
-                            Button(
-                                onClick = {
-                                    viewModel.triggerKeypressEffects(context)
-                                    viewNoteToShow = null
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("Close", color = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    },
-                    dismissButton = {
-                        if (isEditingNote) {
-                            TextButton(
-                                onClick = {
-                                    viewModel.triggerKeypressEffects(context)
-                                    isEditingNote = false
                                 }
-                            ) {
-                                Text("Cancel", color = ThemePurple, fontWeight = FontWeight.Bold)
-                            }
-                        } else {
-                            TextButton(
-                                onClick = {
-                                    viewModel.triggerKeypressEffects(context)
-                                    viewModel.deleteVaultNote(noteStr)
-                                    viewNoteToShow = null
-                                }
-                            ) {
-                                Text("Delete", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
                             }
                         }
                     }
-                )
+                }
             }
+        }
         }
         
         if (activeSection in listOf("Home", "Private Browser", "More")) {
@@ -6446,8 +6908,8 @@ fun UnifiedGlassCard(
                     drawCircle(
                         brush = androidx.compose.ui.graphics.Brush.radialGradient(
                             colors = listOf(
-                                Color.White.copy(alpha = 0.25f * glowAlpha),
-                                Color.White.copy(alpha = 0.05f * glowAlpha),
+                                Color.White.copy(alpha = 0.12f * glowAlpha),
+                                Color.White.copy(alpha = 0.02f * glowAlpha),
                                 Color.Transparent
                             ),
                             center = center,
@@ -6472,7 +6934,7 @@ fun UnifiedGlassCard(
                     drawRect(
                         brush = androidx.compose.ui.graphics.Brush.radialGradient(
                             colors = listOf(
-                                Color.White.copy(alpha = 0.2f * glowAlpha),
+                                Color.White.copy(alpha = 0.10f * glowAlpha),
                                 Color.Transparent
                             ),
                             center = center,
@@ -6504,7 +6966,10 @@ fun UnifiedGlassCard(
             .then(
                 if (onClick != null) Modifier.clickable(
                     interactionSource = interactionSource,
-                    indication = null,
+                    indication = androidx.compose.material3.ripple(
+                        bounded = true,
+                        color = ThemePurple.copy(alpha = 0.3f)
+                    ),
                     onClick = onClick
                 ) else Modifier
             ),
@@ -6591,6 +7056,470 @@ fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.gr
                 contentAlignment = Alignment.Center
             ) {
                 previewContent()
+            }
+        }
+    }
+}
+
+fun parseRichTextToAnnotatedString(text: String): AnnotatedString {
+    val builder = AnnotatedString.Builder()
+    var i = 0
+    val n = text.length
+    
+    class StyleInfo(
+        val type: String,
+        val value: String?,
+        val start: Int
+    )
+    
+    val activeStyles = mutableListOf<StyleInfo>()
+    
+    while (i < n) {
+        if (text[i] == '<') {
+            val closeIndex = text.indexOf('>', i)
+            if (closeIndex != -1) {
+                val tagContent = text.substring(i + 1, closeIndex).trim()
+                val isClosing = tagContent.startsWith("/")
+                val cleanTag = if (isClosing) tagContent.substring(1) else tagContent
+                
+                if (isClosing) {
+                    val tagName = cleanTag.substringBefore(" ").lowercase()
+                    val matchIndex = activeStyles.indexOfLast { it.type == tagName }
+                    if (matchIndex != -1) {
+                        val style = activeStyles[matchIndex]
+                        val end = builder.length
+                        applyStyleRange(builder, style.type, style.value, style.start, end)
+                        activeStyles.removeAt(matchIndex)
+                    }
+                } else {
+                    val tagName = cleanTag.substringBefore(" ").lowercase()
+                    var tagValue: String? = null
+                    if (tagName == "color" || tagName == "bg") {
+                        val hexMatch = Regex("""hex=["']?([^"'\s>]+)["']?""").find(cleanTag)
+                        if (hexMatch != null) {
+                            tagValue = hexMatch.groupValues[1]
+                        }
+                    } else if (tagName == "font") {
+                        val faceMatch = Regex("""face=["']?([^"'\s>]+)["']?""").find(cleanTag)
+                        if (faceMatch != null) {
+                            tagValue = faceMatch.groupValues[1]
+                        }
+                    }
+                    activeStyles.add(StyleInfo(tagName, tagValue, builder.length))
+                }
+                i = closeIndex + 1
+                continue
+            }
+        }
+        builder.append(text[i])
+        i++
+    }
+    
+    for (style in activeStyles.reversed()) {
+        val end = builder.length
+        applyStyleRange(builder, style.type, style.value, style.start, end)
+    }
+    
+    return builder.toAnnotatedString()
+}
+
+private fun applyStyleRange(builder: AnnotatedString.Builder, type: String, value: String?, start: Int, end: Int) {
+    if (start >= end) return
+    val style = when (type) {
+        "b" -> SpanStyle(fontWeight = FontWeight.Bold)
+        "i" -> SpanStyle(fontStyle = FontStyle.Italic)
+        "u" -> SpanStyle(textDecoration = TextDecoration.Underline)
+        "color" -> {
+            val color = try {
+                Color(android.graphics.Color.parseColor(value ?: "#FFFFFF"))
+            } catch (e: Exception) {
+                Color.White
+            }
+            SpanStyle(color = color)
+        }
+        "bg" -> {
+            val color = try {
+                Color(android.graphics.Color.parseColor(value ?: "#000000"))
+            } catch (e: Exception) {
+                Color.Transparent
+            }
+            SpanStyle(background = color)
+        }
+        "font" -> {
+            val fontFamily = when (value?.lowercase()) {
+                "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
+                "monospace" -> androidx.compose.ui.text.font.FontFamily.Monospace
+                "cursive" -> androidx.compose.ui.text.font.FontFamily.Cursive
+                "sans-serif" -> androidx.compose.ui.text.font.FontFamily.SansSerif
+                else -> androidx.compose.ui.text.font.FontFamily.Default
+            }
+            SpanStyle(fontFamily = fontFamily)
+        }
+        else -> null
+    }
+    if (style != null) {
+        builder.addStyle(style, start, end)
+    }
+}
+
+fun applyTagToSelection(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): TextFieldValue {
+    val text = fieldValue.text
+    val selection = fieldValue.selection
+    val start = selection.start
+    val end = selection.end
+    
+    val selectedText = text.substring(start, end)
+    val newText = text.substring(0, start) + tagOpen + selectedText + tagClose + text.substring(end)
+    
+    val newSelectionStart = start + tagOpen.length
+    val newSelectionEnd = newSelectionStart + selectedText.length
+    
+    return TextFieldValue(
+        text = newText,
+        selection = TextRange(newSelectionStart, newSelectionEnd)
+    )
+}
+
+fun toggleLinePrefix(fieldValue: TextFieldValue, prefix: String): TextFieldValue {
+    val text = fieldValue.text
+    val selection = fieldValue.selection
+    val cursor = selection.start
+    
+    val lineStart = text.lastIndexOf('\n', cursor - 1) + 1
+    
+    val newText: String
+    val newCursor: Int
+    if (text.startsWith(prefix, lineStart)) {
+        newText = text.substring(0, lineStart) + text.substring(lineStart + prefix.length)
+        newCursor = (cursor - prefix.length).coerceAtLeast(lineStart)
+    } else {
+        newText = text.substring(0, lineStart) + prefix + text.substring(lineStart)
+        newCursor = cursor + prefix.length
+    }
+    
+    return TextFieldValue(
+        text = newText,
+        selection = TextRange(newCursor)
+    )
+}
+
+class RichTextVisualTransformation(private val themePurple: Color) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val rawText = text.text
+        val n = rawText.length
+        
+        val builder = AnnotatedString.Builder()
+        
+        class StyleInfo(
+            val type: String,
+            val value: String?,
+            val start: Int
+        )
+        
+        val activeStyles = mutableListOf<StyleInfo>()
+        val originalToTransformedMap = IntArray(n + 1)
+        
+        var i = 0
+        var currentTransformedLength = 0
+        var lineStartInTransformed = 0
+        
+        class LineStyle(val start: Int, val end: Int, val type: String)
+        val lineStyles = mutableListOf<LineStyle>()
+        
+        while (i < n) {
+            if (rawText[i] == '<') {
+                val closeIndex = rawText.indexOf('>', i)
+                if (closeIndex != -1) {
+                    val tagContent = rawText.substring(i + 1, closeIndex).trim()
+                    val isClosing = tagContent.startsWith("/")
+                    val cleanTag = if (isClosing) tagContent.substring(1) else tagContent
+                    
+                    if (isClosing) {
+                        val tagName = cleanTag.substringBefore(" ").lowercase()
+                        val matchIndex = activeStyles.indexOfLast { it.type == tagName }
+                        if (matchIndex != -1) {
+                            val style = activeStyles[matchIndex]
+                            val end = builder.length
+                            applyStyleRangeLocal(builder, style.type, style.value, style.start, end)
+                            activeStyles.removeAt(matchIndex)
+                        }
+                    } else {
+                        val tagName = cleanTag.substringBefore(" ").lowercase()
+                        var tagValue: String? = null
+                        if (tagName == "color" || tagName == "bg") {
+                            val hexMatch = Regex("""hex=["']?([^"'\s>]+)["']?""").find(cleanTag)
+                            if (hexMatch != null) {
+                                tagValue = hexMatch.groupValues[1]
+                            }
+                        } else if (tagName == "font") {
+                            val faceMatch = Regex("""face=["']?([^"'\s>]+)["']?""").find(cleanTag)
+                            if (faceMatch != null) {
+                                tagValue = faceMatch.groupValues[1]
+                            }
+                        }
+                        activeStyles.add(StyleInfo(tagName, tagValue, builder.length))
+                    }
+                    
+                    for (k in i..closeIndex) {
+                        originalToTransformedMap[k] = currentTransformedLength
+                    }
+                    i = closeIndex + 1
+                    continue
+                }
+            }
+            
+            if (rawText[i] == '\n') {
+                val lineText = builder.toString().substring(lineStartInTransformed)
+                if (lineText.startsWith("[x] ")) {
+                    lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "completed_checklist"))
+                } else if (lineText.startsWith("[ ] ")) {
+                    lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "pending_checklist"))
+                } else if (lineText.startsWith("• ") || lineText.startsWith("- ")) {
+                    lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "bullet"))
+                } else if (lineText.matches(Regex("""^\d+\.\s.*"""))) {
+                    lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "numbered"))
+                }
+                
+                originalToTransformedMap[i] = currentTransformedLength
+                builder.append('\n')
+                currentTransformedLength++
+                lineStartInTransformed = currentTransformedLength
+                i++
+                continue
+            }
+            
+            originalToTransformedMap[i] = currentTransformedLength
+            builder.append(rawText[i])
+            currentTransformedLength++
+            i++
+        }
+        originalToTransformedMap[n] = currentTransformedLength
+        
+        val finalLineText = builder.toString().substring(lineStartInTransformed)
+        if (finalLineText.startsWith("[x] ")) {
+            lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "completed_checklist"))
+        } else if (finalLineText.startsWith("[ ] ")) {
+            lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "pending_checklist"))
+        } else if (finalLineText.startsWith("• ") || finalLineText.startsWith("- ")) {
+            lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "bullet"))
+        } else if (finalLineText.matches(Regex("""^\d+\.\s.*"""))) {
+            lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "numbered"))
+        }
+        
+        for (style in activeStyles.reversed()) {
+            val end = builder.length
+            applyStyleRangeLocal(builder, style.type, style.value, style.start, end)
+        }
+        
+        for (lineStyle in lineStyles) {
+            when (lineStyle.type) {
+                "completed_checklist" -> {
+                    builder.addStyle(SpanStyle(color = themePurple, fontWeight = FontWeight.Bold), lineStyle.start, lineStyle.start + 3)
+                    builder.addStyle(SpanStyle(textDecoration = TextDecoration.LineThrough, color = Color.White.copy(alpha = 0.4f)), lineStyle.start + 4, lineStyle.end)
+                }
+                "pending_checklist" -> {
+                    builder.addStyle(SpanStyle(color = Color.White.copy(alpha = 0.5f), fontWeight = FontWeight.Bold), lineStyle.start, lineStyle.start + 3)
+                }
+                "bullet" -> {
+                    builder.addStyle(SpanStyle(color = themePurple, fontWeight = FontWeight.Bold), lineStyle.start, lineStyle.start + 1)
+                }
+                "numbered" -> {
+                    val dotIdx = builder.toString().indexOf('.', lineStyle.start)
+                    if (dotIdx != -1 && dotIdx < lineStyle.end) {
+                        builder.addStyle(SpanStyle(color = themePurple, fontWeight = FontWeight.Bold), lineStyle.start, dotIdx + 1)
+                    }
+                }
+            }
+        }
+        
+        val transformedAnnotatedString = builder.toAnnotatedString()
+        val transformedLength = transformedAnnotatedString.length
+        
+        val transformedToOriginalMap = IntArray(transformedLength + 1)
+        var originalIdx = 0
+        for (transformedIdx in 0..transformedLength) {
+            while (originalIdx < n && originalToTransformedMap[originalIdx] < transformedIdx) {
+                originalIdx++
+            }
+            while (originalIdx < n && rawText[originalIdx] == '<') {
+                if (originalIdx + 1 < n && rawText[originalIdx + 1] == '/') {
+                    break
+                }
+                val closeIdx = rawText.indexOf('>', originalIdx)
+                if (closeIdx != -1) {
+                    originalIdx = closeIdx + 1
+                } else {
+                    break
+                }
+            }
+            transformedToOriginalMap[transformedIdx] = originalIdx
+        }
+        
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                val clamped = offset.coerceIn(0, n)
+                return originalToTransformedMap[clamped]
+            }
+            
+            override fun transformedToOriginal(offset: Int): Int {
+                val clamped = offset.coerceIn(0, transformedLength)
+                return transformedToOriginalMap[clamped]
+            }
+        }
+        
+        return TransformedText(transformedAnnotatedString, offsetMapping)
+    }
+    
+    private fun applyStyleRangeLocal(builder: AnnotatedString.Builder, type: String, value: String?, start: Int, end: Int) {
+        if (start >= end) return
+        val style = when (type) {
+            "b" -> SpanStyle(fontWeight = FontWeight.Bold)
+            "i" -> SpanStyle(fontStyle = FontStyle.Italic)
+            "u" -> SpanStyle(textDecoration = TextDecoration.Underline)
+            "color" -> {
+                val color = try {
+                    Color(android.graphics.Color.parseColor(value ?: "#FFFFFF"))
+                } catch (e: Exception) {
+                    Color.White
+                }
+                SpanStyle(color = color)
+            }
+            "bg" -> {
+                val color = try {
+                    Color(android.graphics.Color.parseColor(value ?: "#000000"))
+                } catch (e: Exception) {
+                    Color.Transparent
+                }
+                SpanStyle(background = color)
+            }
+            "font" -> {
+                val fontFamily = when (value?.lowercase()) {
+                    "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
+                    "monospace" -> androidx.compose.ui.text.font.FontFamily.Monospace
+                    "cursive" -> androidx.compose.ui.text.font.FontFamily.Cursive
+                    "sans-serif" -> androidx.compose.ui.text.font.FontFamily.SansSerif
+                    else -> androidx.compose.ui.text.font.FontFamily.Default
+                }
+                SpanStyle(fontFamily = fontFamily)
+            }
+            else -> null
+        }
+        if (style != null) {
+            builder.addStyle(style, start, end)
+        }
+    }
+}
+
+@Composable
+fun RenderNoteContent(
+    content: String,
+    themePurple: Color,
+    onToggleChecklist: (lineIndex: Int, checked: Boolean) -> Unit
+) {
+    val lines = content.split("\n")
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        lines.forEachIndexed { index, line ->
+            when {
+                line.startsWith("[ ] ") -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onToggleChecklist(index, true) }
+                            .padding(vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckBoxOutlineBlank,
+                            contentDescription = "Unchecked",
+                            tint = Color.White.copy(alpha = 0.6f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = parseRichTextToAnnotatedString(line.substring(4)),
+                            fontSize = 14.sp,
+                            color = Color(0xFFF1F5F9),
+                            lineHeight = 22.sp
+                        )
+                    }
+                }
+                line.startsWith("[x] ") -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onToggleChecklist(index, false) }
+                            .padding(vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckBox,
+                            contentDescription = "Checked",
+                            tint = themePurple,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = parseRichTextToAnnotatedString(line.substring(4)),
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.5f),
+                            lineHeight = 22.sp,
+                            textDecoration = TextDecoration.LineThrough
+                        )
+                    }
+                }
+                line.startsWith("• ") || line.startsWith("- ") -> {
+                    val cleanLine = line.substring(2)
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "•",
+                            fontSize = 14.sp,
+                            color = themePurple,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp)
+                        )
+                        Text(
+                            text = parseRichTextToAnnotatedString(cleanLine),
+                            fontSize = 14.sp,
+                            color = Color(0xFFF1F5F9),
+                            lineHeight = 22.sp
+                        )
+                    }
+                }
+                line.matches(Regex("""^\d+\.\s.*""")) -> {
+                    val dotIndex = line.indexOf(".")
+                    val numberStr = line.substring(0, dotIndex + 1)
+                    val cleanLine = line.substring(dotIndex + 2)
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = numberStr,
+                            fontSize = 14.sp,
+                            color = themePurple,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(end = 6.dp)
+                        )
+                        Text(
+                            text = parseRichTextToAnnotatedString(cleanLine),
+                            fontSize = 14.sp,
+                            color = Color(0xFFF1F5F9),
+                            lineHeight = 22.sp
+                        )
+                    }
+                }
+                else -> {
+                    Text(
+                        text = parseRichTextToAnnotatedString(line),
+                        fontSize = 14.sp,
+                        color = Color(0xFFF1F5F9),
+                        lineHeight = 22.sp,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                }
             }
         }
     }

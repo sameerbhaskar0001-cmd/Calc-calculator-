@@ -586,10 +586,14 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 if (effectId != -1) {
                     try {
                         val effect = android.os.VibrationEffect.createPredefined(effectId)
-                        val attributes = android.os.VibrationAttributes.Builder()
-                            .setUsage(android.os.VibrationAttributes.USAGE_TOUCH)
-                            .build()
-                        vibrator.vibrate(effect, attributes)
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                            val attributes = android.os.VibrationAttributes.Builder()
+                                .setUsage(android.os.VibrationAttributes.USAGE_TOUCH)
+                                .build()
+                            vibrator.vibrate(effect, attributes)
+                        } else {
+                            vibrator.vibrate(effect)
+                        }
                     } catch (e: Exception) {
                         // Fallback in case of custom OEM failure
                         val fallbackDuration = when (_hapticProfile.value) {
@@ -1210,7 +1214,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         prefs.edit().remove("intruder_attempts").apply()
     }
 
-    fun addVaultNote(title: String, content: String) {
+    fun addVaultNote(title: String, content: String): String {
         val timestamp = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(java.util.Date())
         val noteSerialized = "$timestamp|||$title|||$content"
         val updatedNotes = _vaultNotes.value + noteSerialized
@@ -1219,6 +1223,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         val isDecoy = _decoyActive.value
         val notesKey = if (isDecoy) "decoy_notes" else "vault_notes"
         prefs.edit().putStringSet(notesKey, updatedNotes.toSet()).apply()
+        return noteSerialized
     }
 
     fun editVaultNote(oldNoteSerialized: String, newTitle: String, newContent: String) {

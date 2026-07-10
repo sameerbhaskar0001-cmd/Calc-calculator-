@@ -166,7 +166,19 @@ fun VaultContentScreen(
             "Uncategorized" -> item.folder.isEmpty()
             else -> item.folder == selectedFolder
         }
-        val matchesSearch = if (searchQuery.isEmpty()) true else item.title.contains(searchQuery, ignoreCase = true)
+        val matchesSearch = if (searchQuery.isEmpty()) {
+            true
+        } else {
+            val matchesTitle = item.title.contains(searchQuery, ignoreCase = true)
+            val matchesBody = if (item.type == "note") {
+                val parts = item.rawString.split("|||")
+                val content = if (parts.size >= 3) parts[2].replace(Regex("<[^>]*>"), "") else ""
+                content.contains(searchQuery, ignoreCase = true)
+            } else {
+                false
+            }
+            matchesTitle || matchesBody
+        }
         matchesFolder && matchesSearch
     }.let { list ->
         when (sortOrder) {
@@ -924,29 +936,58 @@ fun VaultItemCard(
             }
             "note" -> {
                 val parts = item.rawString.split("|||")
-                val content = if (parts.size >= 3) parts[2] else ""
+                val rawContent = if (parts.size >= 3) parts[2] else ""
+                val cleanContent = rawContent.replace(Regex("<[^>]*>"), "")
+                val dateStr = parts[0].substringBefore(",") // e.g. "09 Jul 2026"
+                
                 Column(
                     modifier = Modifier.fillMaxSize().padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = item.title, 
-                        color = Color.White.copy(alpha = 0.95f), 
-                        fontSize = 14.sp, 
-                        fontWeight = FontWeight.Bold, 
-                        maxLines = 1, 
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (content.isNotEmpty()) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth().weight(1f, fill = false)
+                    ) {
                         Text(
-                            text = content, 
-                            color = Color.White.copy(alpha = 0.55f), 
-                            fontSize = 11.sp, 
-                            fontWeight = FontWeight.Normal, 
-                            maxLines = 4, 
-                            overflow = TextOverflow.Ellipsis,
-                            lineHeight = 15.sp
+                            text = item.title, 
+                            color = Color.White.copy(alpha = 0.95f), 
+                            fontSize = 14.sp, 
+                            fontWeight = FontWeight.Bold, 
+                            maxLines = 1, 
+                            overflow = TextOverflow.Ellipsis
                         )
+                        if (cleanContent.isNotBlank()) {
+                            Text(
+                                text = cleanContent, 
+                                color = Color.White.copy(alpha = 0.55f), 
+                                fontSize = 11.sp, 
+                                fontWeight = FontWeight.Normal, 
+                                maxLines = 3, 
+                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = dateStr,
+                            color = Color.White.copy(alpha = 0.45f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        if (item.isFav) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = "Favorite",
+                                tint = Color(0xFFFFD600),
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
                     }
                 }
             }
