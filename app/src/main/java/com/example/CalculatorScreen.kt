@@ -1707,6 +1707,12 @@ fun VaultTabUnlockedContent(
                         var successCount = 0
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                             for (uri in uris) {
+                                try {
+                                    val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                                    context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("Vault", "Failed to take persistable URI permission for $uri", e)
+                                }
                                 val success = viewModel.addVaultFile(context, uri, skipDelete = true)
                                 if (success) successCount++
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -1743,6 +1749,12 @@ fun VaultTabUnlockedContent(
                         var successCount = 0
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                             for (uri in uris) {
+                                try {
+                                    val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                                    context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("Vault", "Failed to take persistable URI permission for $uri", e)
+                                }
                                 val success = viewModel.addVaultFile(context, uri, skipDelete = true)
                                 if (success) successCount++
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -1772,6 +1784,12 @@ fun VaultTabUnlockedContent(
             onResult = { uri ->
                 viewModel.isPickingFile = false
                 if (uri != null) {
+                    try {
+                        val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                    } catch (e: Exception) {
+                        android.util.Log.e("Vault", "Failed to take persistable URI permission for $uri", e)
+                    }
                     val success = viewModel.addVaultFile(context, uri)
                     if (success) {
                         android.widget.Toast.makeText(context, "Audio secured in Vault!", android.widget.Toast.LENGTH_SHORT).show()

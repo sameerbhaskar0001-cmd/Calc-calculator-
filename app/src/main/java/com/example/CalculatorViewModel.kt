@@ -1290,6 +1290,50 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         return DecimalFormat("#,##0.#").format(size / Math.pow(1024.0, index.toDouble())) + " " + units[index]
     }
 
+    private fun checkDocumentSupportsDelete(context: Context, uri: Uri): Boolean {
+        if (!android.provider.DocumentsContract.isDocumentUri(context, uri)) {
+            return false
+        }
+        return try {
+            val cursor = context.contentResolver.query(
+                uri,
+                arrayOf(android.provider.DocumentsContract.Document.COLUMN_FLAGS),
+                null,
+                null,
+                null
+            )
+            var supportsDelete = false
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val flags = it.getInt(0)
+                    supportsDelete = (flags and android.provider.DocumentsContract.Document.FLAG_SUPPORTS_DELETE) != 0
+                }
+            }
+            supportsDelete
+        } catch (e: Exception) {
+            android.util.Log.e("Vault", "Error checking FLAG_SUPPORTS_DELETE for $uri", e)
+            false
+        }
+    }
+
+    private fun getFileName(context: Context, uri: Uri): String {
+        return try {
+            val cursor = context.contentResolver.query(uri, null, null, null, null)
+            var name = ""
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val nameIdx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (nameIdx != -1) {
+                        name = it.getString(nameIdx) ?: ""
+                    }
+                }
+            }
+            if (name.isNotEmpty()) name else uri.lastPathSegment ?: "unnamed_file"
+        } catch (e: Exception) {
+            uri.lastPathSegment ?: "unnamed_file"
+        }
+    }
+
     
     fun batchDeleteOriginalFiles(context: Context, uris: List<Uri>) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1432,21 +1476,55 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
             // Step 2: Handle SAF Document Uri direct deletion in background
             if (documentUrisToDelete.isNotEmpty()) {
+                val deletionFailedReasons = mutableListOf<String>()
                 for (docUri in documentUrisToDelete) {
                     try {
                         if (android.provider.DocumentsContract.isDocumentUri(context, docUri)) {
-                            android.provider.DocumentsContract.deleteDocument(resolver, docUri)
+                            // Verify FLAG_SUPPORTS_DELETE
+                            val supportsDelete = checkDocumentSupportsDelete(context, docUri)
+                            if (!supportsDelete) {
+                                val reason = "Document does not support deletion (FLAG_SUPPORTS_DELETE is not set)"
+                                android.util.Log.w("Vault", "Cannot delete $docUri: $reason")
+                                deletionFailedReasons.add("File ${getFileName(context, docUri)}: $reason")
+                                continue
+                            }
+
+                            val deleted = android.provider.DocumentsContract.deleteDocument(resolver, docUri)
+                            if (deleted) {
+                                android.util.Log.d("Vault", "batchDeleteOriginalFiles direct SAF document deletion success: $docUri")
+                            } else {
+                                val reason = "DocumentsContract.deleteDocument returned false"
+                                android.util.Log.e("Vault", "Failed to delete $docUri: $reason")
+                                deletionFailedReasons.add("File ${getFileName(context, docUri)}: $reason")
+                            }
                         } else {
-                            resolver.delete(docUri, null, null)
+                            val rows = resolver.delete(docUri, null, null)
+                            if (rows > 0) {
+                                android.util.Log.d("Vault", "batchDeleteOriginalFiles direct resolver deletion success: $docUri")
+                            } else {
+                                val reason = "resolver.delete returned 0 rows"
+                                android.util.Log.e("Vault", "Failed to delete $docUri: $reason")
+                                deletionFailedReasons.add("File ${getFileName(context, docUri)}: $reason")
+                            }
                         }
+                    } catch (se: SecurityException) {
+                        val reason = "SecurityException - No delete permission (Is persistable permission taken?): ${se.localizedMessage}"
+                        android.util.Log.e("Vault", "Permission denial deleting $docUri", se)
+                        deletionFailedReasons.add("File ${getFileName(context, docUri)}: $reason")
                     } catch (e: Exception) {
-                        try {
-                            resolver.delete(docUri, null, null)
-                        } catch (ex: Exception) {
-                            ex.printStackTrace()
-                        }
+                        val reason = "Exception: ${e.localizedMessage}"
+                        android.util.Log.e("Vault", "Failed to delete document $docUri", e)
+                        deletionFailedReasons.add("File ${getFileName(context, docUri)}: $reason")
                     }
                 }
+
+                if (deletionFailedReasons.isNotEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        val errorMessage = "Failed to delete original files from device storage:\n" + deletionFailedReasons.joinToString("\n")
+                        android.widget.Toast.makeText(context, errorMessage, android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+
                 withContext(Dispatchers.Main) {
                     onOriginalFileDeleted(context)
                 }
@@ -1674,18 +1752,48 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             if (!resolvedUri.toString().contains("media/external")) {
                 try {
                     if (android.provider.DocumentsContract.isDocumentUri(context, resolvedUri)) {
-                        android.provider.DocumentsContract.deleteDocument(contentResolver, resolvedUri)
-                        android.util.Log.d("Vault", "addVaultFile direct SAF document deletion success: $resolvedUri")
+                        val supportsDelete = checkDocumentSupportsDelete(context, resolvedUri)
+                        if (!supportsDelete) {
+                            val reason = "Document does not support deletion (FLAG_SUPPORTS_DELETE is not set)"
+                            android.util.Log.w("Vault", "Cannot delete $resolvedUri: $reason")
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                android.widget.Toast.makeText(context, "Could not delete original file:\n$reason", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        } else {
+                            val deleted = android.provider.DocumentsContract.deleteDocument(contentResolver, resolvedUri)
+                            if (deleted) {
+                                android.util.Log.d("Vault", "addVaultFile direct SAF document deletion success: $resolvedUri")
+                            } else {
+                                val reason = "DocumentsContract.deleteDocument returned false"
+                                android.util.Log.e("Vault", "Failed to delete $resolvedUri: $reason")
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    android.widget.Toast.makeText(context, "Could not delete original file:\n$reason", android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
                     } else {
-                        contentResolver.delete(resolvedUri, null, null)
-                        android.util.Log.d("Vault", "addVaultFile direct content resolver deletion success: $resolvedUri")
+                        val rows = contentResolver.delete(resolvedUri, null, null)
+                        if (rows > 0) {
+                            android.util.Log.d("Vault", "addVaultFile direct content resolver deletion success: $resolvedUri")
+                        } else {
+                            val reason = "contentResolver.delete returned 0 rows"
+                            android.util.Log.e("Vault", "Failed to delete $resolvedUri: $reason")
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                android.widget.Toast.makeText(context, "Could not delete original file:\n$reason", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                } catch (se: SecurityException) {
+                    val reason = "Permission denial - Is persistable permission taken?: ${se.localizedMessage}"
+                    android.util.Log.e("Vault", "Permission denial deleting non-MediaStore URI: $resolvedUri", se)
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        android.widget.Toast.makeText(context, "Could not delete original file:\n$reason", android.widget.Toast.LENGTH_LONG).show()
                     }
                 } catch (e: Exception) {
-                    try {
-                        contentResolver.delete(resolvedUri, null, null)
-                        android.util.Log.d("Vault", "addVaultFile fallback content resolver deletion success: $resolvedUri")
-                    } catch (ex: Exception) {
-                        android.util.Log.e("Vault", "addVaultFile failed to delete non-MediaStore URI: $resolvedUri", ex)
+                    val reason = "Exception: ${e.localizedMessage}"
+                    android.util.Log.e("Vault", "addVaultFile failed to delete non-MediaStore URI: $resolvedUri", e)
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        android.widget.Toast.makeText(context, "Could not delete original file:\n$reason", android.widget.Toast.LENGTH_LONG).show()
                     }
                 }
                 onOriginalFileDeleted(context)
