@@ -5000,23 +5000,6 @@ fun VaultTabUnlockedContent(
                                             IconButton(
                                                 onClick = { 
                                                     viewModel.triggerKeypressEffects(context)
-                                                    showFontOptions = !showFontOptions
-                                                    showColorOptions = false
-                                                    showBgColorOptions = false
-                                                    viewModel.updateLastInteraction()
-                                                },
-                                                modifier = Modifier
-                                                    .size(36.dp)
-                                                    .background(if (showFontOptions) Color.White.copy(alpha = 0.08f) else Color.Transparent, RoundedCornerShape(8.dp))
-                                            ) {
-                                                Text("F", fontFamily = androidx.compose.ui.text.font.FontFamily.Serif, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
-                                            }
-                                            
-                                            Box(modifier = Modifier.width(1.dp).height(20.dp).background(Color.White.copy(alpha = 0.1f)))
-                                            
-                                            IconButton(
-                                                onClick = { 
-                                                    viewModel.triggerKeypressEffects(context)
                                                     editedNoteContentValue = toggleLinePrefix(editedNoteContentValue, "• ") 
                                                     viewModel.updateLastInteraction()
                                                 },
@@ -7279,7 +7262,10 @@ fun applyStyleTagToSelection(fieldValue: TextFieldValue, tagName: String, attrNa
     val tagOpen = "<$tagName $attrName=\"$attrValue\">"
     val tagClose = "</$tagName>"
     
-    if (newStart == newEnd) return clearedValue
+    if (newStart == newEnd) {
+        val newText = clearedText.substring(0, newStart) + tagOpen + tagClose + clearedText.substring(newStart)
+        return safeTextFieldValue(newText, newStart + tagOpen.length)
+    }
     
     val newText = clearedText.substring(0, newStart) + tagOpen + selectedText + tagClose + clearedText.substring(newEnd)
     return safeTextFieldValue(newText, newStart + tagOpen.length, newStart + tagOpen.length + selectedText.length)
@@ -7334,19 +7320,19 @@ fun toggleTag(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): Te
                         return safeTextFieldValue(newText, lastOpen)
                     }
                     if (nextClose == start) {
-                        return safeTextFieldValue(text, (start + tagClose.length).coerceIn(0, textLength))
+                        return safeTextFieldValue(text, (start + tagClose.length))
                     } else {
                         val newText = text.substring(0, start) + tagClose + tagOpen + text.substring(start)
-                        return safeTextFieldValue(newText, (start + tagClose.length).coerceIn(0, textLength))
+                        return safeTextFieldValue(newText, (start + tagClose.length))
                     }
                 } else {
                     val newText = text.substring(0, start) + tagClose + text.substring(start)
-                    return safeTextFieldValue(newText, (start + tagClose.length).coerceIn(0, textLength))
+                    return safeTextFieldValue(newText, (start + tagClose.length))
                 }
             }
         }
         val newText = text.substring(0, start) + tagOpen + tagClose + text.substring(start)
-        return safeTextFieldValue(newText, (start + tagOpen.length).coerceIn(0, textLength))
+        return safeTextFieldValue(newText, (start + tagOpen.length))
     } else {
         val selectedText = text.substring(start, end)
         if (selectedText.startsWith(tagOpen) && selectedText.endsWith(tagClose)) {
@@ -7459,148 +7445,156 @@ class RichTextVisualTransformation(private val themePurple: Color) : VisualTrans
     }
 
     override fun filter(text: AnnotatedString): TransformedText {
-        val rawText = text.text
-        val n = rawText.length
-        
-        val builder = AnnotatedString.Builder()
-        
-        class StyleInfo(
-            val type: String,
-            val value: String?,
-            val start: Int
-        )
-        
-        val activeStyles = mutableListOf<StyleInfo>()
-        val origToTrans = IntArray(n + 1)
-        val transToOrig = mutableListOf<Int>()
-        
-        var i = 0
-        var lineStartInTransformed = 0
-        
-        class LineStyle(val start: Int, val end: Int, val type: String)
-        val lineStyles = mutableListOf<LineStyle>()
-        
-        while (i < n) {
-            origToTrans[i] = builder.length
-            if (rawText[i] == '<') {
-                val closeIndex = rawText.indexOf('>', i)
-                if (closeIndex != -1) {
-                    val tagContent = rawText.substring(i + 1, closeIndex).trim()
-                    val isClosing = tagContent.startsWith("/")
-                    val cleanTag = if (isClosing) tagContent.substring(1) else tagContent
-                    val tagName = cleanTag.substringBefore(" ").lowercase()
-                    
-                    if (isClosing) {
-                        val matchIndex = activeStyles.indexOfLast { it.type == tagName }
-                        if (matchIndex != -1) {
-                            val style = activeStyles[matchIndex]
-                            val end = builder.length
-                            applyStyleRangeLocal(builder, style.type, style.value, style.start, end)
-                            activeStyles.removeAt(matchIndex)
-                        }
-                    } else {
-                        var tagValue: String? = null
-                        if (tagName == "color" || tagName == "bg") {
-                            val hexMatch = Regex("""hex=["']?([^"'\s>]+)["']?""").find(cleanTag)
-                            if (hexMatch != null) {
-                                tagValue = hexMatch.groupValues[1]
+        try {
+                val rawText = text.text
+                val n = rawText.length
+                
+                val builder = AnnotatedString.Builder()
+                
+                class StyleInfo(
+                    val type: String,
+                    val value: String?,
+                    val start: Int
+                )
+                
+                val activeStyles = mutableListOf<StyleInfo>()
+                val origToTrans = IntArray(n + 1)
+                val transToOrig = mutableListOf<Int>()
+                
+                var i = 0
+                var lineStartInTransformed = 0
+                
+                class LineStyle(val start: Int, val end: Int, val type: String)
+                val lineStyles = mutableListOf<LineStyle>()
+                
+                while (i < n) {
+                    origToTrans[i] = builder.length
+                    if (rawText[i] == '<') {
+                        val closeIndex = rawText.indexOf('>', i)
+                        if (closeIndex != -1) {
+                            val tagContent = rawText.substring(i + 1, closeIndex).trim()
+                            val isClosing = tagContent.startsWith("/")
+                            val cleanTag = if (isClosing) tagContent.substring(1) else tagContent
+                            val tagName = cleanTag.substringBefore(" ").lowercase()
+                            
+                            if (isClosing) {
+                                val matchIndex = activeStyles.indexOfLast { it.type == tagName }
+                                if (matchIndex != -1) {
+                                    val style = activeStyles[matchIndex]
+                                    val end = builder.length
+                                    applyStyleRangeLocal(builder, style.type, style.value, style.start, end)
+                                    activeStyles.removeAt(matchIndex)
+                                }
+                            } else {
+                                var tagValue: String? = null
+                                if (tagName == "color" || tagName == "bg") {
+                                    val hexMatch = Regex("""hex=["']?([^"'\s>]+)["']?""").find(cleanTag)
+                                    if (hexMatch != null) {
+                                        tagValue = hexMatch.groupValues[1]
+                                    }
+                                } else if (tagName == "font") {
+                                    val faceMatch = Regex("""face=["']?([^"'\s>]+)["']?""").find(cleanTag)
+                                    if (faceMatch != null) {
+                                        tagValue = faceMatch.groupValues[1]
+                                    }
+                                }
+                                activeStyles.add(StyleInfo(tagName, tagValue, builder.length))
                             }
-                        } else if (tagName == "font") {
-                            val faceMatch = Regex("""face=["']?([^"'\s>]+)["']?""").find(cleanTag)
-                            if (faceMatch != null) {
-                                tagValue = faceMatch.groupValues[1]
+                            
+                            for (k in i..closeIndex) {
+                                origToTrans[k] = builder.length
                             }
+                            i = closeIndex + 1
+                            continue
                         }
-                        activeStyles.add(StyleInfo(tagName, tagValue, builder.length))
                     }
                     
-                    for (k in i..closeIndex) {
-                        origToTrans[k] = builder.length
+                    if (rawText[i] == '\n') {
+                        val lineText = builder.toString().substring(lineStartInTransformed)
+                        if (lineText.startsWith("[x] ")) {
+                            lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "completed_checklist"))
+                        } else if (lineText.startsWith("[ ] ")) {
+                            lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "pending_checklist"))
+                        } else if (lineText.startsWith("• ") || lineText.startsWith("- ")) {
+                            lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "bullet"))
+                        } else if (lineText.matches(Regex("""^\d+\.\s.*"""))) {
+                            lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "numbered"))
+                        }
+                        
+                        transToOrig.add(i)
+                        builder.append('\n')
+                        lineStartInTransformed = builder.length
+                        i++
+                        continue
                     }
-                    i = closeIndex + 1
-                    continue
+                    
+                    transToOrig.add(i)
+                    builder.append(rawText[i])
+                    i++
                 }
-            }
-            
-            if (rawText[i] == '\n') {
-                val lineText = builder.toString().substring(lineStartInTransformed)
-                if (lineText.startsWith("[x] ")) {
+                origToTrans[n] = builder.length
+                transToOrig.add(n)
+                
+                val finalLineText = builder.toString().substring(lineStartInTransformed)
+                if (finalLineText.startsWith("[x] ")) {
                     lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "completed_checklist"))
-                } else if (lineText.startsWith("[ ] ")) {
+                } else if (finalLineText.startsWith("[ ] ")) {
                     lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "pending_checklist"))
-                } else if (lineText.startsWith("• ") || lineText.startsWith("- ")) {
+                } else if (finalLineText.startsWith("• ") || finalLineText.startsWith("- ")) {
                     lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "bullet"))
-                } else if (lineText.matches(Regex("""^\d+\.\s.*"""))) {
+                } else if (finalLineText.matches(Regex("""^\d+\.\s.*"""))) {
                     lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "numbered"))
                 }
                 
-                transToOrig.add(i)
-                builder.append('\n')
-                lineStartInTransformed = builder.length
-                i++
-                continue
-            }
-            
-            transToOrig.add(i)
-            builder.append(rawText[i])
-            i++
-        }
-        origToTrans[n] = builder.length
-        transToOrig.add(n)
-        
-        val finalLineText = builder.toString().substring(lineStartInTransformed)
-        if (finalLineText.startsWith("[x] ")) {
-            lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "completed_checklist"))
-        } else if (finalLineText.startsWith("[ ] ")) {
-            lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "pending_checklist"))
-        } else if (finalLineText.startsWith("• ") || finalLineText.startsWith("- ")) {
-            lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "bullet"))
-        } else if (finalLineText.matches(Regex("""^\d+\.\s.*"""))) {
-            lineStyles.add(LineStyle(lineStartInTransformed, builder.length, "numbered"))
-        }
-        
-        for (style in activeStyles.reversed()) {
-            val end = builder.length
-            applyStyleRangeLocal(builder, style.type, style.value, style.start, end)
-        }
-        
-        for (lineStyle in lineStyles) {
-            when (lineStyle.type) {
-                "completed_checklist" -> {
-                    builder.addStyle(SpanStyle(color = themePurple, fontWeight = FontWeight.Bold), lineStyle.start, lineStyle.start + 3)
-                    builder.addStyle(SpanStyle(textDecoration = TextDecoration.LineThrough, color = Color.White.copy(alpha = 0.4f)), lineStyle.start + 4, lineStyle.end)
+                for (style in activeStyles.reversed()) {
+                    val end = builder.length
+                    applyStyleRangeLocal(builder, style.type, style.value, style.start, end)
                 }
-                "pending_checklist" -> {
-                    builder.addStyle(SpanStyle(color = Color.White.copy(alpha = 0.5f), fontWeight = FontWeight.Bold), lineStyle.start, lineStyle.start + 3)
-                }
-                "bullet" -> {
-                    builder.addStyle(SpanStyle(color = themePurple, fontWeight = FontWeight.Bold), lineStyle.start, lineStyle.start + 1)
-                }
-                "numbered" -> {
-                    val dotIdx = builder.toString().indexOf('.', lineStyle.start)
-                    if (dotIdx != -1 && dotIdx < lineStyle.end) {
-                        builder.addStyle(SpanStyle(color = themePurple, fontWeight = FontWeight.Bold), lineStyle.start, dotIdx + 1)
+                
+                for (lineStyle in lineStyles) {
+                    when (lineStyle.type) {
+                        "completed_checklist" -> {
+                            builder.addStyle(SpanStyle(color = themePurple, fontWeight = FontWeight.Bold), lineStyle.start, lineStyle.start + 3)
+                            builder.addStyle(SpanStyle(textDecoration = TextDecoration.LineThrough, color = Color.White.copy(alpha = 0.4f)), lineStyle.start + 4, lineStyle.end)
+                        }
+                        "pending_checklist" -> {
+                            builder.addStyle(SpanStyle(color = Color.White.copy(alpha = 0.5f), fontWeight = FontWeight.Bold), lineStyle.start, lineStyle.start + 3)
+                        }
+                        "bullet" -> {
+                            builder.addStyle(SpanStyle(color = themePurple, fontWeight = FontWeight.Bold), lineStyle.start, lineStyle.start + 1)
+                        }
+                        "numbered" -> {
+                            val dotIdx = builder.toString().indexOf('.', lineStyle.start)
+                            if (dotIdx != -1 && dotIdx < lineStyle.end) {
+                                builder.addStyle(SpanStyle(color = themePurple, fontWeight = FontWeight.Bold), lineStyle.start, dotIdx + 1)
+                            }
+                        }
                     }
                 }
-            }
+                
+                val transformedAnnotatedString = builder.toAnnotatedString()
+                val transformedLength = transformedAnnotatedString.length
+                
+                val offsetMapping = object : OffsetMapping {
+                    override fun originalToTransformed(offset: Int): Int {
+                        val clamped = offset.coerceIn(0, n)
+                        return origToTrans[clamped].coerceIn(0, transformedLength)
+                    }
+                    
+                    override fun transformedToOriginal(offset: Int): Int {
+                        val clamped = offset.coerceIn(0, transformedLength)
+                        return transToOrig[clamped].coerceIn(0, n)
+                    }
+                }
+                
+                return TransformedText(transformedAnnotatedString, offsetMapping)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return TransformedText(
+                androidx.compose.ui.text.AnnotatedString(text.text), 
+                androidx.compose.ui.text.input.OffsetMapping.Identity
+            )
         }
-        
-        val transformedAnnotatedString = builder.toAnnotatedString()
-        val transformedLength = transformedAnnotatedString.length
-        
-        val offsetMapping = object : OffsetMapping {
-            override fun originalToTransformed(offset: Int): Int {
-                val clamped = offset.coerceIn(0, n)
-                return origToTrans[clamped].coerceIn(0, transformedLength)
-            }
-            
-            override fun transformedToOriginal(offset: Int): Int {
-                val clamped = offset.coerceIn(0, transformedLength)
-                return transToOrig[clamped].coerceIn(0, n)
-            }
-        }
-        
-        return TransformedText(transformedAnnotatedString, offsetMapping)
     }
     
     private fun applyStyleRangeLocal(builder: AnnotatedString.Builder, type: String, value: String?, start: Int, end: Int) {

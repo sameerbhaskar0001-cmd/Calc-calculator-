@@ -1,9 +1,14 @@
+with open("app/src/main/java/com/example/CalculatorScreen.kt") as f:
+    text = f.read()
+
+# I will just write a regex to clean up the end of the filter function
 import re
 
-with open('app/src/main/java/com/example/CalculatorScreen.kt', 'r') as f:
-    content = f.read()
+text = re.sub(
+r"return TransformedText\(transformedAnnotatedString, offsetMapping\)\n\s*\}\n\s*\} catch \(e: Exception\)",
+r"return TransformedText(transformedAnnotatedString, offsetMapping)\n        } catch (e: Exception)",
+text)
 
-# Let's find out how many braces there are
-open_braces = content.count('{')
-close_braces = content.count('}')
-print(f"Open: {open_braces}, Close: {close_braces}")
+with open("app/src/main/java/com/example/CalculatorScreen.kt", "w") as f:
+    f.write(text)
+print("done")
