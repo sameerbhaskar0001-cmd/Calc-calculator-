@@ -249,6 +249,51 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.Canvas
 import com.example.ui.theme.LocalAppThemeColors
+class OpenMultipleDocumentsWithWrite : androidx.activity.result.contract.ActivityResultContract<Array<String>, List<android.net.Uri>>() {
+    override fun createIntent(context: android.content.Context, input: Array<String>): android.content.Intent {
+        return android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(android.content.Intent.CATEGORY_OPENABLE)
+            .putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE, true)
+            .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            .addFlags(android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            .setType("*/*")
+            .putExtra(android.content.Intent.EXTRA_MIME_TYPES, input)
+    }
+
+    override fun parseResult(resultCode: Int, intent: android.content.Intent?): List<android.net.Uri> {
+        if (resultCode != android.app.Activity.RESULT_OK || intent == null) {
+            return emptyList()
+        }
+        val uris = mutableListOf<android.net.Uri>()
+        if (intent.data != null) {
+            uris.add(intent.data!!)
+        } else if (intent.clipData != null) {
+            val clipData = intent.clipData!!
+            for (i in 0 until clipData.itemCount) {
+                uris.add(clipData.getItemAt(i).uri)
+            }
+        }
+        return uris
+    }
+}
+
+class OpenDocumentWithWrite : androidx.activity.result.contract.ActivityResultContract<Array<String>, android.net.Uri?>() {
+    override fun createIntent(context: android.content.Context, input: Array<String>): android.content.Intent {
+        return android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(android.content.Intent.CATEGORY_OPENABLE)
+            .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            .addFlags(android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            .setType("*/*")
+            .putExtra(android.content.Intent.EXTRA_MIME_TYPES, input)
+    }
+
+    override fun parseResult(resultCode: Int, intent: android.content.Intent?): android.net.Uri? {
+        return if (resultCode == android.app.Activity.RESULT_OK) intent?.data else null
+    }
+}
+
 // Dynamic Theme-Aware Palette
 private val BrandBg: Color @Composable get() = LocalAppThemeColors.current.brandBg
 private val TextDark: Color @Composable get() = LocalAppThemeColors.current.textDark
@@ -1696,7 +1741,7 @@ fun VaultTabUnlockedContent(
         // Photo/Video Picker launcher
         val coroutineScope = rememberCoroutineScope()
         val photoPickerLauncher = rememberLauncherForActivityResult(
-            contract = androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments(),
+            contract = ActivityResultContracts.PickMultipleVisualMedia(),
             onResult = { uris ->
                 viewModel.isPickingFile = false
                 if (uris.isNotEmpty()) {
@@ -1711,7 +1756,13 @@ fun VaultTabUnlockedContent(
                                     val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                                     context.contentResolver.takePersistableUriPermission(uri, takeFlags)
                                 } catch (e: Exception) {
-                                    android.util.Log.e("Vault", "Failed to take persistable URI permission for $uri", e)
+                                    try {
+                                        val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                        context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                                        android.util.Log.d("Vault", "Took persistable READ URI permission for $uri after write failed")
+                                    } catch (e2: Exception) {
+                                        android.util.Log.e("Vault", "Failed to take any persistable URI permission for $uri", e2)
+                                    }
                                 }
                                 val success = viewModel.addVaultFile(context, uri, skipDelete = true)
                                 if (success) successCount++
@@ -1738,7 +1789,7 @@ fun VaultTabUnlockedContent(
         )
         // Document/General File Picker launcher
         val documentPickerLauncher = rememberLauncherForActivityResult(
-            contract = androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments(),
+            contract = OpenMultipleDocumentsWithWrite(),
             onResult = { uris ->
                 viewModel.isPickingFile = false
                 if (uris.isNotEmpty()) {
@@ -1753,7 +1804,13 @@ fun VaultTabUnlockedContent(
                                     val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                                     context.contentResolver.takePersistableUriPermission(uri, takeFlags)
                                 } catch (e: Exception) {
-                                    android.util.Log.e("Vault", "Failed to take persistable URI permission for $uri", e)
+                                    try {
+                                        val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                        context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                                        android.util.Log.d("Vault", "Took persistable READ URI permission for $uri after write failed")
+                                    } catch (e2: Exception) {
+                                        android.util.Log.e("Vault", "Failed to take any persistable URI permission for $uri", e2)
+                                    }
                                 }
                                 val success = viewModel.addVaultFile(context, uri, skipDelete = true)
                                 if (success) successCount++
@@ -1780,7 +1837,7 @@ fun VaultTabUnlockedContent(
         )
         // Audio File Picker launcher
         val audioPickerLauncher = rememberLauncherForActivityResult(
-            contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+            contract = OpenDocumentWithWrite(),
             onResult = { uri ->
                 viewModel.isPickingFile = false
                 if (uri != null) {
@@ -1788,7 +1845,13 @@ fun VaultTabUnlockedContent(
                         val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                         context.contentResolver.takePersistableUriPermission(uri, takeFlags)
                     } catch (e: Exception) {
-                        android.util.Log.e("Vault", "Failed to take persistable URI permission for $uri", e)
+                        try {
+                            val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                            android.util.Log.d("Vault", "Took persistable READ URI permission for $uri after write failed")
+                        } catch (e2: Exception) {
+                            android.util.Log.e("Vault", "Failed to take any persistable URI permission for $uri", e2)
+                        }
                     }
                     val success = viewModel.addVaultFile(context, uri)
                     if (success) {
@@ -2600,7 +2663,7 @@ fun VaultTabUnlockedContent(
                                 VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "audio", parts[4], fileStr, 0L)
                             }
                             "Notes" -> vaultNotes.map { noteStr ->
-                                val parts = noteStr.split("|||")
+                                val parts = noteStr.split("|||", limit = 3)
                                 val title = if (parts.size > 1) parts[1] else "Note"
                                 val dateStr = parts[0]
                                 val timeMs = try {
@@ -4535,9 +4598,9 @@ fun VaultTabUnlockedContent(
                                         Text("Matched Notes (${matchedNotes.size})", color = ThemePurple, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                                     }
                                     items(matchedNotes) { noteStr ->
-                                        val parts = noteStr.split("|||")
-                                        val title = parts[1]
-                                        val body = parts[2]
+                                        val parts = noteStr.split("|||", limit = 3)
+                                        val title = parts.getOrNull(1) ?: "Note"
+                                        val body = parts.getOrNull(2) ?: ""
                                         Card(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -4636,7 +4699,7 @@ fun VaultTabUnlockedContent(
         ) {
             val noteStr = lastNonNullNote
             if (noteStr != null) {
-                val parts = noteStr.split("|||")
+                val parts = noteStr.split("|||", limit = 3)
                 if (parts.size == 3) {
                     val timestamp = parts[0]
                     val title = parts[1]
@@ -5383,7 +5446,10 @@ fun VaultTabUnlockedContent(
                                 val isPhoto = activeSection == "Photos"
                                 viewModel.isPickingFile = true
                                 photoPickerLauncher.launch(
-                                    if (isPhoto) arrayOf("image/*") else arrayOf("video/*")
+                                    PickVisualMediaRequest(
+                                        if (isPhoto) ActivityResultContracts.PickVisualMedia.ImageOnly
+                                        else ActivityResultContracts.PickVisualMedia.VideoOnly
+                                    )
                                 )
                             }.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -7399,6 +7465,16 @@ fun toggleLinePrefix(fieldValue: TextFieldValue, prefix: String): TextFieldValue
 }
 
 class RichTextVisualTransformation(private val themePurple: Color) : VisualTransformation {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RichTextVisualTransformation) return false
+        return themePurple == other.themePurple
+    }
+
+    override fun hashCode(): Int {
+        return themePurple.hashCode()
+    }
+
     override fun filter(text: AnnotatedString): TransformedText {
         val rawText = text.text
         val n = rawText.length

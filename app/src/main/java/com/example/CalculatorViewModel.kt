@@ -1483,17 +1483,13 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                             // Verify FLAG_SUPPORTS_DELETE
                             val supportsDelete = checkDocumentSupportsDelete(context, docUri)
                             if (!supportsDelete) {
-                                val reason = "Document does not support deletion (FLAG_SUPPORTS_DELETE is not set)"
-                                android.util.Log.w("Vault", "Cannot delete $docUri: $reason")
-                                deletionFailedReasons.add("File ${getFileName(context, docUri)}: $reason")
-                                continue
+                                android.util.Log.w("Vault", "Document does not declare FLAG_SUPPORTS_DELETE for $docUri. Trying direct deletion anyway...")
                             }
-
                             val deleted = android.provider.DocumentsContract.deleteDocument(resolver, docUri)
                             if (deleted) {
                                 android.util.Log.d("Vault", "batchDeleteOriginalFiles direct SAF document deletion success: $docUri")
                             } else {
-                                val reason = "DocumentsContract.deleteDocument returned false"
+                                val reason = if (supportsDelete) "DocumentsContract.deleteDocument returned false" else "DocumentsContract.deleteDocument returned false (and FLAG_SUPPORTS_DELETE was not set)"
                                 android.util.Log.e("Vault", "Failed to delete $docUri: $reason")
                                 deletionFailedReasons.add("File ${getFileName(context, docUri)}: $reason")
                             }
@@ -1754,21 +1750,16 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     if (android.provider.DocumentsContract.isDocumentUri(context, resolvedUri)) {
                         val supportsDelete = checkDocumentSupportsDelete(context, resolvedUri)
                         if (!supportsDelete) {
-                            val reason = "Document does not support deletion (FLAG_SUPPORTS_DELETE is not set)"
-                            android.util.Log.w("Vault", "Cannot delete $resolvedUri: $reason")
+                            android.util.Log.w("Vault", "Document does not declare FLAG_SUPPORTS_DELETE for $resolvedUri. Trying direct deletion anyway...")
+                        }
+                        val deleted = android.provider.DocumentsContract.deleteDocument(contentResolver, resolvedUri)
+                        if (deleted) {
+                            android.util.Log.d("Vault", "addVaultFile direct SAF document deletion success: $resolvedUri")
+                        } else {
+                            val reason = if (supportsDelete) "DocumentsContract.deleteDocument returned false" else "DocumentsContract.deleteDocument returned false (and FLAG_SUPPORTS_DELETE was not set)"
+                            android.util.Log.e("Vault", "Failed to delete $resolvedUri: $reason")
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
                                 android.widget.Toast.makeText(context, "Could not delete original file:\n$reason", android.widget.Toast.LENGTH_LONG).show()
-                            }
-                        } else {
-                            val deleted = android.provider.DocumentsContract.deleteDocument(contentResolver, resolvedUri)
-                            if (deleted) {
-                                android.util.Log.d("Vault", "addVaultFile direct SAF document deletion success: $resolvedUri")
-                            } else {
-                                val reason = "DocumentsContract.deleteDocument returned false"
-                                android.util.Log.e("Vault", "Failed to delete $resolvedUri: $reason")
-                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    android.widget.Toast.makeText(context, "Could not delete original file:\n$reason", android.widget.Toast.LENGTH_LONG).show()
-                                }
                             }
                         }
                     } else {

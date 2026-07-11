@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.*
@@ -201,6 +202,26 @@ fun SecureDocumentViewer(
                         text = "$sizeStr • Encrypted Vault Storage",
                         color = Color.White.copy(alpha = 0.5f),
                         fontSize = 12.sp
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                IconButton(
+                    onClick = {
+                        viewModel.triggerKeypressEffects(viewModel.getApplication())
+                        viewModel.deleteVaultFile(fileStr)
+                        onDismiss()
+                    },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEF5350).copy(alpha = 0.2f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = Color(0xFFEF5350)
                     )
                 }
             }
