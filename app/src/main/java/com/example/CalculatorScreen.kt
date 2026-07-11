@@ -4920,8 +4920,6 @@ fun VaultTabUnlockedContent(
                                         )
 
                                         // Rich Text Toolbar
-                                        var showColorOptions by remember { mutableStateOf(false) }
-                                        var showBgColorOptions by remember { mutableStateOf(false) }
                                         var showFontOptions by remember { mutableStateOf(false) }
 
                                         Row(
@@ -4940,7 +4938,7 @@ fun VaultTabUnlockedContent(
                                                     editedNoteContentValue = toggleTag(editedNoteContentValue, "<b>", "</b>") 
                                                     viewModel.updateLastInteraction()
                                                 },
-                                                modifier = Modifier.size(36.dp)
+                                                modifier = Modifier.size(36.dp).background(if (isTagActive(editedNoteContentValue, "<b>", "</b>")) Color.White.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
                                             ) {
                                                 Text("B", fontWeight = FontWeight.ExtraBold, color = Color.White, fontSize = 16.sp)
                                             }
@@ -4950,7 +4948,7 @@ fun VaultTabUnlockedContent(
                                                     editedNoteContentValue = toggleTag(editedNoteContentValue, "<i>", "</i>") 
                                                     viewModel.updateLastInteraction()
                                                 },
-                                                modifier = Modifier.size(36.dp)
+                                                modifier = Modifier.size(36.dp).background(if (isTagActive(editedNoteContentValue, "<i>", "</i>")) Color.White.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
                                             ) {
                                                 Text("I", fontStyle = FontStyle.Italic, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                             }
@@ -4960,42 +4958,14 @@ fun VaultTabUnlockedContent(
                                                     editedNoteContentValue = toggleTag(editedNoteContentValue, "<u>", "</u>") 
                                                     viewModel.updateLastInteraction()
                                                 },
-                                                modifier = Modifier.size(36.dp)
+                                                modifier = Modifier.size(36.dp).background(if (isTagActive(editedNoteContentValue, "<u>", "</u>")) Color.White.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
                                             ) {
                                                 Text("U", textDecoration = TextDecoration.Underline, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                             }
                                             
                                             Box(modifier = Modifier.width(1.dp).height(20.dp).background(Color.White.copy(alpha = 0.1f)))
                                             
-                                            IconButton(
-                                                onClick = { 
-                                                    viewModel.triggerKeypressEffects(context)
-                                                    showColorOptions = !showColorOptions
-                                                    showBgColorOptions = false 
-                                                    showFontOptions = false
-                                                    viewModel.updateLastInteraction()
-                                                },
-                                                modifier = Modifier
-                                                    .size(36.dp)
-                                                    .background(if (showColorOptions) Color.White.copy(alpha = 0.08f) else Color.Transparent, RoundedCornerShape(8.dp))
-                                            ) {
-                                                Icon(Icons.Default.FormatColorText, contentDescription = "Text Color", tint = Color.White, modifier = Modifier.size(18.dp))
-                                            }
                                             
-                                            IconButton(
-                                                onClick = { 
-                                                    viewModel.triggerKeypressEffects(context)
-                                                    showBgColorOptions = !showBgColorOptions
-                                                    showColorOptions = false 
-                                                    showFontOptions = false
-                                                    viewModel.updateLastInteraction()
-                                                },
-                                                modifier = Modifier
-                                                    .size(36.dp)
-                                                    .background(if (showBgColorOptions) Color.White.copy(alpha = 0.08f) else Color.Transparent, RoundedCornerShape(8.dp))
-                                            ) {
-                                                Icon(Icons.Default.Brush, contentDescription = "Highlight Color", tint = Color.White, modifier = Modifier.size(18.dp))
-                                            }
                                             
                                             IconButton(
                                                 onClick = { 
@@ -5003,7 +4973,7 @@ fun VaultTabUnlockedContent(
                                                     editedNoteContentValue = toggleLinePrefix(editedNoteContentValue, "• ") 
                                                     viewModel.updateLastInteraction()
                                                 },
-                                                modifier = Modifier.size(36.dp)
+                                                modifier = Modifier.size(36.dp).background(if (isPrefixActive(editedNoteContentValue, "• ")) Color.White.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
                                             ) {
                                                 Icon(Icons.Default.List, contentDescription = "Bullet List", tint = Color.White, modifier = Modifier.size(18.dp))
                                             }
@@ -5014,7 +4984,7 @@ fun VaultTabUnlockedContent(
                                                     editedNoteContentValue = toggleLinePrefix(editedNoteContentValue, "1. ") 
                                                     viewModel.updateLastInteraction()
                                                 },
-                                                modifier = Modifier.size(36.dp)
+                                                modifier = Modifier.size(36.dp).background(if (isPrefixActive(editedNoteContentValue, "1. ")) Color.White.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
                                             ) {
                                                 Text("1.", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
                                             }
@@ -5025,90 +4995,13 @@ fun VaultTabUnlockedContent(
                                                     editedNoteContentValue = toggleLinePrefix(editedNoteContentValue, "[ ] ") 
                                                     viewModel.updateLastInteraction()
                                                 },
-                                                modifier = Modifier.size(36.dp)
+                                                modifier = Modifier.size(36.dp).background(if (isPrefixActive(editedNoteContentValue, "[ ] ")) Color.White.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
                                             ) {
                                                 Icon(Icons.Default.CheckBox, contentDescription = "Checklist", tint = Color.White, modifier = Modifier.size(18.dp))
                                             }
                                         }
 
-                                        AnimatedVisibility(visible = showColorOptions) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(12.dp))
-                                                    .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
-                                                    .padding(10.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text("Text Color:", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
-                                                val textColors = listOf(
-                                                    "#FF6B6B" to Color(0xFFFF6B6B),
-                                                    "#51CF66" to Color(0xFF51CF66),
-                                                    "#339AF0" to Color(0xFF339AF0),
-                                                    "#CC5DE8" to Color(0xFFCC5DE8),
-                                                    "#FFFFFF" to Color(0xFFFFFFFF)
-                                                )
-                                                textColors.forEach { (hex, color) ->
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(26.dp)
-                                                            .clip(CircleShape)
-                                                            .background(color)
-                                                            .border(1.5.dp, Color.White.copy(alpha = 0.4f), CircleShape)
-                                                            .clickable {
-                                                                viewModel.triggerKeypressEffects(context)
-                                                                editedNoteContentValue = applyStyleTagToSelection(editedNoteContentValue, "color", "hex", hex); viewModel.updateLastInteraction()
-                                                                showColorOptions = false
-                                                            }
-                                                    )
-                                                }
-                                            }
-                                        }
 
-                                        AnimatedVisibility(visible = showBgColorOptions) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(12.dp))
-                                                    .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
-                                                    .padding(10.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text("Highlight:", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
-                                                val bgColors = listOf(
-                                                    "#FFD54F" to Color(0xFFFFD54F),
-                                                    "#81C784" to Color(0xFF81C784),
-                                                    "#64B5F6" to Color(0xFF64B5F6),
-                                                    "#F06292" to Color(0xFFF06292),
-                                                    "#000000" to Color.Transparent
-                                                )
-                                                bgColors.forEach { (hex, color) ->
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(26.dp)
-                                                            .clip(CircleShape)
-                                                            .background(if (color == Color.Transparent) Color.White.copy(alpha = 0.15f) else color)
-                                                            .border(1.5.dp, Color.White.copy(alpha = 0.4f), CircleShape)
-                                                            .clickable {
-                                                                viewModel.triggerKeypressEffects(context)
-                                                                if (hex != "#000000") {
-                                                                    editedNoteContentValue = applyStyleTagToSelection(editedNoteContentValue, "bg", "hex", hex)
-                                                                } else {
-                                                                    editedNoteContentValue = applyStyleTagToSelection(editedNoteContentValue, "bg", "hex", "transparent")
-                                                                }
-                                                                viewModel.updateLastInteraction()
-                                                                showBgColorOptions = false
-                                                            }
-                                                    ) {
-                                                        if (color == Color.Transparent) {
-                                                            Icon(Icons.Default.Clear, contentDescription = "Clear Highlight", tint = Color.White, modifier = Modifier.size(12.dp).align(Alignment.Center))
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
                                         // Note Body Input with real-time visual transformation
                                         OutlinedTextField(
                                             value = editedNoteContentValue,
@@ -7291,6 +7184,42 @@ fun applyTagToSelection(fieldValue: TextFieldValue, tagOpen: String, tagClose: S
     val newSelectionEnd = newSelectionStart + selectedText.length
     
     return safeTextFieldValue(newText, newSelectionStart, newSelectionEnd)
+}
+
+
+fun isTagActive(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): Boolean {
+    val text = fieldValue.text
+    val start = fieldValue.selection.start.coerceIn(0, text.length)
+    if (start == 0 && text.isEmpty()) return false
+    val searchEnd = (start - 1).coerceAtLeast(0)
+    
+    // Actually Kotlin's lastIndexOf with startIndex means it searches backwards starting from startIndex.
+    val lastOpen = if (start > 0) text.lastIndexOf(tagOpen, searchEnd) else -1
+    if (lastOpen != -1) {
+        val lastCloseBeforeOpen = if (start > 0) text.lastIndexOf(tagClose, searchEnd) else -1
+        if (lastCloseBeforeOpen < lastOpen) {
+            val nextClose = text.indexOf(tagClose, start)
+            if (nextClose != -1) {
+                val nextOpen = text.indexOf(tagOpen, start)
+                if (nextOpen == -1 || nextClose < nextOpen || nextClose == start) {
+                    return true
+                }
+            } else {
+                return true 
+            }
+        }
+    }
+    return false
+}
+
+fun isPrefixActive(fieldValue: TextFieldValue, prefix: String): Boolean {
+    val text = fieldValue.text
+    val cursor = fieldValue.selection.start.coerceIn(0, text.length)
+    val searchEnd = (cursor - 1).coerceAtLeast(0)
+    val lineStart = if (cursor > 0) text.lastIndexOf('\n', searchEnd) + 1 else 0
+    if (lineStart < 0 || lineStart > text.length) return false
+    return text.substring(lineStart).startsWith(prefix) || 
+           (prefix == "[ ] " && text.substring(lineStart).startsWith("[x] "))
 }
 
 fun toggleTag(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): TextFieldValue {
