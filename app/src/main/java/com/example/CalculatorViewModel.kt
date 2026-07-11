@@ -1467,7 +1467,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     } catch (e: Exception) {}
                 }
 
-                if (resolvedUri.toString().contains("media/external")) {
+                if (resolvedUri.authority?.contains("media") == true || resolvedUri.toString().contains("media/external")) {
                     authoritativeUris.add(resolvedUri)
                 } else {
                     documentUrisToDelete.add(uri)
@@ -1536,6 +1536,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
+                        withContext(Dispatchers.Main) {
+                            android.widget.Toast.makeText(context, "Could not show delete prompt. Please delete the original file manually.", android.widget.Toast.LENGTH_LONG).show()
+                        }
                     }
                 } else if (android.os.Build.VERSION.SDK_INT == android.os.Build.VERSION_CODES.Q) {
                     try {
@@ -1745,7 +1748,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 } catch (e: Exception) {}
             }
 
-            if (!resolvedUri.toString().contains("media/external")) {
+            if (resolvedUri.authority?.contains("media") != true && !resolvedUri.toString().contains("media/external")) {
                 try {
                     if (android.provider.DocumentsContract.isDocumentUri(context, resolvedUri)) {
                         val supportsDelete = checkDocumentSupportsDelete(context, resolvedUri)
@@ -1793,9 +1796,16 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
             val uriToPersist = resolvedUri.toString()
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, listOf(resolvedUri))
-                pendingDeleteOriginalPaths = listOf(uriToPersist)
-                _pendingDeleteSender.value = pendingIntent.intentSender
+                try {
+                    val pendingIntent = android.provider.MediaStore.createDeleteRequest(contentResolver, listOf(resolvedUri))
+                    pendingDeleteOriginalPaths = listOf(uriToPersist)
+                    _pendingDeleteSender.value = pendingIntent.intentSender
+                } catch (e: Exception) {
+                    android.util.Log.e("Vault", "createDeleteRequest failed", e)
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        android.widget.Toast.makeText(context, "Could not show delete prompt. Please delete manually.", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
             } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 try {
                     contentResolver.delete(resolvedUri, null, null)
