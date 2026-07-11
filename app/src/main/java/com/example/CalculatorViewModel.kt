@@ -1478,7 +1478,13 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     } catch (e: Exception) {}
                 }
 
-                if (resolvedUri.toString().contains("media/external")) {
+                val isMediaStoreMedia = resolvedUri.toString().let {
+                    it.contains("media/external/images") || 
+                    it.contains("media/external/video") || 
+                    it.contains("media/external/audio")
+                }
+
+                if (isMediaStoreMedia) {
                     authoritativeUris.add(resolvedUri)
                 } else {
                     documentUrisToDelete.add(uri)
@@ -1770,7 +1776,13 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 } catch (e: Exception) {}
             }
 
-            if (!resolvedUri.toString().contains("media/external")) {
+            val isMediaStoreMedia = resolvedUri.toString().let {
+                it.contains("media/external/images") || 
+                it.contains("media/external/video") || 
+                it.contains("media/external/audio")
+            }
+
+            if (!isMediaStoreMedia) {
                 try {
                     if (android.provider.DocumentsContract.isDocumentUri(context, resolvedUri)) {
                         val supportsDelete = checkDocumentSupportsDelete(context, resolvedUri)
