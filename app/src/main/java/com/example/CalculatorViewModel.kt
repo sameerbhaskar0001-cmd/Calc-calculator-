@@ -1422,7 +1422,18 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 // Step 1.2: Resolve non-media external URIs using display name & size or path query
                 if (!resolvedUri.toString().contains("media/external")) {
                     try {
-                        if (originalPath.isNotEmpty()) {
+                        if (resolvedUri.toString().contains("photopicker")) {
+                            val mediaId = resolvedUri.lastPathSegment?.toLongOrNull()
+                            if (mediaId != null) {
+                                val baseUri = when {
+                                    mimeType.startsWith("image/") -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                                    mimeType.startsWith("video/") -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                                    else -> android.provider.MediaStore.Files.getContentUri("external")
+                                }
+                                resolvedUri = android.content.ContentUris.withAppendedId(baseUri, mediaId)
+                            }
+                        }
+                        if (!resolvedUri.toString().contains("media/external") && originalPath.isNotEmpty()) {
                             val baseUri = when {
                                 mimeType.startsWith("image/") -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
                                 mimeType.startsWith("video/") -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
@@ -1467,7 +1478,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     } catch (e: Exception) {}
                 }
 
-                if (resolvedUri.authority?.contains("media") == true || resolvedUri.toString().contains("media/external")) {
+                if (resolvedUri.toString().contains("media/external")) {
                     authoritativeUris.add(resolvedUri)
                 } else {
                     documentUrisToDelete.add(uri)
@@ -1686,7 +1697,18 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             
             if (!resolvedUri.toString().contains("media/external")) {
                 try {
-                    if (originalPath.isNotEmpty()) {
+                    if (resolvedUri.toString().contains("photopicker")) {
+                        val mediaId = resolvedUri.lastPathSegment?.toLongOrNull()
+                        if (mediaId != null) {
+                            val baseUri = when {
+                                mimeType.startsWith("image/") -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                                mimeType.startsWith("video/") -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                                else -> android.provider.MediaStore.Files.getContentUri("external")
+                            }
+                            resolvedUri = android.content.ContentUris.withAppendedId(baseUri, mediaId)
+                        }
+                    }
+                    if (!resolvedUri.toString().contains("media/external") && originalPath.isNotEmpty()) {
                         val baseUri = when {
                             mimeType.startsWith("image/") -> android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
                             mimeType.startsWith("video/") -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
@@ -1748,7 +1770,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 } catch (e: Exception) {}
             }
 
-            if (resolvedUri.authority?.contains("media") != true && !resolvedUri.toString().contains("media/external")) {
+            if (!resolvedUri.toString().contains("media/external")) {
                 try {
                     if (android.provider.DocumentsContract.isDocumentUri(context, resolvedUri)) {
                         val supportsDelete = checkDocumentSupportsDelete(context, resolvedUri)
