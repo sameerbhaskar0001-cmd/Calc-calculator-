@@ -1,0 +1,276 @@
+386-    val authOverlayAlpha by animateFloatAsState(
+387-        targetValue = if (transitionState == 1) 1f else 0f,
+388-        animationSpec = tween(300)
+389-    )
+390-    LaunchedEffect(vaultUnlocked) {
+391-        if (vaultUnlocked) {
+392-        
+393-                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+394:            } catch (e: Exception) {
+395-                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+396-            }
+--
+1123-                .aspectRatio(1f)
+1124-                .graphicsLayer(scaleX = scale, scaleY = scale),
+1125-            bgColor = bgColor,
+1126-            elevation = if (!isUtility && !isEquals) 4.dp else 0.dp,
+1127-            glowAlpha = glowAlpha,
+1128-            onClick = {
+1129-            
+1130-                    view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+1131:                } catch (e: Exception) {
+1132-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+1133-                }
+--
+1559-                            // Two short vibrations
+1560-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+1561-                                val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+1562-                                vibrator.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 50, 100, 50), -1))
+1563-                            } else {
+1564-                                val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+1565-                                vibrator.vibrate(longArrayOf(0, 50, 100, 50), -1)
+1566-                            }
+1567:                        } catch (e: Exception) {}
+1568-                        
+1569-                        androidx.compose.animation.core.animate(
+--
+1750-                    importCurrent = 0
+1751-                    coroutineScope.launch {
+1752-                        var successCount = 0
+1753-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+1754-                            for (uri in uris) {
+1755-                            
+1756-                                    val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+1757-                                    context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+1758:                                } catch (e: Exception) {
+1759-                                
+1760-                                        val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+1761-                                        context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+1762-                                        android.util.Log.d("Vault", "Took persistable READ URI permission for $uri after write failed")
+1763:                                    } catch (e2: Exception) {
+1764-                                        android.util.Log.e("Vault", "Failed to take any persistable URI permission for $uri", e2)
+1765-                                    }
+--
+1798-                    importCurrent = 0
+1799-                    coroutineScope.launch {
+1800-                        var successCount = 0
+1801-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+1802-                            for (uri in uris) {
+1803-                            
+1804-                                    val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+1805-                                    context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+1806:                                } catch (e: Exception) {
+1807-                                
+1808-                                        val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+1809-                                        context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+1810-                                        android.util.Log.d("Vault", "Took persistable READ URI permission for $uri after write failed")
+1811:                                    } catch (e2: Exception) {
+1812-                                        android.util.Log.e("Vault", "Failed to take any persistable URI permission for $uri", e2)
+1813-                                    }
+--
+1839-        val audioPickerLauncher = rememberLauncherForActivityResult(
+1840-            contract = OpenDocumentWithWrite(),
+1841-            onResult = { uri ->
+1842-                viewModel.isPickingFile = false
+1843-                if (uri != null) {
+1844-                
+1845-                        val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+1846-                        context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+1847:                    } catch (e: Exception) {
+1848-                    
+1849-                            val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+1850-                            context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+1851-                            android.util.Log.d("Vault", "Took persistable READ URI permission for $uri after write failed")
+1852:                        } catch (e2: Exception) {
+1853-                            android.util.Log.e("Vault", "Failed to take any persistable URI permission for $uri", e2)
+1854-                        }
+--
+2032-        LaunchedEffect(pendingDeleteSender) {
+2033-            pendingDeleteSender?.let { sender ->
+2034-            
+2035-                    viewModel.isPickingFile = true
+2036-                    android.util.Log.d("Vault", "IntentSender launched")
+2037-                    deleteSenderLauncher.launch(
+2038-                        androidx.activity.result.IntentSenderRequest.Builder(sender).build()
+2039-                    )
+2040:                } catch (e: Exception) {
+2041-                    viewModel.isPickingFile = false
+2042-                    android.util.Log.e("Vault", "Any exception with full stack trace", e)
+--
+2393-                                    previewContent = {
+2394-                                        val latestVideo = vaultFiles.firstOrNull { it.contains("|||video/") }
+2395-                                        if (latestVideo != null) {
+2396-                                            val path = latestVideo.split("|||").getOrNull(4) ?: ""
+2397-                                            Box(modifier = Modifier.fillMaxSize().padding(4.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)), contentAlignment = Alignment.Center) {
+2398-                                                if (path.isNotEmpty()) {
+2399-                                                    val bitmap = remember(path) {
+2400-                                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+2401:                                                         android.media.ThumbnailUtils.createVideoThumbnail(java.io.File(path), android.util.Size(200, 200), null) } catch (e: Exception) { null }
+2402-                                                        } else {
+2403-                                                            @Suppress("DEPRECATION")
+2404:                                                         android.media.ThumbnailUtils.createVideoThumbnail(path, android.provider.MediaStore.Video.Thumbnails.MINI_KIND) } catch (e: Exception) { null }
+2405-                                                        }
+2406-                                                    }
+--
+2663-                                VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "audio", parts[4], fileStr, 0L)
+2664-                            }
+2665-                            "Notes" -> vaultNotes.map { noteStr ->
+2666-                                val parts = noteStr.split("|||", limit = 3)
+2667-                                val title = if (parts.size > 1) parts[1] else "Note"
+2668-                                val dateStr = parts[0]
+2669-                                val timeMs = try {
+2670-                                    java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault()).parse(dateStr)?.time ?: 0L
+2671:                                } catch (e: Exception) { 0L }
+2672-                                VaultItemData(dateStr, timeMs, title, favoriteNotes.contains(noteStr), noteFolders[noteStr] ?: "", "note", "", noteStr, 0L)
+2673-                            }
+--
+4047-                                                    val canvas = android.graphics.Canvas(bitmap)
+4048-                                                    canvas.drawColor(android.graphics.Color.WHITE)
+4049-                                                    page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+4050-                                                    list.add(bitmap)
+4051-                                                    page.close()
+4052-                                                }
+4053-                                                renderer.close()
+4054-                                                pfd.close()
+4055:                                            } catch (e: Exception) {
+4056-                                                e.printStackTrace()
+4057-                                            }
+--
+6026-) {
+6027-    webViews.values.forEach { webView ->
+6028-    
+6029-            webView.stopLoading()
+6030-            webView.clearHistory()
+6031-            webView.clearCache(true)
+6032-            webView.loadUrl("about:blank")
+6033-            webView.destroy()
+6034:        } catch (e: Exception) {}
+6035-    }
+6036-    webViews.clear()
+6037-    tabs.clear()
+6038-
+6039-        val cookieManager = android.webkit.CookieManager.getInstance()
+6040-        cookieManager.removeAllCookies(null)
+6041-        cookieManager.flush()
+6042-        android.webkit.WebStorage.getInstance().deleteAllData()
+6043:    } catch (e: Exception) {}
+6044-
+6045-        if (!context.cacheDir.exists()) {
+--
+6053-                if (!file.name.equals("WebView", ignoreCase = true) && 
+6054-                    !file.name.contains("webview", ignoreCase = true)) {
+6055-                    file.deleteRecursively()
+6056-                }
+6057-            }
+6058-        }
+6059-        deleteCacheContents(context.cacheDir)
+6060-        deleteCacheContents(context.codeCacheDir)
+6061:    } catch (e: Exception) {}
+6062-}
+6063-@Composable
+--
+6103-        activeTabId = tabId
+6104-    }
+6105-    LaunchedEffect(Unit) {
+6106-    
+6107-            val cookieManager = android.webkit.CookieManager.getInstance()
+6108-            cookieManager.removeAllCookies(null)
+6109-            cookieManager.flush()
+6110-            android.webkit.WebStorage.getInstance().deleteAllData()
+6111:        } catch (e: Exception) {}
+6112-        if (tabs.isEmpty()) {
+6113-            openNewTab("https://duckduckgo.com")
+--
+6117-        onDispose {
+6118-            webViews.values.forEach { webView ->
+6119-            
+6120-                    webView.stopLoading()
+6121-                    webView.clearHistory()
+6122-                    webView.clearCache(true)
+6123-                    webView.loadUrl("about:blank")
+6124-                    webView.destroy()
+6125:                } catch (e: Exception) {}
+6126-            }
+6127-            webViews.clear()
+6128-            tabs.clear()
+6129-            
+6130-        
+6131-                val cookieManager = android.webkit.CookieManager.getInstance()
+6132-                cookieManager.removeAllCookies(null)
+6133-                cookieManager.flush()
+6134-                android.webkit.WebStorage.getInstance().deleteAllData()
+6135:            } catch (e: Exception) {}
+6136-        }
+6137-    }
+--
+6537-                                                val wv = webViews[tab.id]
+6538-                                                if (wv != null) {
+6539-                                                
+6540-                                                        wv.stopLoading()
+6541-                                                        wv.clearHistory()
+6542-                                                        wv.clearCache(true)
+6543-                                                        wv.loadUrl("about:blank")
+6544-                                                        wv.destroy()
+6545:                                                    } catch (e: Exception) {}
+6546-                                                    webViews.remove(tab.id)
+6547-                                                }
+--
+6796-                .filter { pm.getLaunchIntentForPackage(it.packageName) != null && it.packageName != context.packageName }
+6797-                .map { appInfo ->
+6798-                    val label = pm.getApplicationLabel(appInfo).toString()
+6799-                    val icon = pm.getApplicationIcon(appInfo)
+6800-                    val pkgName = appInfo.packageName
+6801-                    Triple(label, pkgName, icon)
+6802-                }
+6803-                .sortedBy { it.first }
+6804:        } catch (e: Exception) {
+6805-            emptyList()
+6806-        }
+--
+7206-    }
+7207-    
+7208-    for (style in activeStyles.reversed()) {
+7209-        val end = builder.length
+7210-        applyStyleRange(builder, style.type, style.value, style.start, end)
+7211-    }
+7212-    
+7213-    return builder.toAnnotatedString()
+7214:    } catch (e: Exception) {
+7215-        e.printStackTrace()
+7216-        return androidx.compose.ui.text.AnnotatedString(text)
+--
+7370-        if (selectedText.contains(tagOpen) || selectedText.contains(tagClose)) {
+7371-            val cleaned = selectedText.replace(tagOpen, "").replace(tagClose, "")
+7372-            val newText = text.substring(0, start) + cleaned + text.substring(end)
+7373-            return safeTextFieldValue(newText, start, start + cleaned.length)
+7374-        }
+7375-        val newText = text.substring(0, start) + tagOpen + selectedText + tagClose + text.substring(end)
+7376-        return safeTextFieldValue(newText, start + tagOpen.length, start + tagOpen.length + selectedText.length)
+7377-    }
+7378:    } catch(e: Exception) {
+7379-        e.printStackTrace()
+7380-        return fieldValue
+--
+7383-}
+7384-fun parseColorString(hex: String?): Color {
+7385-    if (hex == null) return Color.White
+7386-    val clean = hex.trim().replace("\"", "").replace("'", "")
+7387-    if (clean.isEmpty()) return Color.White
+7388-    val normalized = if (clean.startsWith("#")) clean else "#$clean"
+7389-    return try {
+7390-        Color(android.graphics.Color.parseColor(normalized))
+7391:    } catch (e: Exception) {
+7392-        when (clean.lowercase()) {
+7393-            "red" -> Color.Red
+--
+7403-
+7404-fun parseBgColorString(hex: String?): Color {
+7405-    if (hex == null) return Color.Transparent
+7406-    val clean = hex.trim().replace("\"", "").replace("'", "")
+7407-    if (clean.isEmpty() || clean == "transparent" || clean == "000000" || clean == "#000000") return Color.Transparent
+7408-    val normalized = if (clean.startsWith("#")) clean else "#$clean"
+7409-    return try {
+7410-        Color(android.graphics.Color.parseColor(normalized))
+7411:    } catch (e: Exception) {
+7412-        Color.Transparent
+7413-    }

@@ -1,5 +1,7 @@
 import androidx.compose.ui.graphics.Color
 fun main() {
-    val c = Color(255, 100, 100)
-    println(c)
+    val r = 255
+    val g = 0
+    val b = 0
+    val c = Color(r, g, b)
 }

@@ -1900,10 +1900,10 @@ fun VaultTabUnlockedContent(
                     // 1. Screen Down Lock detection (Z-axis negative gravity)
                     // Must be held consistently face down for 1.0 second to avoid false positive triggers from typing vibration
                     if (screenDownLock) {
-                        if (z < -8.5f) {
+                        if (z < -9.5f) {
                             if (faceDownStartTime == 0L) {
                                 faceDownStartTime = curTime
-                            } else if (curTime - faceDownStartTime >= 1000L) {
+                            } else if (curTime - faceDownStartTime >= 1500L) {
                                 viewModel.triggerKeypressEffects(context)
                                 viewModel.lockVault()
                                 Toast.makeText(context, "Vault locked: Face down detected!", Toast.LENGTH_SHORT).show()
@@ -1940,7 +1940,7 @@ fun VaultTabUnlockedContent(
                             val deltaZ = z - lastZ
                             val acceleration = Math.sqrt((deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ).toDouble()).toFloat()
                             
-                            if (acceleration > 15.0f) { // Intentional shake
+                            if (acceleration > 25.0f) { // Intentional shake
                                 viewModel.triggerKeypressEffects(context)
                                 viewModel.lockVault()
                                 if (panicAction == "lock") {
@@ -2335,7 +2335,7 @@ fun VaultTabUnlockedContent(
                                     }
                                 }
                             }
-                            
+
                             Text(
                                 text = "FILES & MEDIA",
                                 fontSize = 10.sp,
@@ -2398,10 +2398,10 @@ fun VaultTabUnlockedContent(
                                                 if (path.isNotEmpty()) {
                                                     val bitmap = remember(path) {
                                                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                                                            try { android.media.ThumbnailUtils.createVideoThumbnail(java.io.File(path), android.util.Size(200, 200), null) } catch (e: Exception) { null }
+                                                         try { android.media.ThumbnailUtils.createVideoThumbnail(java.io.File(path), android.util.Size(200, 200), null) } catch (e: Exception) { null }
                                                         } else {
                                                             @Suppress("DEPRECATION")
-                                                            try { android.media.ThumbnailUtils.createVideoThumbnail(path, android.provider.MediaStore.Video.Thumbnails.MINI_KIND) } catch (e: Exception) { null }
+                                                         try { android.media.ThumbnailUtils.createVideoThumbnail(path, android.provider.MediaStore.Video.Thumbnails.MINI_KIND) } catch (e: Exception) { null }
                                                         }
                                                     }
                                                     if (bitmap != null) {
@@ -5075,7 +5075,7 @@ fun VaultTabUnlockedContent(
                                                             .border(1.5.dp, Color.White.copy(alpha = 0.4f), CircleShape)
                                                             .clickable {
                                                                 viewModel.triggerKeypressEffects(context)
-                                                                editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<color hex=\"$hex\">", "</color>"); viewModel.updateLastInteraction()
+                                                                editedNoteContentValue = applyStyleTagToSelection(editedNoteContentValue, "color", "hex", hex); viewModel.updateLastInteraction()
                                                                 showColorOptions = false
                                                             }
                                                     )
@@ -5095,10 +5095,10 @@ fun VaultTabUnlockedContent(
                                             ) {
                                                 Text("Highlight:", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
                                                 val bgColors = listOf(
-                                                    "#FFF3BF" to Color(0xFFFFF3BF),
-                                                    "#FFE8CC" to Color(0xFFFFE8CC),
-                                                    "#E2F0D9" to Color(0xFFE2F0D9),
-                                                    "#E8EAFF" to Color(0xFFE8EAFF),
+                                                    "#FFD54F" to Color(0xFFFFD54F),
+                                                    "#81C784" to Color(0xFF81C784),
+                                                    "#64B5F6" to Color(0xFF64B5F6),
+                                                    "#F06292" to Color(0xFFF06292),
                                                     "#000000" to Color.Transparent
                                                 )
                                                 bgColors.forEach { (hex, color) ->
@@ -5111,8 +5111,11 @@ fun VaultTabUnlockedContent(
                                                             .clickable {
                                                                 viewModel.triggerKeypressEffects(context)
                                                                 if (hex != "#000000") {
-                                                                    editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<bg hex=\"$hex\">", "</bg>"); viewModel.updateLastInteraction()
+                                                                    editedNoteContentValue = applyStyleTagToSelection(editedNoteContentValue, "bg", "hex", hex)
+                                                                } else {
+                                                                    editedNoteContentValue = applyStyleTagToSelection(editedNoteContentValue, "bg", "hex", "transparent")
                                                                 }
+                                                                viewModel.updateLastInteraction()
                                                                 showBgColorOptions = false
                                                             }
                                                     ) {
@@ -5123,48 +5126,6 @@ fun VaultTabUnlockedContent(
                                                 }
                                             }
                                         }
-
-                                        AnimatedVisibility(visible = showFontOptions) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(12.dp))
-                                                    .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
-                                                    .padding(10.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text("Font style:", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
-                                                val fontOptions = listOf(
-                                                    "Serif" to "serif",
-                                                    "Monospace" to "monospace",
-                                                    "Cursive" to "cursive",
-                                                    "Sans-Serif" to "sans-serif"
-                                                )
-                                                fontOptions.forEach { (name, tag) ->
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .background(Color.White.copy(alpha = 0.06f), RoundedCornerShape(8.dp))
-                                                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                                            .clickable {
-                                                                viewModel.triggerKeypressEffects(context)
-                                                                editedNoteContentValue = applyTagToSelection(editedNoteContentValue, "<font face=\"$tag\">", "</font>"); viewModel.updateLastInteraction()
-                                                                showFontOptions = false
-                                                            }
-                                                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                                                    ) {
-                                                        val previewFont = when (tag) {
-                                                            "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
-                                                            "monospace" -> androidx.compose.ui.text.font.FontFamily.Monospace
-                                                            "cursive" -> androidx.compose.ui.text.font.FontFamily.Cursive
-                                                            else -> androidx.compose.ui.text.font.FontFamily.SansSerif
-                                                        }
-                                                        Text(name, fontFamily = previewFont, color = Color.White, fontSize = 13.sp)
-                                                    }
-                                                }
-                                            }
-                                        }
-
                                         // Note Body Input with real-time visual transformation
                                         OutlinedTextField(
                                             value = editedNoteContentValue,
@@ -7190,7 +7151,8 @@ fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.gr
 }
 
 fun parseRichTextToAnnotatedString(text: String): AnnotatedString {
-    val builder = AnnotatedString.Builder()
+
+        val builder = AnnotatedString.Builder()
     var i = 0
     val n = text.length
     
@@ -7247,8 +7209,12 @@ fun parseRichTextToAnnotatedString(text: String): AnnotatedString {
         val end = builder.length
         applyStyleRange(builder, style.type, style.value, style.start, end)
     }
-    
+    try {
     return builder.toAnnotatedString()
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return androidx.compose.ui.text.AnnotatedString(text)
+    }
 }
 
 private fun applyStyleRange(builder: AnnotatedString.Builder, type: String, value: String?, start: Int, end: Int) {
@@ -7264,19 +7230,10 @@ private fun applyStyleRange(builder: AnnotatedString.Builder, type: String, valu
         }
         "bg" -> {
             val color = parseBgColorString(cleanValue)
-            val finalColor = if (color != Color.Transparent) color.copy(alpha = 0.45f) else Color.Transparent
+            val finalColor = if (color != Color.Transparent) color.copy(alpha = 0.8f) else Color.Transparent
             SpanStyle(background = finalColor)
         }
-        "font" -> {
-            val fontFamily = when (cleanValue?.lowercase()) {
-                "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
-                "monospace" -> androidx.compose.ui.text.font.FontFamily.Monospace
-                "cursive" -> androidx.compose.ui.text.font.FontFamily.Cursive
-                "sans-serif" -> androidx.compose.ui.text.font.FontFamily.SansSerif
-                else -> androidx.compose.ui.text.font.FontFamily.Default
-            }
-            SpanStyle(fontFamily = fontFamily)
-        }
+
         else -> null
     }
     if (style != null) {
@@ -7291,8 +7248,46 @@ fun safeTextFieldValue(text: String, selectionStart: Int, selectionEnd: Int = se
     return TextFieldValue(text, TextRange(minOf(start, end), maxOf(start, end)))
 }
 
-fun applyTagToSelection(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): TextFieldValue {
+fun clearTagTypeFromSelection(fieldValue: TextFieldValue, tagName: String): TextFieldValue {
     val text = fieldValue.text
+    val start = minOf(fieldValue.selection.start, fieldValue.selection.end).coerceIn(0, text.length)
+    val end = maxOf(fieldValue.selection.start, fieldValue.selection.end).coerceIn(0, text.length)
+    if (start == end) return fieldValue
+    
+    val selectedText = text.substring(start, end)
+    val regex = Regex("""<""" + tagName + """[^>]*>|</""" + tagName + """>""")
+    val cleanedText = selectedText.replace(regex, "")
+    
+    val newText = text.substring(0, start) + cleanedText + text.substring(end)
+    return safeTextFieldValue(newText, start, start + cleanedText.length)
+}
+
+fun applyStyleTagToSelection(fieldValue: TextFieldValue, tagName: String, attrName: String, attrValue: String): TextFieldValue {
+    val text = fieldValue.text
+    val start = minOf(fieldValue.selection.start, fieldValue.selection.end).coerceIn(0, text.length)
+    val end = maxOf(fieldValue.selection.start, fieldValue.selection.end).coerceIn(0, text.length)
+    
+    val clearedValue = clearTagTypeFromSelection(fieldValue, tagName)
+    
+    val clearedText = clearedValue.text
+    val newStart = minOf(clearedValue.selection.start, clearedValue.selection.end).coerceIn(0, clearedText.length)
+    val newEnd = maxOf(clearedValue.selection.start, clearedValue.selection.end).coerceIn(0, clearedText.length)
+    
+    val selectedText = clearedText.substring(newStart, newEnd)
+    if (attrValue == "transparent") return clearedValue // Just clear
+    
+    val tagOpen = "<$tagName $attrName=\"$attrValue\">"
+    val tagClose = "</$tagName>"
+    
+    if (newStart == newEnd) return clearedValue
+    
+    val newText = clearedText.substring(0, newStart) + tagOpen + selectedText + tagClose + clearedText.substring(newEnd)
+    return safeTextFieldValue(newText, newStart + tagOpen.length, newStart + tagOpen.length + selectedText.length)
+}
+
+fun applyTagToSelection(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): TextFieldValue {
+
+        val text = fieldValue.text
     val textLength = text.length
     val rawStart = fieldValue.selection.start
     val rawEnd = fieldValue.selection.end
@@ -7313,7 +7308,7 @@ fun applyTagToSelection(fieldValue: TextFieldValue, tagOpen: String, tagClose: S
 }
 
 fun toggleTag(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): TextFieldValue {
-    val text = fieldValue.text
+        val text = fieldValue.text
     val textLength = text.length
     val rawStart = fieldValue.selection.start
     val rawEnd = fieldValue.selection.end
@@ -7332,7 +7327,6 @@ fun toggleTag(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): Te
                 val nextClose = text.indexOf(tagClose, start.coerceIn(0, textLength))
                 val nextOpenBeforeClose = text.indexOf(tagOpen, start.coerceIn(0, textLength))
                 val hasNextClose = nextClose != -1 && (nextOpenBeforeClose == -1 || nextOpenBeforeClose > nextClose)
-                
                 if (hasNextClose) {
                     val openTagEnd = lastOpen + tagOpen.length
                     if (openTagEnd == start && nextClose == start) {
@@ -7380,88 +7374,77 @@ fun toggleTag(fieldValue: TextFieldValue, tagOpen: String, tagClose: String): Te
         val newText = text.substring(0, start) + tagOpen + selectedText + tagClose + text.substring(end)
         return safeTextFieldValue(newText, start + tagOpen.length, start + tagOpen.length + selectedText.length)
     }
-}
 
+}
 fun parseColorString(hex: String?): Color {
     if (hex == null) return Color.White
     val clean = hex.trim().replace("\"", "").replace("'", "")
+    if (clean.isEmpty()) return Color.White
     val normalized = if (clean.startsWith("#")) clean else "#$clean"
     return try {
-        val hexValue = normalized.substring(1)
-        if (hexValue.length == 6) {
-            val r = hexValue.substring(0, 2).toInt(16)
-            val g = hexValue.substring(2, 4).toInt(16)
-            val b = hexValue.substring(4, 6).toInt(16)
-            Color(r, g, b)
-        } else if (hexValue.length == 8) {
-            val a = hexValue.substring(0, 2).toInt(16)
-            val r = hexValue.substring(2, 4).toInt(16)
-            val g = hexValue.substring(4, 6).toInt(16)
-            val b = hexValue.substring(6, 8).toInt(16)
-            Color(r, g, b, a)
-        } else {
-            when (hexValue.lowercase()) {
-                "red" -> Color.Red
-                "green" -> Color.Green
-                "blue" -> Color.Blue
-                "black" -> Color.Black
-                "white" -> Color.White
-                "transparent" -> Color.Transparent
-                else -> Color.White
-            }
-        }
+        Color(android.graphics.Color.parseColor(normalized))
     } catch (e: Exception) {
-        Color.White
+        when (clean.lowercase()) {
+            "red" -> Color.Red
+            "green" -> Color.Green
+            "blue" -> Color.Blue
+            "black" -> Color.Black
+            "white" -> Color.White
+            "transparent" -> Color.Transparent
+            else -> Color.White
+        }
     }
 }
 
 fun parseBgColorString(hex: String?): Color {
     if (hex == null) return Color.Transparent
     val clean = hex.trim().replace("\"", "").replace("'", "")
-    if (clean == "transparent" || clean == "000000" || clean == "#000000") return Color.Transparent
+    if (clean.isEmpty() || clean == "transparent" || clean == "000000" || clean == "#000000") return Color.Transparent
     val normalized = if (clean.startsWith("#")) clean else "#$clean"
     return try {
-        val hexValue = normalized.substring(1)
-        if (hexValue.length == 6) {
-            val r = hexValue.substring(0, 2).toInt(16)
-            val g = hexValue.substring(2, 4).toInt(16)
-            val b = hexValue.substring(4, 6).toInt(16)
-            Color(r, g, b)
-        } else if (hexValue.length == 8) {
-            val a = hexValue.substring(0, 2).toInt(16)
-            val r = hexValue.substring(2, 4).toInt(16)
-            val g = hexValue.substring(4, 6).toInt(16)
-            val b = hexValue.substring(6, 8).toInt(16)
-            Color(r, g, b, a)
-        } else {
-            Color.Transparent
-        }
+        Color(android.graphics.Color.parseColor(normalized))
     } catch (e: Exception) {
         Color.Transparent
     }
 }
 
 fun toggleLinePrefix(fieldValue: TextFieldValue, prefix: String): TextFieldValue {
-    val text = fieldValue.text
-    val selection = fieldValue.selection
-    val cursor = selection.start
-    
-    val lineStart = text.lastIndexOf('\n', cursor - 1) + 1
-    
-    val newText: String
-    val newCursor: Int
-    if (text.startsWith(prefix, lineStart)) {
-        newText = text.substring(0, lineStart) + text.substring(lineStart + prefix.length)
-        newCursor = (cursor - prefix.length).coerceAtLeast(lineStart)
-    } else {
-        newText = text.substring(0, lineStart) + prefix + text.substring(lineStart)
-        newCursor = cursor + prefix.length
-    }
-    
-    return TextFieldValue(
-        text = newText,
-        selection = TextRange(newCursor)
-    )
+        val text = fieldValue.text
+        val selection = fieldValue.selection
+        val cursor = selection.start
+        
+        val lineStart = text.lastIndexOf('\n', cursor - 1) + 1
+        
+        val knownPrefixes = listOf("[ ] ", "[x] ", "• ", "- ")
+        var currentPrefix = ""
+        for (p in knownPrefixes) {
+            if (text.startsWith(p, lineStart)) {
+                currentPrefix = p
+                break
+            }
+        }
+        
+        val newText: String
+        val newCursor: Int
+        if (currentPrefix == prefix) {
+            // Remove prefix
+            newText = text.substring(0, lineStart) + text.substring(lineStart + currentPrefix.length)
+            newCursor = (cursor - currentPrefix.length).coerceAtLeast(lineStart)
+        } else if (currentPrefix.isNotEmpty()) {
+            // Replace prefix
+            newText = text.substring(0, lineStart) + prefix + text.substring(lineStart + currentPrefix.length)
+            val diff = prefix.length - currentPrefix.length
+            newCursor = (cursor + diff).coerceAtLeast(lineStart)
+        } else {
+            // Add prefix
+            newText = text.substring(0, lineStart) + prefix + text.substring(lineStart)
+            newCursor = cursor + prefix.length
+        }
+        
+        return TextFieldValue(
+            text = newText,
+            selection = TextRange(newCursor)
+        )
 }
 
 class RichTextVisualTransformation(private val themePurple: Color) : VisualTransformation {
@@ -7633,7 +7616,7 @@ class RichTextVisualTransformation(private val themePurple: Color) : VisualTrans
             }
             "bg" -> {
                 val color = parseBgColorString(cleanValue)
-                val finalColor = if (color != Color.Transparent) color.copy(alpha = 0.45f) else Color.Transparent
+                val finalColor = if (color != Color.Transparent) color.copy(alpha = 0.8f) else Color.Transparent
                 SpanStyle(background = finalColor)
             }
             "font" -> {
