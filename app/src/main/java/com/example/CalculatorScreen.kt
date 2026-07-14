@@ -1,4 +1,5 @@
 package com.example
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
@@ -11,6 +12,9 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.material.icons.filled.FormatColorText
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material.icons.filled.DesktopMac
+import androidx.compose.material.icons.filled.Laptop
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
@@ -32,11 +36,15 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.CloudDone
@@ -101,6 +109,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.History
@@ -173,7 +183,7 @@ import androidx.compose.ui.draw.alpha
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -189,6 +199,15 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.widthIn
@@ -345,9 +364,9 @@ fun CalculatorScreen(
     var importCurrent by remember { mutableStateOf(0) }
     var showImportSuccess by remember { mutableStateOf(false) }
     var importSuccessCount by remember { mutableStateOf(0) }
-    val vaultUnlocked by viewModel.vaultUnlocked.collectAsState()
-    val vaultFiles by viewModel.vaultFiles.collectAsState()
-    val vaultNotes by viewModel.vaultNotes.collectAsState()
+    val vaultUnlocked by viewModel.vaultUnlocked.collectAsStateWithLifecycle()
+    val vaultFiles by viewModel.vaultFiles.collectAsStateWithLifecycle()
+    val vaultNotes by viewModel.vaultNotes.collectAsStateWithLifecycle()
     // Switch to the private vault screen automatically when unlocked via passcode
     var transitionState by remember { mutableStateOf(0) } // 0=Calc, 1=Authenticating, 2=Transition, 3=Vault
     
@@ -737,7 +756,7 @@ fun CalculatorScreen(
     }
     // Dynamic Theme Selection Dialog
     if (showThemeDialog) {
-        val selectedTheme by viewModel.selectedTheme.collectAsState()
+        val selectedTheme by viewModel.selectedTheme.collectAsStateWithLifecycle()
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
             title = {
@@ -845,12 +864,12 @@ fun BottomNavItem(
 fun CalculatorTabContent(
     viewModel: CalculatorViewModel
 ) {
-    val expression by viewModel.expression.collectAsState()
-    val calcResult by viewModel.calcResult.collectAsState()
-    val isEvaluated by viewModel.isEvaluated.collectAsState()
-    val rate by viewModel.exchangeRate.collectAsState()
-    val sourceCurrency by viewModel.sourceCurrency.collectAsState()
-    val targetCurrency by viewModel.targetCurrency.collectAsState()
+    val expression by viewModel.expression.collectAsStateWithLifecycle()
+    val calcResult by viewModel.calcResult.collectAsStateWithLifecycle()
+    val isEvaluated by viewModel.isEvaluated.collectAsStateWithLifecycle()
+    val rate by viewModel.exchangeRate.collectAsStateWithLifecycle()
+    val sourceCurrency by viewModel.sourceCurrency.collectAsStateWithLifecycle()
+    val targetCurrency by viewModel.targetCurrency.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
     // Determine numerical value for live split calculation
     val numericResult = calcResult.toDoubleOrNull() ?: expression.toDoubleOrNull() ?: 0.0
@@ -1440,9 +1459,9 @@ fun VaultTabLockedContent(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
-    val vaultUnlocked by viewModel.vaultUnlocked.collectAsState()
-    val vaultFiles by viewModel.vaultFiles.collectAsState()
-    val vaultNotes by viewModel.vaultNotes.collectAsState()
+    val vaultUnlocked by viewModel.vaultUnlocked.collectAsStateWithLifecycle()
+    val vaultFiles by viewModel.vaultFiles.collectAsStateWithLifecycle()
+    val vaultNotes by viewModel.vaultNotes.collectAsStateWithLifecycle()
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -1452,7 +1471,7 @@ fun VaultTabLockedContent(
     var importCurrent by remember { mutableStateOf(0) }
     var showImportSuccess by remember { mutableStateOf(false) }
     var importSuccessCount by remember { mutableStateOf(0) }
-    val biometricEnabled by viewModel.biometricEnabled.collectAsState()
+    val biometricEnabled by viewModel.biometricEnabled.collectAsStateWithLifecycle()
     val activity = context as? androidx.fragment.app.FragmentActivity
     fun triggerBiometric() {
         if (activity != null && biometricEnabled) {
@@ -1703,7 +1722,7 @@ fun VaultTabUnlockedContent(
     onLockExit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val vaultNotes by viewModel.vaultNotes.collectAsState()
+    val vaultNotes by viewModel.vaultNotes.collectAsStateWithLifecycle()
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
@@ -1730,13 +1749,13 @@ fun VaultTabUnlockedContent(
     var importCurrent by remember { mutableStateOf(0) }
     var showImportSuccess by remember { mutableStateOf(false) }
     var importSuccessCount by remember { mutableStateOf(0) }
-    val biometricEnabled by viewModel.biometricEnabled.collectAsState()
-    val panicEnabled by viewModel.panicEnabled.collectAsState()
-    val panicAction by viewModel.panicAction.collectAsState()
-    val screenDownLock by viewModel.screenDownLock.collectAsState()
-    val blurThumbnails by viewModel.blurThumbnails.collectAsState()
-    val lockedFolders by viewModel.lockedFolders.collectAsState()
-    val tempUnlockedFolders by viewModel.tempUnlockedFolders.collectAsState()
+    val biometricEnabled by viewModel.biometricEnabled.collectAsStateWithLifecycle()
+    val panicEnabled by viewModel.panicEnabled.collectAsStateWithLifecycle()
+    val panicAction by viewModel.panicAction.collectAsStateWithLifecycle()
+    val screenDownLock by viewModel.screenDownLock.collectAsStateWithLifecycle()
+    val blurThumbnails by viewModel.blurThumbnails.collectAsStateWithLifecycle()
+    val lockedFolders by viewModel.lockedFolders.collectAsStateWithLifecycle()
+    val tempUnlockedFolders by viewModel.tempUnlockedFolders.collectAsStateWithLifecycle()
     val activity = context as? androidx.fragment.app.FragmentActivity
         // Photo/Video Picker launcher
         val coroutineScope = rememberCoroutineScope()
@@ -1863,7 +1882,7 @@ fun VaultTabUnlockedContent(
             }
         )
         // Secure Original File Gallery Deletion confirmation flow
-        val pendingDeleteSender by viewModel.pendingDeleteSender.collectAsState()
+        val pendingDeleteSender by viewModel.pendingDeleteSender.collectAsStateWithLifecycle()
         val deleteSenderLauncher = rememberLauncherForActivityResult(
             contract = androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
         ) { result ->
@@ -1973,7 +1992,7 @@ fun VaultTabUnlockedContent(
         }
     }
         // Vault Unlocked Content: Advanced Private Media Hub
-        val vaultFiles by viewModel.vaultFiles.collectAsState()
+        val vaultFiles by viewModel.vaultFiles.collectAsStateWithLifecycle()
         var activeSection by remember { rememberBackStack("Home") } // "Home", "Notes", "Photos & Videos", "Documents", "Explore", "Settings"
         var selectedFileForDetails by remember { mutableStateOf<String?>(null) }
         var activeDocumentToView by remember { mutableStateOf<String?>(null) }
@@ -1991,10 +2010,12 @@ fun VaultTabUnlockedContent(
         var activeViewerIndex by remember { mutableStateOf<Int>(-1) }
         var showCreateFolderDialog by remember { mutableStateOf(false) }
         var newFolderName by remember { mutableStateOf("") }
+        var showDeleteConfirm by remember { mutableStateOf<String?>(null) }
         var showMoveToFolderDialog by remember { mutableStateOf<Pair<String, String>?>(null) } // Pair(itemId, type: "file"/"note")
         var showSearchDialog by remember { mutableStateOf(false) }
         var viewNoteToShow by remember { mutableStateOf<String?>(null) }
         var lastNonNullNote by remember { mutableStateOf<String?>(null) }
+        val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
         androidx.activity.compose.BackHandler(enabled = activeSection != "Private Browser") {
             when {
                 activeCameraMode != null -> activeCameraMode = null
@@ -2221,6 +2242,14 @@ fun VaultTabUnlockedContent(
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
+                            if (activeSection == "Recently Deleted") {
+                                Text(
+                                    text = "Deleted items are automatically removed after 30 days.",
+                                    fontSize = 10.sp,
+                                    color = TextMedium.copy(alpha = 0.8f),
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
                         }
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2337,12 +2366,74 @@ fun VaultTabUnlockedContent(
                             }
 
                             Text(
-                                text = "FILES & MEDIA",
+                                text = "STORAGE",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White.copy(alpha = 0.5f),
                                 letterSpacing = 2.sp,
                                 modifier = Modifier.padding(top = 8.dp)
+                            )
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { 
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = "Storage" 
+                                    },
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF161B2B).copy(alpha = 0.95f)),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Folder, contentDescription = "Storage", tint = ThemePurple, modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Vault Storage", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text("View Details", color = ThemePurple, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Icon(Icons.Default.ChevronRight, contentDescription = "View Details", tint = ThemePurple, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    val storageInfo by viewModel.storageInfo.collectAsStateWithLifecycle()
+                                    val maxStorage = 15L * 1024 * 1024 * 1024 // 15 GB
+                                    val progress = if (maxStorage > 0) (storageInfo.totalBytes.toFloat() / maxStorage.toFloat()).coerceIn(0f, 1f) else 0f
+                                    LinearProgressIndicator(
+                                        progress = { progress },
+                                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                                        color = ThemePurple,
+                                        trackColor = Color(0xFF090D1A),
+                                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("${storageInfo.totalUsedFormatted} Used", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                        val freeBytes = maxStorage - storageInfo.totalBytes
+                                        val freeFormatted = if (freeBytes <= 0) "0 B" else {
+                                            val units = arrayOf("B", "KB", "MB", "GB", "TB")
+                                            val digitGroups = (Math.log10(freeBytes.toDouble()) / Math.log10(1024.0)).toInt()
+                                            val index = if (digitGroups > 4) 4 else digitGroups
+                                            val num = freeBytes / Math.pow(1024.0, index.toDouble())
+                                            String.format(java.util.Locale.US, "%.1f %s", num, units[index])
+                                        }
+                                        Text("$freeFormatted Free", color = TextMedium, fontSize = 13.sp)
+                                    }
+                                }
+                            }
+                            
+                            Text(
+                                text = "FILES & MEDIA",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.5f),
+                                letterSpacing = 2.sp,
+                                modifier = Modifier.padding(top = 16.dp)
                             ) 
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 EnhancedVaultCard(
@@ -2460,33 +2551,67 @@ fun VaultTabUnlockedContent(
                                     }
                                 )
                                 EnhancedVaultCard(
-                                    title = "Notes", 
-                                    count = let { val c = vaultNotes.size; "$c ${if (c == 1) "Item" else "Items"}" }, 
-                                    icon = Icons.Default.List,
+                                    title = "Audio",
+                                     count = let { val c = vaultFiles.count { it.contains("|||audio/") }; "$c ${if (c == 1) "Item" else "Items"}" },
+                                     icon = Icons.Default.AudioFile,
                                     modifier = Modifier.weight(1f),
                                     previewContent = {
-                                        val latestNote = vaultNotes.firstOrNull()
-                                        if (latestNote != null) {
-                                            val parts = latestNote.split("|||")
-                                            val body = if (parts.size >= 3) parts[2] else ""
-                                            Text(parseRichTextToAnnotatedString(body), color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(8.dp).fillMaxWidth(), lineHeight = 12.sp)
+                                        val latestAudio = vaultFiles.firstOrNull { it.contains("|||audio/") }
+                                        if (latestAudio != null) {
+                                            val parts = latestAudio.split("|||")
+                                            val title = if (parts.size >= 3) parts[2] else latestAudio.split("|||")[0].substringAfterLast('/')
+                                            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                Icon(Icons.Default.AudioFile, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(16.dp))
+                                                Text(cleanDisplayName(title, "audio", parts.getOrNull(0) ?: ""), color = Color.White, fontSize = 10.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                            }
                                         } else {
-                                            Column(
+                                            Row(
                                                 modifier = Modifier.fillMaxSize().padding(8.dp),
-                                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                                             ) {
-                                                Box(modifier = Modifier.fillMaxWidth(0.5f).height(6.dp).clip(CircleShape).background(ThemePurple.copy(alpha = 0.4f)))
-                                                Box(modifier = Modifier.fillMaxWidth(0.9f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
-                                                Box(modifier = Modifier.fillMaxWidth(0.8f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                                Box(modifier = Modifier.width(4.dp).height(12.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                                Box(modifier = Modifier.width(4.dp).height(20.dp).clip(CircleShape).background(ThemePurple.copy(alpha=0.5f)))
+                                                Box(modifier = Modifier.width(4.dp).height(12.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                                Box(modifier = Modifier.width(4.dp).height(8.dp).clip(CircleShape).background(Color(0xFF262D45)))
                                             }
                                         }
                                     },
                                     onClick = { 
                                         viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Notes" 
+                                        activeSection = "Music & Audio" 
                                     }
                                 )
                             }
+                            
+                            // Notes full width
+                            EnhancedVaultCard(
+                                title = "Notes",
+                                 count = let { val c = vaultNotes.size; "$c ${if (c == 1) "Item" else "Items"}" },
+                                 icon = Icons.Default.List,
+                                modifier = Modifier.fillMaxWidth(),
+                                previewContent = {
+                                    val latestNote = vaultNotes.firstOrNull()
+                                    if (latestNote != null) {
+                                        val parts = latestNote.split("|||")
+                                        val body = if (parts.size >= 3) parts[2] else ""
+                                        Text(parseRichTextToAnnotatedString(body), color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(8.dp).fillMaxWidth(), lineHeight = 12.sp)
+                                    } else {
+                                        Column(
+                                            modifier = Modifier.fillMaxSize().padding(8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Box(modifier = Modifier.fillMaxWidth(0.5f).height(6.dp).clip(CircleShape).background(ThemePurple.copy(alpha = 0.4f)))
+                                            Box(modifier = Modifier.fillMaxWidth(0.9f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                            Box(modifier = Modifier.fillMaxWidth(0.8f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                        }
+                                    }
+                                },
+                                onClick = { 
+                                    viewModel.triggerKeypressEffects(context)
+                                    activeSection = "Notes" 
+                                }
+                            )
                             
                             // Recent Activity
                             Row(
@@ -2616,7 +2741,7 @@ fun VaultTabUnlockedContent(
                                 }
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("Recycle Bin", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                    val recentlyDeleted by viewModel.recentlyDeletedFiles.collectAsState()
+                                    val recentlyDeleted by viewModel.recentlyDeletedFiles.collectAsStateWithLifecycle()
                                     Text(
                                         text = if (recentlyDeleted.isEmpty()) "Empty" else "${recentlyDeleted.size} items", 
                                         color = Color.White.copy(alpha = 0.4f), 
@@ -2625,19 +2750,19 @@ fun VaultTabUnlockedContent(
                                 }
                                 Icon(Icons.Default.ArrowForward, contentDescription = "Open", tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
                             }
-                            Spacer(modifier = Modifier.height(40.dp))
+                            Spacer(modifier = Modifier.height(100.dp))
                         }
                     }
                 "Photos", "Videos", "Documents", "Notes", "Music & Audio" -> {
-                    val vaultFiles by viewModel.vaultFiles.collectAsState()
-                    val favoriteFiles by viewModel.favoriteFiles.collectAsState()
-                    val fileFolders by viewModel.fileFolders.collectAsState()
-                    val vaultNotes by viewModel.vaultNotes.collectAsState()
-                    val favoriteNotes by viewModel.favoriteNotes.collectAsState()
-                    val noteFolders by viewModel.noteFolders.collectAsState()
-                    val vaultFolders by viewModel.vaultFolders.collectAsState()
-                    val lockedFolders by viewModel.lockedFolders.collectAsState()
-                    val tempUnlockedFolders by viewModel.tempUnlockedFolders.collectAsState()
+                    val vaultFiles by viewModel.vaultFiles.collectAsStateWithLifecycle()
+                    val favoriteFiles by viewModel.favoriteFiles.collectAsStateWithLifecycle()
+                    val fileFolders by viewModel.fileFolders.collectAsStateWithLifecycle()
+                    val vaultNotes by viewModel.vaultNotes.collectAsStateWithLifecycle()
+                    val favoriteNotes by viewModel.favoriteNotes.collectAsStateWithLifecycle()
+                    val noteFolders by viewModel.noteFolders.collectAsStateWithLifecycle()
+                    val vaultFolders by viewModel.vaultFolders.collectAsStateWithLifecycle()
+                    val lockedFolders by viewModel.lockedFolders.collectAsStateWithLifecycle()
+                    val tempUnlockedFolders by viewModel.tempUnlockedFolders.collectAsStateWithLifecycle()
                     val items = remember(activeSection, vaultFiles, vaultNotes, favoriteFiles, favoriteNotes, fileFolders, noteFolders) {
                         when (activeSection) {
                             "Photos" -> vaultFiles.filter { it.contains("|||image/") }.map { fileStr ->
@@ -2767,7 +2892,7 @@ fun VaultTabUnlockedContent(
                     }
                 }
                 "Intruder Alerts" -> {
-                    val intruderAttempts by viewModel.intruderAttempts.collectAsState()
+                    val intruderAttempts by viewModel.intruderAttempts.collectAsStateWithLifecycle()
                     if (intruderAttempts.isEmpty()) {
                         EmptyVaultSectionState(
                             title = "No Break-In Attempts",
@@ -2968,12 +3093,36 @@ fun VaultTabUnlockedContent(
                     }
                 }
                 "Recently Deleted" -> {
-                    val recentlyDeletedFiles by viewModel.recentlyDeletedFiles.collectAsState()
+                    val recentlyDeletedFiles by viewModel.recentlyDeletedFiles.collectAsStateWithLifecycle()
                     if (recentlyDeletedFiles.isEmpty()) {
-                        EmptyVaultSectionState(
-                            title = "No Recently Deleted Files",
-                            description = "Files you delete from the vault will be kept here for 30 days before being permanently removed."
-                        )
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "🗑️",
+                                fontSize = 48.sp
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "Recently Deleted is empty.",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Deleted items remain here for 30 days before being permanently removed.",
+                                fontSize = 14.sp,
+                                color = TextMedium.copy(alpha = 0.7f),
+                                textAlign = TextAlign.Center,
+                                lineHeight = 20.sp
+                            )
+                        }
                     } else {
                         LazyColumn(
                             modifier = Modifier
@@ -3015,6 +3164,12 @@ fun VaultTabUnlockedContent(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                                             ) {
+                                                val ctx = androidx.compose.ui.platform.LocalContext.current
+                                                val imageLoader = remember(ctx) {
+                                                    coil.ImageLoader.Builder(ctx)
+                                                        .components { add(coil.decode.VideoFrameDecoder.Factory()) }
+                                                        .build()
+                                                }
                                                 Box(
                                                     modifier = Modifier
                                                         .size(50.dp)
@@ -3022,17 +3177,29 @@ fun VaultTabUnlockedContent(
                                                         .background(ThemeLightPurple),
                                                     contentAlignment = Alignment.Center
                                                 ) {
-                                                    if (mimeType.startsWith("image/")) {
+                                                    if (mimeType.startsWith("image/") || mimeType.startsWith("video/")) {
                                                         AsyncImage(
                                                             model = java.io.File(path),
+                                                            imageLoader = imageLoader,
                                                             contentDescription = originalName,
                                                             modifier = Modifier.fillMaxSize(),
-                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                                            error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_menu_gallery)
                                                         )
-                                                    } else if (mimeType.startsWith("video/")) {
+                                                        if (mimeType.startsWith("video/")) {
+                                                            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)), contentAlignment = Alignment.Center) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.PlayArrow,
+                                                                    contentDescription = "Video",
+                                                                    tint = Color.White,
+                                                                    modifier = Modifier.size(24.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    } else if (mimeType.startsWith("audio/")) {
                                                         Icon(
-                                                            imageVector = Icons.Default.Visibility,
-                                                            contentDescription = "Video",
+                                                            imageVector = Icons.Default.MusicNote,
+                                                            contentDescription = "Audio",
                                                             tint = ThemePurple,
                                                             modifier = Modifier.size(24.dp)
                                                         )
@@ -3062,10 +3229,10 @@ fun VaultTabUnlockedContent(
                                                     )
                                                     Spacer(modifier = Modifier.height(2.dp))
                                                     Text(
-                                                        text = "$remainingDays days remaining before permanent deletion",
-                                                        fontSize = 9.sp,
-                                                        color = Color(0xFFFF8A80),
-                                                        fontWeight = FontWeight.Bold
+                                                        text = "Auto deletes in $remainingDays days",
+                                                        fontSize = 11.sp,
+                                                        color = Color(0xFFFF6B6B).copy(alpha = 0.8f),
+                                                        fontWeight = FontWeight.Medium
                                                     )
                                                 }
                                             }
@@ -3079,15 +3246,15 @@ fun VaultTabUnlockedContent(
                                                         viewModel.triggerKeypressEffects(context)
                                                         val restored = viewModel.restoreFromRecent(recentStr)
                                                         if (restored) {
-                                                            android.widget.Toast.makeText(context, "Restored to Vault", android.widget.Toast.LENGTH_SHORT).show()
+                                                            coroutineScope.launch { snackbarHostState.showSnackbar("File restored successfully.") }
                                                         } else {
-                                                            android.widget.Toast.makeText(context, "Failed to restore", android.widget.Toast.LENGTH_SHORT).show()
+                                                            coroutineScope.launch { snackbarHostState.showSnackbar("Failed to restore.") }
                                                         }
                                                     },
                                                     colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
                                                     modifier = Modifier.weight(1f),
                                                     shape = RoundedCornerShape(8.dp),
-                                                    contentPadding = PaddingValues(vertical = 4.dp)
+                                                    
                                                 ) {
                                                     Icon(Icons.Default.Restore, contentDescription = "Restore", modifier = Modifier.size(14.dp))
                                                     Spacer(modifier = Modifier.width(4.dp))
@@ -3096,17 +3263,12 @@ fun VaultTabUnlockedContent(
                                                 Button(
                                                     onClick = {
                                                         viewModel.triggerKeypressEffects(context)
-                                                        val deleted = viewModel.deletePermanentlyFromRecent(recentStr)
-                                                        if (deleted) {
-                                                            android.widget.Toast.makeText(context, "Permanently Deleted", android.widget.Toast.LENGTH_SHORT).show()
-                                                        } else {
-                                                            android.widget.Toast.makeText(context, "Failed to delete", android.widget.Toast.LENGTH_SHORT).show()
-                                                        }
+                                                        showDeleteConfirm = recentStr
                                                     },
                                                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
                                                     modifier = Modifier.weight(1f),
                                                     shape = RoundedCornerShape(8.dp),
-                                                    contentPadding = PaddingValues(vertical = 4.dp)
+                                                    
                                                 ) {
                                                     Icon(Icons.Default.DeleteForever, contentDescription = "Delete Permanently", modifier = Modifier.size(14.dp))
                                                     Spacer(modifier = Modifier.width(4.dp))
@@ -3119,6 +3281,36 @@ fun VaultTabUnlockedContent(
                             }
                         }
                     }
+                        if (showDeleteConfirm != null) {
+                            androidx.compose.material3.AlertDialog(
+                                onDismissRequest = { showDeleteConfirm = null },
+                                title = { Text("Delete Permanently?", fontWeight = FontWeight.Bold, color = Color.White) },
+                                text = { Text("This action cannot be undone.", color = Color.White.copy(alpha = 0.7f)) },
+                                containerColor = Color(0xFF1B2031),
+                                titleContentColor = Color.White,
+                                textContentColor = Color.White.copy(alpha = 0.8f),
+                                confirmButton = {
+                                    androidx.compose.material3.TextButton(
+                                        onClick = {
+                                            viewModel.triggerKeypressEffects(context)
+                                            val deleted = viewModel.deletePermanentlyFromRecent(showDeleteConfirm!!)
+                                            if (deleted) {
+                                                coroutineScope.launch { snackbarHostState.showSnackbar("Permanently Deleted") }
+                                            }
+                                            showDeleteConfirm = null
+                                        },
+                                        colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF6B6B))
+                                    ) {
+                                        Text("Delete", fontWeight = FontWeight.Bold)
+                                    }
+                                },
+                                dismissButton = {
+                                    androidx.compose.material3.TextButton(onClick = { showDeleteConfirm = null }) {
+                                        Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                                    }
+                                }
+                            )
+                        }
                 }
                                 "More" -> {
                     Column(
@@ -3180,6 +3372,7 @@ fun VaultTabUnlockedContent(
                         }
                         
                         SettingsGroup(title = "DATA & ABOUT") {
+
                             SettingsActionRow(
                                 title = "Export / Import",
                                 subtitle = "Backup or restore data",
@@ -3196,6 +3389,7 @@ fun VaultTabUnlockedContent(
                                 onClick = { activeSection = "About" }
                             )
                         }
+                        Spacer(modifier = Modifier.height(100.dp))
                     }
                 }
                 "Privacy Settings" -> {
@@ -3207,10 +3401,10 @@ fun VaultTabUnlockedContent(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         SettingsGroup(title = "STEALTH & SECURITY OPTIONS") {
-                            val preventScreenshots by viewModel.preventScreenshots.collectAsState()
-                            val screenDownLock by viewModel.screenDownLock.collectAsState()
-                            val panicEnabled by viewModel.panicEnabled.collectAsState()
-                            val biometricEnabled by viewModel.biometricEnabled.collectAsState()
+                            val preventScreenshots by viewModel.preventScreenshots.collectAsStateWithLifecycle()
+                            val screenDownLock by viewModel.screenDownLock.collectAsStateWithLifecycle()
+                            val panicEnabled by viewModel.panicEnabled.collectAsStateWithLifecycle()
+                            val biometricEnabled by viewModel.biometricEnabled.collectAsStateWithLifecycle()
                             SettingsSwitchRow(
                                 title = "Biometric Unlock",
                                 subtitle = "Unlock using fingerprint or face scanning",
@@ -3247,7 +3441,7 @@ fun VaultTabUnlockedContent(
                                 onCheckedChange = { viewModel.setPanicEnabled(it) }
                             )
                             Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
-                            val intruderDetectionEnabled by viewModel.intruderDetectionEnabled.collectAsState()
+                            val intruderDetectionEnabled by viewModel.intruderDetectionEnabled.collectAsStateWithLifecycle()
                             SettingsSwitchRow(
                                 title = "Access Logs",
                                 subtitle = "Log incorrect PIN attempts & keys entered",
@@ -3257,7 +3451,7 @@ fun VaultTabUnlockedContent(
                                 onCheckedChange = { viewModel.setIntruderDetectionEnabled(it) }
                             )
                             Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
-                            val blurThumbnails by viewModel.blurThumbnails.collectAsState()
+                            val blurThumbnails by viewModel.blurThumbnails.collectAsStateWithLifecycle()
                             SettingsSwitchRow(
                                 title = "Blur Thumbnails",
                                 subtitle = "Blurs media previews to prevent shoulder-surfing",
@@ -3267,7 +3461,7 @@ fun VaultTabUnlockedContent(
                                 onCheckedChange = { viewModel.setBlurThumbnails(it) }
                             )
                             Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
-                            val autoLockDuration by viewModel.autoLockDuration.collectAsState()
+                            val autoLockDuration by viewModel.autoLockDuration.collectAsStateWithLifecycle()
                             var showAutoLockDialog by remember { mutableStateOf(false) }
                             val currentDurationLabel = when (autoLockDuration) {
                                 30 -> "30 seconds"
@@ -3297,7 +3491,7 @@ fun VaultTabUnlockedContent(
                                 }
                                 Surface(
                                     color = ThemePurple.copy(alpha = 0.2f),
-                                    shape = RoundedCornerShape(8.dp)
+                                    shape = RoundedCornerShape(8.dp),
                                 ) {
                                     Text(
                                         text = currentDurationLabel,
@@ -3352,9 +3546,9 @@ fun VaultTabUnlockedContent(
                             }
                         }
                         // Panic actions directly visible if panic is enabled
-                        val panicEnabled by viewModel.panicEnabled.collectAsState()
+                        val panicEnabled by viewModel.panicEnabled.collectAsStateWithLifecycle()
                         if (panicEnabled) {
-                            val panicAction by viewModel.panicAction.collectAsState()
+                            val panicAction by viewModel.panicAction.collectAsStateWithLifecycle()
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
@@ -3435,7 +3629,7 @@ fun VaultTabUnlockedContent(
                         }
                         // GENERAL PREFERENCES
                         SettingsGroup(title = "GENERAL PREFERENCES") {
-                            val currentLangCode by viewModel.selectedLanguage.collectAsState()
+                            val currentLangCode by viewModel.selectedLanguage.collectAsStateWithLifecycle()
                             val currentLang = TranslationProvider.languages.find { it.code == currentLangCode }
                             val currentLangDisplay = currentLang?.let { "${it.name} ${it.flag}" } ?: "English 🇺🇸"
                             SettingsActionRow(
@@ -3714,6 +3908,12 @@ fun VaultTabUnlockedContent(
                         }
                     }
                 }
+                "Storage" -> {
+                    StorageScreenSection(
+                        onBack = { activeSection = "__BACK__" },
+                        onNavigateToRecentlyDeleted = { activeSection = "Recently Deleted" }
+                    )
+                }
                 "About" -> {
                     Column(
                         modifier = Modifier
@@ -3838,7 +4038,7 @@ fun VaultTabUnlockedContent(
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
                             ) {
                                 Icon(Icons.Default.FileDownload, contentDescription = "Unhide", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -3853,7 +4053,7 @@ fun VaultTabUnlockedContent(
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
                             ) {
                                 Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -3880,7 +4080,7 @@ fun VaultTabUnlockedContent(
             modifier = Modifier.fillMaxSize().zIndex(100f)
         ) {
             key(activeViewerFiles) {
-                val favoriteFiles by viewModel.favoriteFiles.collectAsState()
+                val favoriteFiles by viewModel.favoriteFiles.collectAsStateWithLifecycle()
                 val pagerState = rememberPagerState(
                     initialPage = activeViewerIndex.coerceIn(0, maxOf(0, activeViewerFiles.size - 1)),
                     pageCount = { activeViewerFiles.size }
@@ -4462,7 +4662,7 @@ fun VaultTabUnlockedContent(
         // 2. Move To Folder Dialog
         if (showMoveToFolderDialog != null) {
             val (itemId, type) = showMoveToFolderDialog!!
-            val vaultFolders by viewModel.vaultFolders.collectAsState()
+            val vaultFolders by viewModel.vaultFolders.collectAsStateWithLifecycle()
             
             AlertDialog(
                 onDismissRequest = { showMoveToFolderDialog = null },
@@ -4543,8 +4743,8 @@ fun VaultTabUnlockedContent(
         // 3. Global Search Dialog
         if (showSearchDialog) {
             var searchQuery by remember { mutableStateOf("") }
-            val favoriteNotes by viewModel.favoriteNotes.collectAsState()
-            val favoriteFiles by viewModel.favoriteFiles.collectAsState()
+            val favoriteNotes by viewModel.favoriteNotes.collectAsStateWithLifecycle()
+            val favoriteFiles by viewModel.favoriteFiles.collectAsStateWithLifecycle()
             
             val matchedNotes = if (searchQuery.trim().isEmpty()) emptyList() else vaultNotes.filter {
                 val parts = it.split("|||")
@@ -4794,7 +4994,7 @@ fun VaultTabUnlockedContent(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    val isFav = viewModel.favoriteNotes.collectAsState().value.contains(noteStr)
+                                    val isFav = viewModel.favoriteNotes.collectAsStateWithLifecycle().value.contains(noteStr)
                                     IconButton(
                                         onClick = {
                                             viewModel.triggerKeypressEffects(context)
@@ -4813,7 +5013,7 @@ fun VaultTabUnlockedContent(
                                         )
                                     }
 
-                                    val isPinned = viewModel.pinnedNotes.collectAsState().value.contains(noteStr)
+                                    val isPinned = viewModel.pinnedNotes.collectAsStateWithLifecycle().value.contains(noteStr)
                                     IconButton(
                                         onClick = {
                                             viewModel.triggerKeypressEffects(context)
@@ -5144,7 +5344,7 @@ fun VaultTabUnlockedContent(
         }
         }
         
-        if (activeSection in listOf("Home", "Private Browser", "More")) {
+        if (activeSection in listOf("Home", "More")) {
         // Custom Bottom Navigation
         Box(
             modifier = Modifier
@@ -5157,7 +5357,7 @@ fun VaultTabUnlockedContent(
                     .fillMaxWidth(0.9f)
                     .height(72.dp)
                     .clip(RoundedCornerShape(36.dp))
-                    .background(Color(0xFF161B2B).copy(alpha = 0.95f))
+                    .background(Color(0xFF161B2B).copy(alpha = 0.85f))
                     .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(36.dp))
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -5648,7 +5848,7 @@ fun VaultTabUnlockedContent(
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
                             ) {
                                 Text("Test Panic Trigger (Simulator)", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
@@ -5688,7 +5888,7 @@ fun VaultTabUnlockedContent(
     }
     // Dynamic Multi-Language Selection Dialog
     if (showLanguageDialog) {
-        val selectedLang by viewModel.selectedLanguage.collectAsState()
+        val selectedLang by viewModel.selectedLanguage.collectAsStateWithLifecycle()
         AlertDialog(
             onDismissRequest = { showLanguageDialog = false },
             title = {
@@ -5745,6 +5945,12 @@ fun VaultTabUnlockedContent(
                     }
                 }
             }
+        )
+    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        androidx.compose.material3.SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
         )
     }
     when (activeCameraMode) {
@@ -5815,15 +6021,23 @@ data class TabState(
     val progress: Int = 0,
     val isLoading: Boolean = false,
     val canGoBack: Boolean = false,
-    val canGoForward: Boolean = false
+    val canGoForward: Boolean = false,
+    val isDesktopMode: Boolean = false
 )
 fun createPrivateWebView(
     ctx: android.content.Context,
     tabId: String,
     initialUrl: String,
+    savePasswords: Boolean,
+    isDesktopMode: Boolean = false,
     onDownloadRequested: (url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long) -> Unit,
     onUpdate: ((TabState) -> TabState) -> Unit
 ): android.webkit.WebView {
+    try {
+        val webViewCacheDir = java.io.File(ctx.cacheDir, "WebView/Default/HTTP Cache/Code Cache")
+        java.io.File(webViewCacheDir, "wasm").mkdirs()
+        java.io.File(webViewCacheDir, "js").mkdirs()
+    } catch (e: Exception) {}
     return android.webkit.WebView(ctx).apply {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
             android.webkit.WebView.setWebContentsDebuggingEnabled(
@@ -5834,13 +6048,17 @@ fun createPrivateWebView(
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = false
-            savePassword = false
+            savePassword = savePasswords
             saveFormData = false
             cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
             useWideViewPort = true
             loadWithOverviewMode = true
+            setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
+            if (isDesktopMode) {
+                userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
         }
         setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
             onDownloadRequested(url, userAgent, contentDisposition, mimetype, contentLength)
@@ -5892,7 +6110,7 @@ fun createPrivateWebView(
         }
         clearCache(true)
         clearHistory()
-        loadUrl(initialUrl)
+        if (initialUrl != "home") { loadUrl(initialUrl) }
     }
 }
 fun clearAllBrowsingData(
@@ -5944,18 +6162,59 @@ fun PrivateBrowserSection(
     onPanic: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    var isImporting by remember { mutableStateOf(false) }
-    var importProgress by remember { mutableStateOf(0f) }
-    var importTotal by remember { mutableStateOf(0) }
-    var importCurrent by remember { mutableStateOf(0) }
-    var showImportSuccess by remember { mutableStateOf(false) }
-    var importSuccessCount by remember { mutableStateOf(0) }
-    val tabs = remember { mutableStateListOf<TabState>() }
+    val tabs = viewModel.browserTabs
     val webViews = remember { mutableStateMapOf<String, android.webkit.WebView>() }
-    var activeTabId by remember { mutableStateOf<String?>(null) }
-    var safeSearchOff by remember { mutableStateOf(true) }
+    var activeTabId: String? by remember { mutableStateOf(viewModel.activeTabId) }
+    
+    // Sync local activeTabId back to viewModel
+    androidx.compose.runtime.LaunchedEffect(activeTabId) {
+        viewModel.activeTabId = activeTabId
+    }
+    
     var showTabSwitcher by remember { mutableStateOf(false) }
-    var showDownloadsDialog by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+    var showDownloads by remember { mutableStateOf(false) }
+    var showBookmarks by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+
+    val browserBookmarks by viewModel.browserBookmarks.collectAsStateWithLifecycle()
+    val browserHistory by viewModel.browserHistory.collectAsStateWithLifecycle()
+    val searchEngine by viewModel.searchEngine.collectAsStateWithLifecycle()
+    val savePasswords by viewModel.savePasswords.collectAsStateWithLifecycle()
+    val clearHistoryOnExit by viewModel.clearHistoryOnExit.collectAsStateWithLifecycle()
+
+    var showSearchEngineDialog by remember { mutableStateOf(false) }
+
+    // Restore WebViews for existing tabs
+    androidx.compose.runtime.LaunchedEffect(tabs.toList()) {
+        tabs.forEach { tab ->
+            if (!webViews.containsKey(tab.id)) {
+                val webView = createPrivateWebView(
+                    ctx = context,
+                    tabId = tab.id,
+                    initialUrl = tab.url,
+                    savePasswords = savePasswords,
+                    isDesktopMode = tab.isDesktopMode,
+                    onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+                        viewModel.startVaultDownload(context, downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                    }
+                ) { transform ->
+                    val index = tabs.indexOfFirst { it.id == tab.id }
+                    if (index != -1) {
+                        tabs[index] = transform(tabs[index])
+                        val currentUrl = tabs[index].url
+                        val currentTitle = tabs[index].title
+                        if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty()) {
+                            viewModel.addBrowserHistory(currentTitle, currentUrl)
+                        }
+                    }
+                }
+                webViews[tab.id] = webView
+            }
+        }
+    }
+
     val openNewTab: (String) -> Unit = { url ->
         val tabId = java.util.UUID.randomUUID().toString()
         val newTab = TabState(id = tabId, url = url, title = "New Tab")
@@ -5965,362 +6224,676 @@ fun PrivateBrowserSection(
             ctx = context,
             tabId = tabId,
             initialUrl = url,
+            savePasswords = savePasswords,
             onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
                 viewModel.startVaultDownload(context, downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
-                showDownloadsDialog = true
             }
         ) { transform ->
             val index = tabs.indexOfFirst { it.id == tabId }
             if (index != -1) {
                 tabs[index] = transform(tabs[index])
+                val currentUrl = tabs[index].url
+                val currentTitle = tabs[index].title
+                if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty()) {
+                    viewModel.addBrowserHistory(currentTitle, currentUrl)
+                }
             }
         }
         webViews[tabId] = webView
         activeTabId = tabId
     }
+
     LaunchedEffect(Unit) {
-        try {
-            val cookieManager = android.webkit.CookieManager.getInstance()
-            cookieManager.removeAllCookies(null)
-            cookieManager.flush()
-            android.webkit.WebStorage.getInstance().deleteAllData()
-        } catch (e: Exception) {}
         if (tabs.isEmpty()) {
-            openNewTab("https://duckduckgo.com")
+            openNewTab("home")
         }
     }
+
+    val currentClearHistoryOnExit by androidx.compose.runtime.rememberUpdatedState(clearHistoryOnExit)
     DisposableEffect(Unit) {
         onDispose {
-            webViews.values.forEach { webView ->
-                try {
-                    webView.stopLoading()
-                    webView.clearHistory()
-                    webView.clearCache(true)
-                    webView.loadUrl("about:blank")
-                    webView.destroy()
-                } catch (e: Exception) {}
+            if (currentClearHistoryOnExit) {
+                viewModel.clearBrowserHistory()
+                clearAllBrowsingData(context, tabs, webViews)
             }
-            webViews.clear()
-            tabs.clear()
-            
-            try {
-                val cookieManager = android.webkit.CookieManager.getInstance()
-                cookieManager.removeAllCookies(null)
-                cookieManager.flush()
-                android.webkit.WebStorage.getInstance().deleteAllData()
-            } catch (e: Exception) {}
         }
     }
+
     val activeTab = tabs.find { it.id == activeTabId }
     val activeWebView = webViews[activeTabId]
-    androidx.activity.compose.BackHandler {
-        if (showTabSwitcher) {
+
+    val goBackOrExit = {
+        if (showSearchEngineDialog) {
+            showSearchEngineDialog = false
+        } else if (showDownloads) {
+            showDownloads = false
+        } else if (showSettings) {
+            showSettings = false
+        } else if (showBookmarks) {
+            showBookmarks = false
+        } else if (showHistory) {
+            showHistory = false
+        } else if (showTabSwitcher) {
             showTabSwitcher = false
-        } else if (activeWebView != null && activeWebView.canGoBack()) {
+        } else if (activeWebView != null && activeWebView.canGoBack() && activeTab?.url != "home") {
             activeWebView.goBack()
+        } else if (activeTab?.url != "home") {
+            activeWebView?.loadUrl("about:blank")
+            val index = tabs.indexOfFirst { it.id == activeTabId }
+            if (index != -1) {
+                tabs[index] = tabs[index].copy(url = "home", title = "New Tab")
+            }
         } else {
             onExit()
         }
     }
-    var urlInput by remember(activeTabId, activeTab?.url) {
-        mutableStateOf(activeTab?.url ?: "https://duckduckgo.com")
+
+    androidx.activity.compose.BackHandler {
+        goBackOrExit()
     }
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFF030304))
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+
+
+    if (showDownloads) {
+        DownloadsScreen(
+            viewModel = viewModel,
+            onBack = { showDownloads = false },
+            context = context
+        )
+        return
+    }
+    if (showSettings) {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xFF0A0C16))
+                .statusBarsPadding()
+                .navigationBarsPadding()
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF0C0C10))
-                    .statusBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { showSettings = false }) {
+                    Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                }
+                Text("Settings", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showSearchEngineDialog = true }
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(24.dp).background(Color.White, CircleShape), contentAlignment = Alignment.Center) {
+                        Text("G", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold) // A generic icon representing search engine
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("Search engine", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(searchEngine, color = Color(0xFF5E8AFF), fontSize = 14.sp)
+                    }
+                }
+                Icon(Icons.Default.ArrowDropDown, "Dropdown", tint = Color.Gray)
+            }
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF5E8AFF), modifier = Modifier.size(24.dp)) 
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Save passwords", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Switch(
+                    checked = savePasswords,
+                    onCheckedChange = { viewModel.setSavePasswords(it) },
+                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF5E8AFF))
+                )
+            }
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.History, contentDescription = null, tint = Color(0xFFE0E0E0), modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Clear history on exit", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Switch(
+                    checked = clearHistoryOnExit,
+                    onCheckedChange = { viewModel.setClearHistoryOnExit(it) },
+                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF5E8AFF))
+                )
+            }
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { 
+                        android.webkit.WebStorage.getInstance().deleteAllData()
+                        android.widget.Toast.makeText(context, "Cache cleared", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE0E0E0), modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(16.dp))
+                Text("Clear cache", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { 
+                        android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                        android.widget.Toast.makeText(context, "Cookies cleared", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.DeleteForever, contentDescription = null, tint = Color(0xFFE0E0E0), modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(16.dp))
+                Text("Clear cookies", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        
+        if (showSearchEngineDialog) {
+            androidx.compose.ui.window.Dialog(onDismissRequest = { showSearchEngineDialog = false }) {
+                Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E202B))) {
+                    Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+                        Text("Search Engine", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
+                        val engines = listOf("Google", "DuckDuckGo", "Bing", "Yahoo")
+                        engines.forEach { engine ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { 
+                                        viewModel.setSearchEngine(engine)
+                                        showSearchEngineDialog = false
+                                    }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = searchEngine == engine,
+                                    onClick = {
+                                        viewModel.setSearchEngine(engine)
+                                        showSearchEngineDialog = false
+                                    },
+                                    colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF5E8AFF), unselectedColor = Color.Gray)
+                                )
+                                Text(engine, color = Color.White, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    if (showBookmarks) {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xFF0A0C16))
+                .statusBarsPadding()
+                .navigationBarsPadding()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { showBookmarks = false }) {
+                    Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                }
+                Text("Bookmarks", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            if (browserBookmarks.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No bookmarks yet", color = Color.Gray, fontSize = 16.sp)
+                }
+            } else {
+                LazyColumn {
+                    items(browserBookmarks) { bookmark ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showBookmarks = false
+                                    activeWebView?.loadUrl(bookmark.url)
+                                }
+                                .padding(horizontal = 24.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(bookmark.title, color = Color.White, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(bookmark.url, color = Color.Gray, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            IconButton(onClick = { viewModel.removeBrowserBookmark(bookmark.url) }) {
+                                Icon(Icons.Default.Delete, "Delete", tint = Color.Gray)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    if (showHistory) {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xFF0A0C16))
+                .statusBarsPadding()
+                .navigationBarsPadding()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    IconButton(
-                        onClick = { onExit() },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back to Vault",
-                            tint = Color.White
-                        )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showHistory = false }) {
+                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
                     }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.VisibilityOff,
-                                contentDescription = "Incognito Mode Active",
-                                tint = ThemePurple,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = "Ghost Browser",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = Color.White,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        Text(
-                            text = "Zero-Trace Sandbox",
-                            fontSize = 9.sp,
-                            color = TextMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                    Text("History", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+                }
+                if (browserHistory.isNotEmpty()) {
+                    IconButton(onClick = { viewModel.clearBrowserHistory() }) {
+                        Icon(Icons.Default.DeleteForever, "Clear History", tint = Color.White)
                     }
                 }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(start = 4.dp)
-                ) {
-                    IconButton(
-                        onClick = {
-                            clearAllBrowsingData(context, tabs, webViews)
-                            openNewTab("https://duckduckgo.com")
-                            android.widget.Toast.makeText(context, "All cookies and browsing cache wiped!", android.widget.Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier
-                            .size(38.dp)
-                            .background(Color(0xFF1F1F26), RoundedCornerShape(8.dp))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Clear All Browsing Data",
-                            tint = Color.Red.copy(alpha = 0.85f),
-                            modifier = Modifier.size(20.dp)
-                        )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            if (browserHistory.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No history yet", color = Color.Gray, fontSize = 16.sp)
+                }
+            } else {
+                LazyColumn {
+                    items(browserHistory) { historyItem ->
+                        val date = java.util.Date(historyItem.timestamp)
+                        val formatter = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showHistory = false
+                                    activeWebView?.loadUrl(historyItem.url)
+                                }
+                                .padding(horizontal = 24.dp, vertical = 12.dp)
+                        ) {
+                            Text(historyItem.title, color = Color.White, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(historyItem.url, color = Color.Gray, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                Text(formatter.format(date), color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp))
+                            }
+                        }
                     }
-                    Button(
-                        onClick = {
-                            clearAllBrowsingData(context, tabs, webViews)
-                            onPanic()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.height(38.dp)
+                }
+            }
+        }
+        return
+    }
+
+    Box(modifier = modifier.fillMaxSize().background(Color(0xFF0A0C16)).navigationBarsPadding()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            val isHome = activeTab?.url == "home" || activeTab?.url == "about:blank" || activeTab?.url?.isEmpty() == true
+            if (isHome) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { goBackOrExit() }) {
+                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                    }
+                    Text(
+                        "Private browser",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.statusBarsPadding())
+            }
+            
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                if (activeTab?.url == "home" || activeTab?.url == "about:blank" || activeTab?.url?.isEmpty() == true) {
+                    var searchInput by remember { mutableStateOf("") }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(Color(0xFF0A0C16), Color(0xFF11142A))
+                                )
+                            )
+                            .padding(horizontal = 24.dp)
+                    ) {
+                        Spacer(modifier = Modifier.weight(1f))
+                        
+                        Text("Quick Access", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(20.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            QuickAccessItem(url = "https://www.google.com", label = "Google", onClick = { activeWebView?.loadUrl("https://www.google.com") })
+                            QuickAccessItem(url = "https://www.instagram.com", label = "Instagram", onClick = { activeWebView?.loadUrl("https://www.instagram.com") })
+                            QuickAccessItem(url = "https://www.facebook.com", label = "Facebook", onClick = { activeWebView?.loadUrl("https://www.facebook.com") })
+                            QuickAccessItem(url = "https://www.youtube.com", label = "YouTube", onClick = { activeWebView?.loadUrl("https://www.youtube.com") })
+                        }
+                        
+                        Spacer(modifier = Modifier.height(32.dp))
+                        
+                        OutlinedTextField(
+                            value = searchInput,
+                            onValueChange = { searchInput = it },
+                            placeholder = { Text("Search or enter URL", color = Color.Gray, fontSize = 16.sp) },
+                            trailingIcon = {
+                                IconButton(onClick = {
+                                    var target = searchInput.trim()
+                                    if (target.isNotEmpty()) {
+                                        if (!target.startsWith("http://") && !target.startsWith("https://")) {
+                                            if (target.contains(".") && !target.contains(" ")) {
+                                                target = "https://$target"
+                                            } else {
+                                                val q = java.net.URLEncoder.encode(target, "UTF-8")
+                                                target = when (searchEngine) {
+                                                    "DuckDuckGo" -> "https://duckduckgo.com/?q=$q"
+                                                    "Bing" -> "https://www.bing.com/search?q=$q"
+                                                    "Yahoo" -> "https://search.yahoo.com/search?p=$q"
+                                                    else -> "https://www.google.com/search?q=$q"
+                                                }
+                                            }
+                                        }
+                                        activeWebView?.loadUrl(target)
+                                    }
+                                }) {
+                                    Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.Gray)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(28.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFF1C1F2D),
+                                unfocusedContainerColor = Color(0xFF1C1F2D),
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent,
+                                cursorColor = Color.White,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(
+                                onSearch = {
+                                    var target = searchInput.trim()
+                                    if (target.isNotEmpty()) {
+                                        if (!target.startsWith("http://") && !target.startsWith("https://")) {
+                                            if (target.contains(".") && !target.contains(" ")) {
+                                                target = "https://$target"
+                                            } else {
+                                                val q = java.net.URLEncoder.encode(target, "UTF-8")
+                                                target = when (searchEngine) {
+                                                    "DuckDuckGo" -> "https://duckduckgo.com/?q=$q"
+                                                    "Bing" -> "https://www.bing.com/search?q=$q"
+                                                    "Yahoo" -> "https://search.yahoo.com/search?p=$q"
+                                                    else -> "https://www.google.com/search?q=$q"
+                                                }
+                                            }
+                                        }
+                                        activeWebView?.loadUrl(target)
+                                    }
+                                }
+                            )
+                        )
+                        
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                } else {
+                    if (activeWebView != null) {
+                        androidx.compose.runtime.key(activeWebView.hashCode()) {
+                            AndroidView(
+                                factory = { activeWebView },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        if (activeTab?.isLoading == true) {
+                            LinearProgressIndicator(
+                                progress = { (activeTab.progress) / 100f },
+                                modifier = Modifier.fillMaxWidth().height(2.dp).align(Alignment.TopCenter),
+                                color = Color(0xFF5E8AFF),
+                                trackColor = Color.Transparent
+                            )
+                        }
+                    }
+                    
+                    // Add Bookmark Button
+                    val isBookmarked = browserBookmarks.any { it.url == activeTab?.url }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp)
+                            .size(48.dp)
+                            .background(Color(0xFF1E202B).copy(alpha = 0.8f), CircleShape)
+                            .clickable {
+                                if (isBookmarked) {
+                                    viewModel.removeBrowserBookmark(activeTab?.url ?: "")
+                                    android.widget.Toast.makeText(context, "Removed from bookmarks", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    viewModel.addBrowserBookmark(activeTab?.title ?: "New Tab", activeTab?.url ?: "")
+                                    android.widget.Toast.makeText(context, "Added to bookmarks", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = "Panic Lock",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "PANIC",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = Color.White
+                            if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
+                            contentDescription = "Bookmark",
+                            tint = if (isBookmarked) Color(0xFFFFC107) else Color.White
                         )
                     }
                 }
             }
+            
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF0C0C10))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    .background(Color(0xFF0F1015))
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = { activeWebView?.goBack() },
-                    enabled = activeTab?.canGoBack == true,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Web Back",
-                        tint = if (activeTab?.canGoBack == true) ThemePurple else Color.Gray
-                    )
+                IconButton(onClick = { activeWebView?.goBack() }, enabled = activeTab?.canGoBack == true) {
+                    Icon(Icons.Default.ArrowBack, "Back", tint = if (activeTab?.canGoBack == true) Color.White else Color.Gray)
                 }
-                IconButton(
-                    onClick = { activeWebView?.goForward() },
-                    enabled = activeTab?.canGoForward == true,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = "Web Forward",
-                        tint = if (activeTab?.canGoForward == true) ThemePurple else Color.Gray
-                    )
-                }
-                IconButton(
-                    onClick = { activeWebView?.reload() },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Reload Webpage",
-                        tint = ThemePurple
-                    )
-                }
-                OutlinedTextField(
-                    value = urlInput,
-                    onValueChange = { urlInput = it },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    textStyle = TextStyle(fontSize = 11.sp, color = Color.White),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color(0xFF13131A),
-                        unfocusedContainerColor = Color(0xFF13131A),
-                        focusedBorderColor = ThemePurple,
-                        unfocusedBorderColor = ThemeContainerBorder,
-                        cursorColor = ThemePurple
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(
-                        onSearch = {
-                            var target = urlInput.trim()
-                            if (target.isNotEmpty()) {
-                                if (!target.startsWith("http://") && !target.startsWith("https://")) {
-                                    if (target.contains(".") && !target.contains(" ")) {
-                                        target = "https://$target"
-                                    } else {
-                                        val safeParam = if (safeSearchOff) "&kp=-2" else "&kp=1"
-                                        target = "https://duckduckgo.com/?q=${java.net.URLEncoder.encode(target, "UTF-8")}$safeParam"
-                                    }
-                                }
-                                activeWebView?.loadUrl(target)
-                            }
-                        }
-                    )
-                )
-                IconButton(
-                    onClick = {
-                        safeSearchOff = !safeSearchOff
-                        android.widget.Toast.makeText(
-                            context,
-                            if (safeSearchOff) "SafeSearch: OFF (Default)" else "SafeSearch: ON",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(
-                            if (safeSearchOff) Color(0xFFE65100).copy(alpha = 0.15f) else Color(0xFF2E7D32).copy(alpha = 0.15f),
-                            RoundedCornerShape(8.dp)
-                        )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Safe Search",
-                        tint = if (safeSearchOff) Color(0xFFFF9800) else Color(0xFF4CAF50),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                // Secure Downloads Manager Badge Button
-                val downloadsList by viewModel.downloads.collectAsState()
-                val activeDownloadsCount = downloadsList.count { it.status == "Downloading" }
                 
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0xFF1F1F26), RoundedCornerShape(8.dp))
-                        .clickable { showDownloadsDialog = true },
+                        .weight(1f)
+                        .padding(horizontal = 16.dp)
+                        .height(36.dp)
+                        .background(Color(0xFF1E202B), RoundedCornerShape(18.dp))
+                        .clickable {
+                            if (activeTab?.url != "home") {
+                                activeWebView?.loadUrl("about:blank")
+                                val index = tabs.indexOfFirst { it.id == activeTabId }
+                                if (index != -1) {
+                                    tabs[index] = tabs[index].copy(url = "home", title = "New Tab")
+                                }
+                            }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.FileDownload,
-                        contentDescription = "Downloads Manager",
-                        tint = if (activeDownloadsCount > 0) ThemePurple else Color.LightGray,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    
-                    if (downloadsList.isNotEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .offset(x = 2.dp, y = (-2).dp)
-                                .size(14.dp)
-                                .background(
-                                    if (activeDownloadsCount > 0) ThemePurple else Color(0xFF4CAF50),
-                                    CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = downloadsList.size.toString(),
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
+                    val displayUrl = if (activeTab?.url == "home" || activeTab?.url == "about:blank" || activeTab?.url.isNullOrEmpty()) {
+                        "Search or enter URL"
+                    } else {
+                        try {
+                            java.net.URL(activeTab.url).host.removePrefix("www.")
+                        } catch(e: Exception) {
+                            activeTab.title ?: "Website"
                         }
                     }
+                    Text(displayUrl, color = Color.White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 12.dp))
                 }
+                
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(24.dp)
+                        .border(2.dp, Color.White, RoundedCornerShape(6.dp))
                         .clickable { showTabSwitcher = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .border(1.5.dp, ThemePurple, RoundedCornerShape(6.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = tabs.size.toString(),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ThemePurple
-                        )
-                    }
+                    Text(
+                        text = tabs.size.toString(),
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-            }
-            if (activeTab?.isLoading == true) {
-                LinearProgressIndicator(
-                    progress = { (activeTab.progress) / 100f },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp),
-                    color = ThemePurple,
-                    trackColor = Color.Transparent
-                )
-            }
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(4.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                key(activeTabId) {
-                    if (activeWebView != null) {
-                        AndroidView(
-                            factory = { activeWebView },
-                            modifier = Modifier.fillMaxSize()
+                
+                Box {
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.padding(start = 8.dp)) {
+                        Icon(Icons.Default.MoreVert, "More Options", tint = Color.White)
+                    }
+                    
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(Color(0xFF1E202B), RoundedCornerShape(8.dp))
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Bookmarks", color = Color.White) },
+                            onClick = { 
+                                showMenu = false
+                                showBookmarks = true
+                            },
+                            leadingIcon = { Icon(Icons.Default.Star, "Bookmarks", tint = Color.White) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("History", color = Color.White) },
+                            onClick = { 
+                                showMenu = false
+                                showHistory = true
+                            },
+                            leadingIcon = { Icon(Icons.Default.History, "History", tint = Color.White) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Downloads", color = Color.White) },
+                            onClick = { 
+                                showMenu = false
+                                showDownloads = true
+                            },
+                            leadingIcon = { Icon(Icons.Default.Download, "Downloads", tint = Color.White) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Desktop site", color = Color.White) },
+                            onClick = { 
+                                showMenu = false
+                                val webView = webViews[activeTabId]
+                                if (webView != null && activeTab != null) {
+                                    val newMode = !activeTab.isDesktopMode
+                                    val index = tabs.indexOfFirst { it.id == activeTabId }
+                                    if (index != -1) {
+                                        tabs[index] = tabs[index].copy(isDesktopMode = newMode)
+                                    }
+                                    if (newMode) {
+                                        webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                        webView.settings.loadWithOverviewMode = true
+                                        webView.settings.useWideViewPort = true
+                                        webView.settings.setSupportZoom(true)
+                                        webView.settings.builtInZoomControls = true
+                                        webView.settings.displayZoomControls = false
+                                    } else {
+                                        webView.settings.userAgentString = android.webkit.WebSettings.getDefaultUserAgent(context)
+                                        webView.settings.loadWithOverviewMode = true
+                                        webView.settings.useWideViewPort = true
+                                        webView.settings.setSupportZoom(true)
+                                        webView.settings.builtInZoomControls = true
+                                        webView.settings.displayZoomControls = false
+                                    }
+                                    webView.clearCache(true)
+                                    webView.reload()
+                                }
+                            },
+                            leadingIcon = { 
+                                Icon(
+                                    if (activeTab?.isDesktopMode == true) Icons.Default.DesktopMac else Icons.Default.Laptop, 
+                                    "Desktop site", 
+                                    tint = if (activeTab?.isDesktopMode == true) Color(0xFF5E8AFF) else Color.White
+                                ) 
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Settings", color = Color.White) },
+                            onClick = { 
+                                showMenu = false
+                                showSettings = true
+                            },
+                            leadingIcon = { Icon(Icons.Default.Settings, "Settings", tint = Color.White) }
+                        )
+                        androidx.compose.material3.HorizontalDivider(color = Color.DarkGray)
+                        DropdownMenuItem(
+                            text = { Text("Return to Vault", color = Color.White) },
+                            onClick = { 
+                                showMenu = false
+                                onExit()
+                            },
+                            leadingIcon = { Icon(Icons.Default.Lock, "Return to Vault", tint = Color.White) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Panic Mode", color = Color(0xFFFF5252)) },
+                            onClick = { 
+                                showMenu = false
+                                viewModel.clearBrowserHistory()
+                                clearAllBrowsingData(context, tabs, webViews)
+                                onExit()
+                            },
+                            leadingIcon = { Icon(Icons.Default.Warning, "Panic Mode", tint = Color(0xFFFF5252)) }
                         )
                     }
                 }
             }
         }
+        
         if (showTabSwitcher) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.85f))
                     .clickable { showTabSwitcher = false }
+                    .navigationBarsPadding()
             ) {
                 Card(
                     modifier = Modifier
@@ -6329,8 +6902,7 @@ fun PrivateBrowserSection(
                         .padding(16.dp)
                         .clickable(enabled = false) {},
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0F13)),
-                    border = BorderStroke(1.dp, ThemeContainerBorder)
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E202B))
                 ) {
                     Column(
                         modifier = Modifier
@@ -6343,26 +6915,19 @@ fun PrivateBrowserSection(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Active Browser Tabs (${tabs.size})",
-                                fontSize = 14.sp,
+                                text = "Active Tabs (${tabs.size})",
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
-                            IconButton(
-                                onClick = { showTabSwitcher = false },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Done",
-                                    tint = ThemePurple
-                                )
+                            IconButton(onClick = { openNewTab("home"); showTabSwitcher = false }) {
+                                Icon(Icons.Default.Add, "New Tab", tint = Color.White)
                             }
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         LazyColumn(
                             modifier = Modifier
-                                .heightIn(max = 250.dp)
+                                .heightIn(max = 300.dp)
                                 .fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -6377,36 +6942,34 @@ fun PrivateBrowserSection(
                                         },
                                     shape = RoundedCornerShape(10.dp),
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (isActive) Color(0xFF230D35) else Color(0xFF1A1A22)
-                                    ),
-                                    border = BorderStroke(
-                                        1.dp,
-                                        if (isActive) ThemePurple else ThemeContainerBorder
+                                        containerColor = if (isActive) Color(0xFF323647) else Color(0xFF262836)
                                     )
                                 ) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(10.dp),
+                                            .padding(12.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = tab.title,
-                                                fontSize = 12.sp,
+                                                text = if (tab.url == "home") "Home Page" else tab.title,
+                                                fontSize = 14.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color.White,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
-                                            Text(
-                                                text = tab.url,
-                                                fontSize = 10.sp,
-                                                color = TextMedium,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
+                                            if (tab.url != "home") {
+                                                Text(
+                                                    text = tab.url,
+                                                    fontSize = 12.sp,
+                                                    color = Color.Gray,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
                                         }
                                         IconButton(
                                             onClick = {
@@ -6421,240 +6984,61 @@ fun PrivateBrowserSection(
                                                     } catch (e: Exception) {}
                                                     webViews.remove(tab.id)
                                                 }
-                                                
                                                 val tabIndex = tabs.indexOf(tab)
                                                 tabs.remove(tab)
                                                 if (activeTabId == tab.id) {
                                                     if (tabs.isNotEmpty()) {
                                                         activeTabId = tabs[tabIndex.coerceAtMost(tabs.size - 1)].id
                                                     } else {
-                                                        openNewTab("https://duckduckgo.com")
+                                                        openNewTab("home")
                                                     }
                                                 }
                                             },
-                                            modifier = Modifier.size(28.dp)
+                                            modifier = Modifier.size(32.dp)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.DeleteForever,
+                                                imageVector = Icons.Default.Close,
                                                 contentDescription = "Close Tab",
-                                                tint = Color.Red.copy(alpha = 0.7f),
-                                                modifier = Modifier.size(16.dp)
+                                                tint = Color.White
                                             )
                                         }
                                     }
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    clearAllBrowsingData(context, tabs, webViews)
-                                    openNewTab("https://duckduckgo.com")
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f))
-                            ) {
-                                Icon(Icons.Default.DeleteForever, contentDescription = "Close All Tabs", modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Close All Tabs", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                            }
-                            Button(
-                                onClick = {
-                                    openNewTab("https://duckduckgo.com")
-                                    showTabSwitcher = false
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = "Open New Tab", modifier = Modifier.size(14.dp), tint = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("New Private Tab", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White)
-                            }
-                        }
                     }
                 }
             }
         }
-        // --- SECURE DOWNLOADS MANAGER DIALOG ---
-        if (showDownloadsDialog) {
-            val downloadsList by viewModel.downloads.collectAsState()
-            
-            AlertDialog(
-                onDismissRequest = { showDownloadsDialog = false },
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FileDownload,
-                            contentDescription = "Downloads",
-                            tint = ThemePurple
-                        )
-                        Text(
-                            text = "Private Vault Downloads",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Text(
-                            text = "All files are downloaded directly into your encrypted Vault. No trace is left in your device's public download directories.",
-                            fontSize = 11.sp,
-                            color = TextMedium
-                        )
-                        
-                        if (downloadsList.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(140.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CloudQueue,
-                                        contentDescription = "No downloads",
-                                        tint = Color.Gray.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(40.dp)
-                                    )
-                                    Text(
-                                        text = "No downloads in this session",
-                                        fontSize = 12.sp,
-                                        color = TextMedium
-                                    )
-                                }
-                            }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier
-                                    .heightIn(max = 280.dp)
-                                    .fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(downloadsList) { task ->
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = CardDefaults.cardColors(containerColor = Color(0xFF141419)),
-                                        border = BorderStroke(1.dp, ThemeContainerBorder)
-                                    ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(10.dp),
-                                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        text = task.filename,
-                                                        fontSize = 12.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = Color.White,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                    Text(
-                                                        text = "${task.sizeString} • ${task.status}",
-                                                        fontSize = 10.sp,
-                                                        color = if (task.status == "Completed") Color(0xFF4CAF50) else if (task.status == "Failed") Color.Red else TextMedium
-                                                    )
-                                                }
-                                                
-                                                IconButton(
-                                                    onClick = { viewModel.removeDownload(task.id) },
-                                                    modifier = Modifier.size(24.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Close,
-                                                        contentDescription = "Remove task",
-                                                        tint = Color.Gray,
-                                                        modifier = Modifier.size(14.dp)
-                                                    )
-                                                }
-                                            }
-                                            
-                                            if (task.status == "Downloading") {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) {
-                                                    LinearProgressIndicator(
-                                                        progress = { task.progress },
-                                                        modifier = Modifier
-                                                            .weight(1f)
-                                                            .height(4.dp)
-                                                            .clip(RoundedCornerShape(2.dp)),
-                                                        color = ThemePurple,
-                                                        trackColor = Color(0xFF22222A)
-                                                    )
-                                                    Text(
-                                                        text = "${(task.progress * 100).toInt()}%",
-                                                        fontSize = 10.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = ThemePurple
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (downloadsList.isNotEmpty()) {
-                            Button(
-                                onClick = { viewModel.clearDownloads() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.15f), contentColor = Color.Red),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Clear All", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        Button(
-                            onClick = { showDownloadsDialog = false },
-                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Dismiss", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                },
-                containerColor = Color(0xFF0C0C10),
-                shape = RoundedCornerShape(16.dp)
-            )
-        }
     }
 }
+
+@Composable
+fun QuickAccessItem(url: String, label: String, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .background(Color.White, RoundedCornerShape(16.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            val domain = try {
+                java.net.URI(url).host?.removePrefix("www.") ?: url
+            } catch(e: Exception) { url }
+            coil.compose.AsyncImage(
+                model = "https://www.google.com/s2/favicons?domain=$domain&sz=128",
+                contentDescription = label,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(label, color = Color.White, fontSize = 12.sp)
+    }
+}
+
 @Composable
 fun AppLockSection(viewModel: CalculatorViewModel) {
     val context = LocalContext.current
@@ -6665,7 +7049,7 @@ fun AppLockSection(viewModel: CalculatorViewModel) {
     var showImportSuccess by remember { mutableStateOf(false) }
     var importSuccessCount by remember { mutableStateOf(0) }
     val pm = remember { context.packageManager }
-    val lockedApps by viewModel.lockedApps.collectAsState()
+    val lockedApps by viewModel.lockedApps.collectAsStateWithLifecycle()
     val appsList = remember {
         try {
             pm.getInstalledApplications(PackageManager.GET_META_DATA)
@@ -7669,6 +8053,387 @@ fun RenderNoteContent(
                         lineHeight = 22.sp,
                         modifier = Modifier.padding(vertical = 2.dp)
                     )
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun StorageScreenSection(
+    viewModel: CalculatorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    onBack: () -> Unit,
+    onNavigateToRecentlyDeleted: () -> Unit
+) {
+    val storageInfo by viewModel.storageInfo.collectAsStateWithLifecycle()
+    val themePurple = ThemePurple
+    val textMedium = TextMedium
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF090D1A))
+    ) {
+        // Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+            }
+            Text(
+                text = "Storage",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Total Vault Storage Section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFF383F56).copy(alpha = 0.3f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Total Vault Storage", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    val MAX_STORAGE = 15L * 1024 * 1024 * 1024 // 15 GB
+                    val progress = if (MAX_STORAGE > 0) (storageInfo.totalBytes.toFloat() / MAX_STORAGE.toFloat()).coerceIn(0f, 1f) else 0f
+                    // Storage Bar
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                        color = themePurple,
+                        trackColor = Color(0xFF383F56).copy(alpha = 0.5f),
+                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("${storageInfo.totalUsedFormatted} Used", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("15.0 GB Total", color = textMedium, fontSize = 14.sp)
+                    }
+                }
+            }
+
+            // Categories
+            SettingsGroup(title = "CATEGORIES") {
+                StorageCategoryRow(title = "Photos", icon = Icons.Default.Image, size = storageInfo.photosFormatted, color = Color(0xFF42A5F5))
+                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                StorageCategoryRow(title = "Videos", icon = Icons.Default.PlayArrow, size = storageInfo.videosFormatted, color = Color(0xFFEF5350))
+                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                StorageCategoryRow(title = "Documents", icon = Icons.Default.Description, size = storageInfo.docsFormatted, color = Color(0xFFFFCA28))
+                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                StorageCategoryRow(title = "Audio", icon = Icons.Default.AudioFile, size = storageInfo.audioFormatted, color = Color(0xFFAB47BC))
+                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                StorageCategoryRow(title = "Notes", icon = Icons.Default.Edit, size = storageInfo.notesFormatted, color = Color(0xFF66BB6A))
+            }
+            
+            // Recently Deleted
+            SettingsGroup(title = "TRASH") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onNavigateToRecentlyDeleted() }
+                        .padding(vertical = 12.dp, horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE53935).copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = "Recently Deleted", tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = "Recently Deleted",
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = storageInfo.trashFormatted,
+                            color = textMedium,
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = "Go",
+                            tint = Color.White.copy(alpha = 0.3f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun StorageCategoryRow(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, size: String, color: Color) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp, horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(color.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = title, tint = color, modifier = Modifier.size(20.dp))
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        Text(
+            text = size,
+            color = TextMedium,
+            fontSize = 14.sp
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DownloadsScreen(
+    viewModel: CalculatorViewModel,
+    onBack: () -> Unit,
+    context: android.content.Context
+) {
+    val downloads by viewModel.downloads.collectAsStateWithLifecycle()
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabs = listOf("Current", "Completed", "Failed")
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0A0C16))
+            .navigationBarsPadding()
+    ) {
+        // Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(top = 16.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+            }
+            Text(
+                "Downloads",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+
+        // Tabs
+        androidx.compose.material3.TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+            indicator = { tabPositions ->
+                androidx.compose.material3.TabRowDefaults.Indicator(
+                    Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                    color = ThemeLightPurple
+                )
+            }
+        ) {
+            tabs.forEachIndexed { index, title ->
+                androidx.compose.material3.Tab(
+                    selected = selectedTab == index,
+                    onClick = { selectedTab = index },
+                    text = { Text(title) }
+                )
+            }
+        }
+
+        // List
+        val filteredDownloads = downloads.filter { task ->
+            when (selectedTab) {
+                0 -> task.status == "Downloading"
+                1 -> task.status == "Completed"
+                else -> task.status == "Failed"
+            }
+        }
+
+        if (filteredDownloads.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No ${tabs[selectedTab].lowercase()} downloads", color = Color.White.copy(alpha = 0.5f))
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(filteredDownloads, key = { it.id }) { task ->
+                    DownloadItem(
+                        task = task,
+                        onOpen = { viewModel.openDownload(context, task) },
+                        onDelete = { viewModel.deleteDownload(task) },
+                        onRetry = { viewModel.retryDownload(context, task) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DownloadItem(
+    task: DownloadTask,
+    onOpen: () -> Unit,
+    onDelete: () -> Unit,
+    onRetry: () -> Unit
+) {
+    androidx.compose.material3.Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF161B29),
+        tonalElevation = 2.dp,
+        shadowElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .clickable { if (task.status == "Completed") onOpen() }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                            colors = listOf(Color(0xFF2B324B), Color(0xFF1B2236))
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = when {
+                        task.status == "Downloading" -> Icons.Default.CloudDownload
+                        task.mimeType.startsWith("image/") -> Icons.Default.Image
+                        task.mimeType.startsWith("video/") -> Icons.Default.VideoFile
+                        task.mimeType.contains("pdf") -> Icons.Default.PictureAsPdf
+                        else -> Icons.Default.InsertDriveFile
+                    },
+                    contentDescription = null,
+                    tint = Color(0xFF90CAF9),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = task.filename,
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (task.status == "Downloading") {
+                            "${(task.progress * 100).toInt()}% of ${task.sizeString}"
+                        } else {
+                            task.sizeString
+                        },
+                        color = Color.Gray,
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = when (task.status) {
+                                    "Downloading" -> Color(0xFF2962FF).copy(alpha = 0.2f)
+                                    "Completed" -> Color(0xFF4CAF50).copy(alpha = 0.2f)
+                                    else -> Color(0xFFF44336).copy(alpha = 0.2f)
+                                },
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = task.status,
+                            color = when (task.status) {
+                                "Downloading" -> Color(0xFF90CAF9)
+                                "Completed" -> Color(0xFFA5D6A7)
+                                else -> Color(0xFFEF9A9A)
+                            },
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                if (task.status == "Downloading") {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { task.progress },
+                        modifier = Modifier.fillMaxWidth().height(4.dp),
+                        color = Color(0xFF90CAF9),
+                        trackColor = Color.White.copy(alpha = 0.05f),
+                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Row(horizontalArrangement = Arrangement.End) {
+                if (task.status == "Failed") {
+                    IconButton(onClick = onRetry) {
+                        Icon(Icons.Default.Refresh, "Retry", tint = Color.White.copy(alpha = 0.7f))
+                    }
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, "Delete", tint = Color.White.copy(alpha = 0.4f))
                 }
             }
         }

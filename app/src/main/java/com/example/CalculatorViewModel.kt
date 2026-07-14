@@ -8,6 +8,12 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +27,7 @@ import java.io.InputStream
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
+
 
 enum class ApiStatus {
     IDLE, LOADING, SUCCESS, ERROR
@@ -38,7 +45,14 @@ data class Currency(
     val defaultUsdRate: Double
 )
 
+
+data class BrowserBookmark(val title: String, val url: String)
+data class BrowserHistory(val title: String, val url: String, val timestamp: Long)
+
 class CalculatorViewModel(application: Application) : AndroidViewModel(application) {
+    val browserTabs = androidx.compose.runtime.mutableStateListOf<com.example.TabState>()
+    var activeTabId by androidx.compose.runtime.mutableStateOf<String?>(null)
+
 
     private val prefs = application.getSharedPreferences("exchange_calc_prefs", Context.MODE_PRIVATE)
 
@@ -354,7 +368,63 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     val recentlyDeletedFiles: StateFlow<List<String>> = _recentlyDeletedFiles.asStateFlow()
 
     private val _intruderAttempts = MutableStateFlow<List<String>>(emptyList())
+    
+    val storageInfo: StateFlow<VaultStorageInfo> = combine(
+        _vaultFiles, _vaultNotes, _recentlyDeletedFiles
+    ) { files, notes, trash ->
+        var photos = 0L
+        var videos = 0L
+        var docs = 0L
+        var audio = 0L
+        var notesSize = 0L
+        var trashSize = 0L
+        
+        files.forEach { file ->
+            val parts = file.split("|||")
+            if (parts.size >= 5) {
+                val mimeType = parts[3].lowercase()
+                val path = parts[4]
+                val size = File(path).length()
+                when {
+                    mimeType.startsWith("image/") -> photos += size
+                    mimeType.startsWith("video/") -> videos += size
+                    mimeType.startsWith("audio/") -> audio += size
+                    else -> docs += size
+                }
+            }
+        }
+        
+        notes.forEach { note ->
+            notesSize += note.toByteArray().size.toLong()
+        }
+        
+        trash.forEach { item ->
+            val parts = item.split("|||")
+            if (parts.size >= 5) {
+                // If it's a file, parts[4] is absolute path
+                if (parts[4].startsWith("/")) {
+                    trashSize += File(parts[4]).length()
+                } else {
+                    trashSize += item.toByteArray().size.toLong()
+                }
+            } else {
+                trashSize += item.toByteArray().size.toLong()
+            }
+        }
+        
+        VaultStorageInfo(
+            totalBytes = photos + videos + docs + audio + notesSize,
+            photosBytes = photos,
+            videosBytes = videos,
+            docsBytes = docs,
+            audioBytes = audio,
+            notesBytes = notesSize,
+            trashBytes = trashSize
+        )
+    }.stateIn(viewModelScope, SharingStarted.Lazily, VaultStorageInfo())
+
     val intruderAttempts: StateFlow<List<String>> = _intruderAttempts.asStateFlow()
+
 
     private val _intruderDetectionEnabled = MutableStateFlow(prefs.getBoolean("intruder_detection_enabled", true))
     val intruderDetectionEnabled: StateFlow<Boolean> = _intruderDetectionEnabled.asStateFlow()
@@ -469,6 +539,8 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val currencyFormat = DecimalFormat("#.##", DecimalFormatSymbols(Locale.US))
 
     init {
+        loadBrowserBookmarks()
+        loadBrowserHistory()
         // Force clear old cached INR rate if it equals 95.6
         if (prefs.contains("rate_INR") && prefs.getFloat("rate_INR", 0f) == 95.6f) {
             prefs.edit().remove("rate_INR").apply()
@@ -590,7 +662,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                             val attributes = android.os.VibrationAttributes.Builder()
                                 .setUsage(android.os.VibrationAttributes.USAGE_TOUCH)
                                 .build()
-                            vibrator.vibrate(effect, attributes)
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) { vibrator.vibrate(effect, attributes) } else { vibrator.vibrate(effect) }
                         } else {
                             vibrator.vibrate(effect)
                         }
@@ -2218,7 +2290,126 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     // --- Private Browser Downloads Engine ---
     private val _downloads = MutableStateFlow<List<DownloadTask>>(emptyList())
-    val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
+    
+    private val _browserBookmarks = MutableStateFlow<List<BrowserBookmark>>(emptyList())
+    val browserBookmarks: StateFlow<List<BrowserBookmark>> = _browserBookmarks.asStateFlow()
+
+    private val _browserHistory = MutableStateFlow<List<BrowserHistory>>(emptyList())
+    val browserHistory: StateFlow<List<BrowserHistory>> = _browserHistory.asStateFlow()
+
+    private val _searchEngine = MutableStateFlow(prefs.getString("browser_search_engine", "Google") ?: "Google")
+    val searchEngine: StateFlow<String> = _searchEngine.asStateFlow()
+
+    private val _savePasswords = MutableStateFlow(prefs.getBoolean("browser_save_passwords", true))
+    val savePasswords: StateFlow<Boolean> = _savePasswords.asStateFlow()
+
+    private val _clearHistoryOnExit = MutableStateFlow(prefs.getBoolean("browser_clear_history", false))
+    val clearHistoryOnExit: StateFlow<Boolean> = _clearHistoryOnExit.asStateFlow()
+
+    fun addBrowserBookmark(title: String, url: String) {
+        val current = _browserBookmarks.value.toMutableList()
+        if (!current.any { it.url == url }) {
+            current.add(BrowserBookmark(title, url))
+            _browserBookmarks.value = current
+            saveBrowserBookmarks(current)
+        }
+    }
+
+    fun removeBrowserBookmark(url: String) {
+        val current = _browserBookmarks.value.toMutableList()
+        current.removeAll { it.url == url }
+        _browserBookmarks.value = current
+        saveBrowserBookmarks(current)
+    }
+
+            fun addBrowserHistory(title: String, url: String) {
+        val current = _browserHistory.value.toMutableList()
+        if (current.isNotEmpty() && current.first().url == url) {
+            current[0] = current[0].copy(title = title, timestamp = System.currentTimeMillis())
+        } else {
+            val existingIndex = current.indexOfFirst { it.url == url }
+            if (existingIndex != -1) {
+                current.removeAt(existingIndex)
+            }
+            current.add(0, BrowserHistory(title, url, System.currentTimeMillis()))
+            if (current.size > 100) {
+                current.removeAt(current.size - 1)
+            }
+        }
+        _browserHistory.value = current
+        saveBrowserHistory(current)
+    }
+
+    fun clearBrowserHistory() {
+        _browserHistory.value = emptyList()
+        saveBrowserHistory(emptyList())
+    }
+
+    fun setSearchEngine(engine: String) {
+        _searchEngine.value = engine
+        prefs.edit().putString("browser_search_engine", engine).apply()
+    }
+
+    fun setSavePasswords(save: Boolean) {
+        _savePasswords.value = save
+        prefs.edit().putBoolean("browser_save_passwords", save).apply()
+    }
+
+    fun setClearHistoryOnExit(clear: Boolean) {
+        _clearHistoryOnExit.value = clear
+        prefs.edit().putBoolean("browser_clear_history", clear).apply()
+    }
+
+    private fun saveBrowserBookmarks(list: List<BrowserBookmark>) {
+        val json = org.json.JSONArray()
+        list.forEach { 
+            val obj = org.json.JSONObject()
+            obj.put("title", it.title)
+            obj.put("url", it.url)
+            json.put(obj)
+        }
+        prefs.edit().putString("browser_bookmarks", json.toString()).apply()
+    }
+
+    private fun loadBrowserBookmarks() {
+        try {
+            val jsonStr = prefs.getString("browser_bookmarks", "[]") ?: "[]"
+            val json = org.json.JSONArray(jsonStr)
+            val list = mutableListOf<BrowserBookmark>()
+            for (i in 0 until json.length()) {
+                val obj = json.getJSONObject(i)
+                list.add(BrowserBookmark(obj.getString("title"), obj.getString("url")))
+            }
+            _browserBookmarks.value = list
+        } catch (e: Exception) {}
+    }
+
+    private fun saveBrowserHistory(list: List<BrowserHistory>) {
+        val json = org.json.JSONArray()
+        list.forEach { 
+            val obj = org.json.JSONObject()
+            obj.put("title", it.title)
+            obj.put("url", it.url)
+            obj.put("timestamp", it.timestamp)
+            json.put(obj)
+        }
+        prefs.edit().putString("browser_history", json.toString()).apply()
+    }
+
+    private fun loadBrowserHistory() {
+        try {
+            val jsonStr = prefs.getString("browser_history", "[]") ?: "[]"
+            val json = org.json.JSONArray(jsonStr)
+            val list = mutableListOf<BrowserHistory>()
+            for (i in 0 until json.length()) {
+                val obj = json.getJSONObject(i)
+                list.add(BrowserHistory(obj.getString("title"), obj.getString("url"), obj.getLong("timestamp")))
+            }
+            _browserHistory.value = list
+        } catch (e: Exception) {}
+    }
+
+val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
 
     fun clearDownloads() {
         _downloads.value = emptyList()
@@ -2228,7 +2419,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         _downloads.value = _downloads.value.filter { it.id != taskId }
     }
 
-    fun addDownloadedFileToVault(context: Context, filename: String, mimeType: String, bytes: ByteArray): Boolean {
+    fun addDownloadedFileToVault(context: Context, filename: String, mimeType: String, bytes: ByteArray): String? {
         return try {
             val size = bytes.size.toLong()
             val readableSize = formatFileSize(size)
@@ -2262,11 +2453,50 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             val filesKey = if (isDecoy) "decoy_files" else "vault_files"
             prefs.edit().putStringSet(filesKey, updatedFiles.toSet()).apply()
             
-            true
+            destFile.absolutePath
         } catch (e: Exception) {
             android.util.Log.e("Vault", "Failed to add downloaded file to vault", e)
-            false
+            null
         }
+    }
+
+        fun deleteDownload(task: DownloadTask) {
+        if (task.filePath.isNotEmpty()) {
+            val file = java.io.File(task.filePath)
+            if (file.exists()) {
+                file.delete()
+            }
+        }
+        _downloads.value = _downloads.value.filter { it.id != task.id }
+    }
+
+    fun openDownload(context: Context, task: DownloadTask) {
+        if (task.filePath.isNotEmpty()) {
+            val file = java.io.File(task.filePath)
+            if (file.exists()) {
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",
+                    file
+                )
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, task.mimeType)
+                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                try {
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(context, "No app found to open this file.", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                android.widget.Toast.makeText(context, "File not found.", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun retryDownload(context: Context, task: DownloadTask) {
+        _downloads.value = _downloads.value.filter { it.id != task.id }
+        startVaultDownload(context, task.url, "Mozilla/5.0", "", task.mimeType, 0)
     }
 
     fun startVaultDownload(context: Context, url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long) {
@@ -2323,7 +2553,8 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     outputStream.close()
                     
                     val finalMime = connection.contentType ?: mimeType
-                    val success = addDownloadedFileToVault(context, filename, finalMime, fileBytes)
+                    val targetFilePath = addDownloadedFileToVault(context, filename, finalMime, fileBytes)
+                    val success = targetFilePath != null
                     
                     withContext(Dispatchers.Main) {
                         _downloads.value = _downloads.value.map { task ->
@@ -2331,7 +2562,8 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                                 task.copy(
                                     progress = 1f,
                                     status = if (success) "Completed" else "Failed",
-                                    mimeType = finalMime
+                                    mimeType = finalMime,
+                                    filePath = targetFilePath ?: ""
                                 )
                             } else task
                         }
@@ -2562,7 +2794,8 @@ data class DownloadTask(
     val progress: Float, // 0.0f to 1.0f
     val status: String, // "Downloading", "Completed", "Failed"
     val sizeString: String = "0 B",
-    val mimeType: String = ""
+    val mimeType: String = "",
+    val filePath: String = ""
 )
 
 data class RecentItem(
@@ -2585,3 +2818,33 @@ data class StorageDetails(
     val totalSize: Long
 )
 
+
+
+data class VaultStorageInfo(
+    val totalBytes: Long = 0,
+    val photosBytes: Long = 0,
+    val videosBytes: Long = 0,
+    val docsBytes: Long = 0,
+    val audioBytes: Long = 0,
+    val notesBytes: Long = 0,
+    val trashBytes: Long = 0
+) {
+    val totalUsedFormatted: String get() = formatSize(totalBytes)
+    val photosFormatted: String get() = formatSize(photosBytes)
+    val videosFormatted: String get() = formatSize(videosBytes)
+    val docsFormatted: String get() = formatSize(docsBytes)
+    val audioFormatted: String get() = formatSize(audioBytes)
+    val notesFormatted: String get() = formatSize(notesBytes)
+    val trashFormatted: String get() = formatSize(trashBytes)
+    
+    private fun formatSize(bytes: Long): String {
+        if (bytes <= 0L) return "0 B"
+        val units = arrayOf("B", "KB", "MB", "GB", "TB")
+        val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
+        val index = if (digitGroups > 4) 4 else digitGroups
+        val num = bytes / Math.pow(1024.0, index.toDouble())
+        return String.format(java.util.Locale.US, "%.1f %s", num, units[index])
+    }
+} 
+        
+        
