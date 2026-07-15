@@ -97,6 +97,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -165,6 +166,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.rememberCoroutineScope
@@ -406,6 +410,72 @@ fun CalculatorScreen(
         targetValue = if (transitionState == 1) 1f else 0f,
         animationSpec = tween(300)
     )
+
+    // Orbiting ring and pulsing infinite transition animations
+    val welcomeInfiniteTransition = rememberInfiniteTransition(label = "welcome_infinite")
+    val orbitRotationAngle by welcomeInfiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "orbit_angle"
+    )
+    val lockPulseScale by welcomeInfiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "lock_pulse"
+    )
+
+    // Staggered layout entry values for the preview folder grid
+    val item1Alpha by animateFloatAsState(
+        targetValue = if (transitionState >= 2) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, delayMillis = 0, easing = FastOutSlowInEasing),
+        label = "stagger_1_alpha"
+    )
+    val item1OffsetY by animateDpAsState(
+        targetValue = if (transitionState >= 2) 0.dp else 16.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
+        label = "stagger_1_offset"
+    )
+    
+    val item2Alpha by animateFloatAsState(
+        targetValue = if (transitionState >= 2) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, delayMillis = 120, easing = FastOutSlowInEasing),
+        label = "stagger_2_alpha"
+    )
+    val item2OffsetY by animateDpAsState(
+        targetValue = if (transitionState >= 2) 0.dp else 16.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
+        label = "stagger_2_offset"
+    )
+    
+    val item3Alpha by animateFloatAsState(
+        targetValue = if (transitionState >= 2) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, delayMillis = 240, easing = FastOutSlowInEasing),
+        label = "stagger_3_alpha"
+    )
+    val item3OffsetY by animateDpAsState(
+        targetValue = if (transitionState >= 2) 0.dp else 16.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
+        label = "stagger_3_offset"
+    )
+    
+    val item4Alpha by animateFloatAsState(
+        targetValue = if (transitionState >= 2) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, delayMillis = 360, easing = FastOutSlowInEasing),
+        label = "stagger_4_alpha"
+    )
+    val item4OffsetY by animateDpAsState(
+        targetValue = if (transitionState >= 2) 0.dp else 16.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
+        label = "stagger_4_offset"
+    )
     LaunchedEffect(vaultUnlocked) {
         if (vaultUnlocked) {
             try {
@@ -459,9 +529,32 @@ fun CalculatorScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             // Calculator Layout
             if (activeTab == ActiveTab.CALCULATOR || welcomeAlpha.value > 0f || authOverlayAlpha > 0f) {
+                val calcGlowColor = ThemePurple
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .drawBehind {
+                            // Elegant dynamic ambient glow pool
+                            val glowColor = calcGlowColor.copy(alpha = 0.08f)
+                            drawCircle(
+                                brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                                    colors = listOf(glowColor, Color.Transparent),
+                                    center = Offset(0f, 0f),
+                                    radius = size.width * 1.5f
+                                ),
+                                radius = size.width * 1.5f,
+                                center = Offset(0f, 0f)
+                            )
+                            drawCircle(
+                                brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                                    colors = listOf(glowColor, Color.Transparent),
+                                    center = Offset(size.width, size.height * 0.8f),
+                                    radius = size.width * 1.5f
+                                ),
+                                radius = size.width * 1.5f,
+                                center = Offset(size.width, size.height * 0.8f)
+                            )
+                        }
                         .graphicsLayer {
                             scaleX = calcScale
                             scaleY = calcScale
@@ -480,23 +573,22 @@ fun CalculatorScreen(
                     // Header Bar
                     Row(
                         modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 24.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            .fillMaxWidth()
+                            .padding(start = 24.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        
-                        Text(
-                            text = "Calculator",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = TextMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Calculator",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextDark,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     Box {
                         var showHeaderMenu by remember { mutableStateOf(false) }
                         IconButton(
@@ -562,27 +654,32 @@ fun CalculatorScreen(
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 Box(
-                                    modifier = Modifier.size(100.dp),
+                                    modifier = Modifier
+                                        .size(100.dp)
+                                        .graphicsLayer {
+                                            scaleX = lockPulseScale
+                                            scaleY = lockPulseScale
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     // Concentric circles
                                     val localThemePurple = ThemePurple
                                     Canvas(modifier = Modifier.fillMaxSize()) {
                                         drawCircle(
-                                            color = localThemePurple.copy(alpha = 0.2f),
+                                            color = localThemePurple.copy(alpha = 0.15f),
                                             radius = size.width / 2,
                                             style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
                                         )
                                         drawCircle(
-                                            color = localThemePurple.copy(alpha = 0.4f),
+                                            color = localThemePurple.copy(alpha = 0.35f),
                                             radius = size.width / 2.5f,
                                             style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
                                         )
-                                        // A spinning arc for "authenticating"
+                                        // A beautifully spinning arc for "authenticating"
                                         drawArc(
                                             color = localThemePurple,
-                                            startAngle = -90f,
-                                            sweepAngle = 120f,
+                                            startAngle = orbitRotationAngle,
+                                            sweepAngle = 100f,
                                             useCenter = false,
                                             style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round),
                                             size = androidx.compose.ui.geometry.Size(size.width / 1.25f, size.height / 1.25f),
@@ -599,8 +696,9 @@ fun CalculatorScreen(
                                 Spacer(modifier = Modifier.height(24.dp))
                                 Text(
                                     text = "Unlocking Secure Vault...",
-                                    color = Color.White.copy(alpha = 0.8f),
-                                    fontSize = 16.sp
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         }
@@ -647,24 +745,38 @@ fun CalculatorScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            // Glowing Shield
+                            // Glowing Shield with Breathing Pulse and Outer Orbiting dot
                             Box(
                                 modifier = Modifier
                                     .size(120.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 val localThemePurple = ThemePurple
-                                Canvas(modifier = Modifier.fillMaxSize()) {
-                                    // Simple glow effect
+                                Canvas(modifier = Modifier.fillMaxSize().graphicsLayer {
+                                    scaleX = lockPulseScale
+                                    scaleY = lockPulseScale
+                                }) {
+                                    // Elegant soft glow effect
                                     drawCircle(
                                         color = localThemePurple.copy(alpha = 0.15f),
                                         radius = size.width / 2,
                                         style = androidx.compose.ui.graphics.drawscope.Fill
                                     )
+                                    // Pulse outer ring
                                     drawCircle(
-                                        color = localThemePurple.copy(alpha = 0.1f),
-                                        radius = size.width / 1.5f,
+                                        color = localThemePurple.copy(alpha = 0.12f),
+                                        radius = size.width / 1.4f,
                                         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+                                    )
+                                    // Dynamic outer orbiting dot
+                                    val radius = size.width / 1.4f
+                                    val angleInRad = Math.toRadians(orbitRotationAngle.toDouble())
+                                    val dotX = center.x + radius * Math.cos(angleInRad).toFloat()
+                                    val dotY = center.y + radius * Math.sin(angleInRad).toFloat()
+                                    drawCircle(
+                                        color = localThemePurple.copy(alpha = 0.6f),
+                                        radius = 4.dp.toPx(),
+                                        center = Offset(dotX, dotY)
                                     )
                                 }
                                 Icon(
@@ -693,7 +805,7 @@ fun CalculatorScreen(
                             Text(
                                 text = "Preparing your private space...",
                                 fontSize = 16.sp,
-                                color = Color.White.copy(alpha = 0.6f)
+                                color = Color.White.copy(alpha = 0.65f)
                             )
                             
                             Spacer(modifier = Modifier.height(16.dp))
@@ -709,10 +821,13 @@ fun CalculatorScreen(
                             
                             Spacer(modifier = Modifier.height(64.dp))
                             
-                            // Preview Grid
+                            // Preview Grid - Staggered Slide-In entry
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                modifier = Modifier.padding(horizontal = 32.dp)
+                                modifier = Modifier
+                                    .padding(horizontal = 32.dp)
+                                    .graphicsLayer { alpha = item1Alpha }
+                                    .offset(y = item1OffsetY)
                             ) {
                                 VaultFolderCard(
                                     title = "Photos", 
@@ -732,7 +847,10 @@ fun CalculatorScreen(
                             Spacer(modifier = Modifier.height(16.dp))
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                modifier = Modifier.padding(horizontal = 32.dp)
+                                modifier = Modifier
+                                    .padding(horizontal = 32.dp)
+                                    .graphicsLayer { alpha = item2Alpha }
+                                    .offset(y = item2OffsetY)
                             ) {
                                 VaultFolderCard(
                                     title = "Documents", 
@@ -742,9 +860,9 @@ fun CalculatorScreen(
                                     modifier = Modifier.weight(1f)
                                 ) {}
                                 VaultFolderCard(
-                                    title = "Notes", 
-                                    count = let { val c = vaultNotes.size; "$c ${if (c == 1) "Item" else "Items"}" }, 
-                                    icon = Icons.Default.List, 
+                                    title = "Audio", 
+                                    count = let { val c = vaultFiles.count { it.contains("|||audio/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
+                                    icon = Icons.Default.AudioFile, 
                                     iconTint = ThemePurple,
                                     modifier = Modifier.weight(1f)
                                 ) {}
@@ -2146,40 +2264,6 @@ fun VaultTabUnlockedContent(
                             }
                         }
                     }
-                    val currentHour = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).get(java.util.Calendar.HOUR_OF_DAY)
-                    val greeting = when (currentHour) {
-                        in 5..11 -> "Good Morning 🌅"
-                        in 12..16 -> "Good Afternoon ☀️"
-                        in 17..19 -> "Good Evening 🌆"
-                        else -> "Good Night 🌙"
-                    }
-                    
-                    val totalVaultItems = vaultFiles.size + vaultNotes.size
-                    val vaultStatusText = if (totalVaultItems == 0) {
-                        "Ready to organize your private files"
-                    } else {
-                        "$totalVaultItems items stored privately"
-                    }
-                    val statusIcon = if (totalVaultItems == 0) Icons.Default.Check else Icons.Default.CheckCircle
-                    val statusTint = if (totalVaultItems == 0) ThemePurple else ThemePurple
-                    Column(modifier = Modifier.padding(horizontal = 8.dp).padding(bottom = 24.dp)) {
-                        Text(
-                            text = greeting,
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(statusIcon, contentDescription = "Status", tint = statusTint, modifier = Modifier.size(16.dp))
-                            Text(
-                                text = vaultStatusText,
-                                fontSize = 13.sp,
-                                color = Color.White.copy(alpha = 0.6f)
-                            )
-                        }
-                    }
                 } else if (activeSection !in listOf("Photos", "Videos", "Documents", "Notes", "Music & Audio")) {
                     Row(
                         modifier = Modifier
@@ -2284,22 +2368,24 @@ fun VaultTabUnlockedContent(
                                     )
                                 }
                             }
-                            IconButton(
-                                onClick = {
-                                    viewModel.triggerKeypressEffects(context)
-                                    showSearchDialog = true
-                                },
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF161B2B).copy(alpha = 0.95f)).border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "Global Search",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                            if (activeSection != "Recently Deleted") {
+                                IconButton(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        showSearchDialog = true
+                                    },
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF161B2B).copy(alpha = 0.95f)).border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = "Global Search",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -2318,7 +2404,88 @@ fun VaultTabUnlockedContent(
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Spacer(modifier = Modifier.height(4.dp))
+                            val currentHour = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).get(java.util.Calendar.HOUR_OF_DAY)
+                            val greeting = when (currentHour) {
+                                in 5..11 -> "Good Morning 🌅"
+                                in 12..16 -> "Good Afternoon ☀️"
+                                in 17..19 -> "Good Evening 🌆"
+                                else -> "Good Night 🌙"
+                            }
+                            
+                            val totalVaultItems = vaultFiles.size + vaultNotes.size
+                            val vaultStatusText = if (totalVaultItems == 0) {
+                                "Ready to organize your private files"
+                            } else {
+                                "$totalVaultItems items stored privately"
+                            }
+                            val statusIcon = if (totalVaultItems == 0) Icons.Default.Check else Icons.Default.CheckCircle
+                            val statusTint = ThemePurple
+                            
+                            Column(modifier = Modifier.padding(horizontal = 8.dp).padding(top = 8.dp, bottom = 8.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = greeting,
+                                            fontSize = 28.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Icon(statusIcon, contentDescription = "Status", tint = statusTint, modifier = Modifier.size(14.dp))
+                                            Text(
+                                                text = vaultStatusText,
+                                                fontSize = 12.sp,
+                                                color = Color.White.copy(alpha = 0.75f)
+                                            )
+                                        }
+                                    }
+                                    
+                                    // Security Shield Pulse Badge
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Color(0xFF1B2A1E))
+                                            .border(1.dp, Color(0xFF4CAF50).copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            // Soft pulsing dot
+                                            val badgeInfiniteTransition = rememberInfiniteTransition(label = "badge_pulse")
+                                            val badgePulseAlpha by badgeInfiniteTransition.animateFloat(
+                                                initialValue = 0.3f,
+                                                targetValue = 1.0f,
+                                                animationSpec = infiniteRepeatable(
+                                                    animation = tween(800, easing = FastOutSlowInEasing),
+                                                    repeatMode = RepeatMode.Reverse
+                                                ),
+                                                label = "alpha"
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(6.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFF4CAF50).copy(alpha = badgePulseAlpha))
+                                            )
+                                            Text(
+                                                text = "SHIELD ACTIVE",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF81C784),
+                                                letterSpacing = 0.8.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                                              // Status Card
                             Box(
                                 modifier = Modifier
@@ -2644,79 +2811,99 @@ fun VaultTabUnlockedContent(
                                 }
                             } else {
                                 val recentFiles = vaultFiles.take(5)
-                                recentFiles.forEach { file ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(Color(0xFF161B2B).copy(alpha = 0.5f))
-                                            .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(16.dp))
-                                            .padding(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        val parts = file.split("|||")
-                                        val isMedia = parts.size >= 4 && (parts[3].startsWith("image/") || parts[3].startsWith("video/")) || file.lowercase().endsWith(".jpg") || file.lowercase().endsWith(".png") || file.lowercase().endsWith(".mp4")
-                                        Box(
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    recentFiles.forEach { file ->
+                                        Row(
                                             modifier = Modifier
-                                                .size(40.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(ThemePurple.copy(alpha = 0.1f)),
-                                            contentAlignment = Alignment.Center
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(Color(0xFF161B2B).copy(alpha = 0.5f))
+                                                .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(16.dp))
+                                                .padding(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
-                                            if (isMedia && parts.size >= 5) {
-                                                val ctx = androidx.compose.ui.platform.LocalContext.current
-                                                val imageLoader = remember(ctx) {
-                                                    coil.ImageLoader.Builder(ctx)
-                                                        .components { add(coil.decode.VideoFrameDecoder.Factory()) }
-                                                        .build()
+                                            val parts = file.split("|||")
+                                            val isMedia = parts.size >= 4 && (parts[3].startsWith("image/") || parts[3].startsWith("video/")) || file.lowercase().endsWith(".jpg") || file.lowercase().endsWith(".png") || file.lowercase().endsWith(".mp4")
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(ThemePurple.copy(alpha = 0.1f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (isMedia && parts.size >= 5) {
+                                                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                                                    val imageLoader = remember(ctx) {
+                                                        coil.ImageLoader.Builder(ctx)
+                                                            .components { add(coil.decode.VideoFrameDecoder.Factory()) }
+                                                            .build()
+                                                    }
+                                                    AsyncImage(
+                                                        model = coil.request.ImageRequest.Builder(ctx)
+                                                            .data(java.io.File(parts[4]))
+                                                            .crossfade(true)
+                                                            .build(),
+                                                        imageLoader = imageLoader,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        imageVector = if (isMedia) Icons.Default.Image else Icons.Default.Description,
+                                                        contentDescription = null,
+                                                        tint = ThemePurple
+                                                    )
                                                 }
-                                                AsyncImage(
-                                                    model = coil.request.ImageRequest.Builder(ctx)
-                                                        .data(java.io.File(parts[4]))
-                                                        .crossfade(true)
-                                                        .build(),
-                                                    imageLoader = imageLoader,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                                )
-                                            } else {
-                                                Icon(
-                                                    imageVector = if (isMedia) Icons.Default.Image else Icons.Default.Description,
-                                                    contentDescription = null,
-                                                    tint = ThemePurple
-                                                )
                                             }
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                val title = if (parts.size >= 3) parts[2] else file.split("|||")[0].substringAfterLast('/')
+                                                val cleanTitle = cleanDisplayName(title)
+                                                Text(cleanTitle, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                                val timestamp = parts.getOrNull(0)?.toLongOrNull() ?: 0L
+                                                val timeStr = if (timestamp > 0) {
+                                                    val diff = System.currentTimeMillis() - timestamp
+                                                    when {
+                                                        diff < 60_000 -> "Just now"
+                                                        diff < 3600_000 -> "${diff / 60_000} min ago"
+                                                        diff < 86400_000 && android.text.format.DateUtils.isToday(timestamp) -> "${diff / 3600_000} ${if (diff / 3600_000 == 1L) "hour" else "hours"} ago"
+                                                        android.text.format.DateUtils.isToday(timestamp) -> "Today"
+                                                        android.text.format.DateUtils.isToday(timestamp + 86400_000) -> "Yesterday"
+                                                        else -> java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
+                                                    }
+                                                } else ""
+                                                Text(timeStr, color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
+                                            }
+                                            Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                                         }
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            val title = if (parts.size >= 3) parts[2] else file.split("|||")[0].substringAfterLast('/')
-                                            val cleanTitle = cleanDisplayName(title)
-                                            Text(cleanTitle, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                            val timestamp = parts.getOrNull(0)?.toLongOrNull() ?: 0L
-                                            val timeStr = if (timestamp > 0) {
-                                                val diff = System.currentTimeMillis() - timestamp
-                                                when {
-                                                    diff < 60_000 -> "Just now"
-                                                    diff < 3600_000 -> "${diff / 60_000} min ago"
-                                                    diff < 86400_000 && android.text.format.DateUtils.isToday(timestamp) -> "${diff / 3600_000} ${if (diff / 3600_000 == 1L) "hour" else "hours"} ago"
-                                                    android.text.format.DateUtils.isToday(timestamp) -> "Today"
-                                                    android.text.format.DateUtils.isToday(timestamp + 86400_000) -> "Yesterday"
-                                                    else -> java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
-                                                }
-                                            } else ""
-                                            Text(timeStr, color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
-                                        }
-                                        Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                                     }
                                 }
                             }
+                            Spacer(modifier = Modifier.height(12.dp))
                                 
-                            // Recycle Bin Quick Access
+                            // Recycle Bin Section Header
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "RECYCLE BIN",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    letterSpacing = 2.sp
+                                )
+                            }
+
+                            // Recycle Bin Quick Access Card
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 16.dp)
                                     .clip(RoundedCornerShape(16.dp))
                                     .background(Color(0xFF161B2B).copy(alpha = 0.5f))
                                     .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(16.dp))
@@ -2883,7 +3070,14 @@ fun VaultTabUnlockedContent(
                     PrivateBrowserSection(
                         modifier = Modifier
                             .weight(1f)
-                            .fillMaxWidth()
+                            .fillMaxWidth(),
+                        onExit = {
+                            activeSection = "__BACK__"
+                        },
+                        onPanic = {
+                            viewModel.lockVault()
+                            onLockExit()
+                        }
                     )
                 }
                 "App Privacy" -> {
@@ -4748,11 +4942,11 @@ fun VaultTabUnlockedContent(
             
             val matchedNotes = if (searchQuery.trim().isEmpty()) emptyList() else vaultNotes.filter {
                 val parts = it.split("|||")
-                parts.size == 3 && (parts[1].contains(searchQuery, ignoreCase = true) || parts[2].contains(searchQuery, ignoreCase = true))
+                parts.size >= 3 && (parts[1].contains(searchQuery, ignoreCase = true) || parts[2].contains(searchQuery, ignoreCase = true))
             }
             val matchedFiles = if (searchQuery.trim().isEmpty()) emptyList() else vaultFiles.filter {
                 val parts = it.split("|||")
-                parts.size >= 6 && parts[2].contains(searchQuery, ignoreCase = true)
+                parts.size >= 3 && parts[2].contains(searchQuery, ignoreCase = true)
             }
             
             AlertDialog(
@@ -4778,8 +4972,8 @@ fun VaultTabUnlockedContent(
                                 unfocusedBorderColor = ThemeContainerBorder.copy(alpha = 0.2f),
                                 focusedContainerColor = KeypadBg,
                                 unfocusedContainerColor = KeypadBg,
-                                focusedTextColor = TextDark,
-                                unfocusedTextColor = TextDark
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -5345,115 +5539,102 @@ fun VaultTabUnlockedContent(
         }
         
         if (activeSection in listOf("Home", "More")) {
-        // Custom Bottom Navigation
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 16.dp),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            Row(
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.9f)
-                    .height(72.dp)
-                    .clip(RoundedCornerShape(36.dp))
-                    .background(Color(0xFF161B2B).copy(alpha = 0.85f))
-                    .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(36.dp))
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly
+                    .fillMaxSize(),
+                contentAlignment = Alignment.BottomCenter
             ) {
-                // Vault (Home)
-                Box(
-                    modifier = Modifier.height(56.dp).clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { activeSection = "Home" }
-                    ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(if (activeSection == "Home") ThemePurple.copy(alpha = 0.15f) else Color.Transparent)
-                            .padding(horizontal = if (activeSection == "Home") 12.dp else 0.dp, vertical = 10.dp)
-                            .animateContentSize()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Dashboard,
-                            contentDescription = "Vault",
-                            tint = if (activeSection == "Home") ThemePurple else Color.White.copy(alpha = 0.4f),
-                            modifier = Modifier.size(22.dp)
-                        )
-                        if (activeSection == "Home") {
-                            Text("Vault", color = ThemePurple, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                NavigationBar(
+                    containerColor = Color(0xFF161B2B).copy(alpha = 0.95f),
+                    tonalElevation = 8.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .drawBehind {
+                            // High-end glassmorphic top hairline divider
+                            drawLine(
+                                color = Color.White.copy(alpha = 0.08f),
+                                start = Offset(0f, 0f),
+                                end = Offset(size.width, 0f),
+                                strokeWidth = 1.dp.toPx()
+                            )
                         }
-                    }
-                }
-                
-                // Browser
-                Box(
-                    modifier = Modifier.height(56.dp).clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { activeSection = "Private Browser" }
-                    ),
-                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(if (activeSection == "Private Browser") ThemePurple.copy(alpha = 0.15f) else Color.Transparent)
-                            .padding(horizontal = if (activeSection == "Private Browser") 12.dp else 0.dp, vertical = 10.dp)
-                            .animateContentSize()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Language,
-                            contentDescription = "Browser",
-                            tint = if (activeSection == "Private Browser") ThemePurple else Color.White.copy(alpha = 0.4f),
-                            modifier = Modifier.size(22.dp)
+                    NavigationBarItem(
+                        selected = activeSection == "Home",
+                        onClick = { 
+                            viewModel.triggerKeypressEffects(context)
+                            activeSection = "Home" 
+                        },
+                        icon = { 
+                            Icon(
+                                imageVector = Icons.Default.Dashboard, 
+                                contentDescription = "Vault",
+                                modifier = Modifier.size(22.dp)
+                            ) 
+                        },
+                        label = { 
+                            Text("Vault", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) 
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = ThemePurple,
+                            selectedTextColor = ThemePurple,
+                            unselectedIconColor = Color.White.copy(alpha = 0.4f),
+                            unselectedTextColor = Color.White.copy(alpha = 0.4f),
+                            indicatorColor = ThemePurple.copy(alpha = 0.15f)
                         )
-                        if (activeSection == "Private Browser") {
-                            Text("Browser", color = ThemePurple, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                        }
-                    }
-                }
-                
-                // Settings
-                Box(
-                    modifier = Modifier.height(56.dp).clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { activeSection = "More" }
-                    ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(if (activeSection == "More") ThemePurple.copy(alpha = 0.15f) else Color.Transparent)
-                            .padding(horizontal = if (activeSection == "More") 12.dp else 0.dp, vertical = 10.dp)
-                            .animateContentSize()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = if (activeSection == "More") ThemePurple else Color.White.copy(alpha = 0.4f),
-                            modifier = Modifier.size(22.dp)
+                    )
+                    
+                    NavigationBarItem(
+                        selected = activeSection == "Private Browser",
+                        onClick = { 
+                            viewModel.triggerKeypressEffects(context)
+                            activeSection = "Private Browser" 
+                        },
+                        icon = { 
+                            Icon(
+                                imageVector = Icons.Default.Language, 
+                                contentDescription = "Browser",
+                                modifier = Modifier.size(22.dp)
+                            ) 
+                        },
+                        label = { 
+                            Text("Browser", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) 
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = ThemePurple,
+                            selectedTextColor = ThemePurple,
+                            unselectedIconColor = Color.White.copy(alpha = 0.4f),
+                            unselectedTextColor = Color.White.copy(alpha = 0.4f),
+                            indicatorColor = ThemePurple.copy(alpha = 0.15f)
                         )
-                        if (activeSection == "More") {
-                            Text("Settings", color = ThemePurple, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                        }
-                    }
+                    )
+                    
+                    NavigationBarItem(
+                        selected = activeSection == "More",
+                        onClick = { 
+                            viewModel.triggerKeypressEffects(context)
+                            activeSection = "More" 
+                        },
+                        icon = { 
+                            Icon(
+                                imageVector = Icons.Default.Settings, 
+                                contentDescription = "Settings",
+                                modifier = Modifier.size(22.dp)
+                            ) 
+                        },
+                        label = { 
+                            Text("Settings", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) 
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = ThemePurple,
+                            selectedTextColor = ThemePurple,
+                            unselectedIconColor = Color.White.copy(alpha = 0.4f),
+                            unselectedTextColor = Color.White.copy(alpha = 0.4f),
+                            indicatorColor = ThemePurple.copy(alpha = 0.15f)
+                        )
+                    )
                 }
             }
-        }
         }
         
         @OptIn(ExperimentalMaterial3Api::class)
@@ -6024,6 +6205,7 @@ data class TabState(
     val canGoForward: Boolean = false,
     val isDesktopMode: Boolean = false
 )
+
 fun createPrivateWebView(
     ctx: android.content.Context,
     tabId: String,
@@ -6031,8 +6213,93 @@ fun createPrivateWebView(
     savePasswords: Boolean,
     isDesktopMode: Boolean = false,
     onDownloadRequested: (url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long) -> Unit,
+    onCreatePopup: (android.webkit.WebView?) -> Unit,
     onUpdate: ((TabState) -> TabState) -> Unit
 ): android.webkit.WebView {
+    val cleanMobileUa = "Mozilla/5.0 (Linux; Android 13; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+    val cleanDesktopUa = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    val iOSMobileUa = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+
+    fun getUserAgentForUrl(url: String?, isDesktop: Boolean): String {
+        if (isDesktop) return cleanDesktopUa
+        val lowerUrl = url?.lowercase() ?: ""
+        return if (lowerUrl.contains("facebook.com") || 
+            lowerUrl.contains("instagram.com") || 
+            lowerUrl.contains("google.com") || 
+            lowerUrl.contains("accounts.google") || 
+            lowerUrl.contains("oauth")
+        ) {
+            iOSMobileUa
+        } else {
+            cleanMobileUa
+        }
+    }
+
+    fun checkAndRedirectSocialLogin(view: android.webkit.WebView?, url: String?): Boolean {
+        if (url == null) return false
+        val lower = url.lowercase()
+        val isSocial = lower.contains("accounts.google.com") || 
+                lower.contains("google.com/accounts") ||
+                (lower.contains("facebook.com") && (lower.contains("login") || lower.contains("oauth") || lower.contains("signin"))) ||
+                (lower.contains("instagram.com") && (lower.contains("oauth") || lower.contains("login") || lower.contains("signin"))) ||
+                ((lower.contains("twitter.com") || lower.contains("x.com") || lower.contains("appleid.apple.com")) && 
+                 (lower.contains("oauth") || lower.contains("authorize") || lower.contains("login") || lower.contains("signin")))
+        
+        if (isSocial) {
+            view?.stopLoading()
+            launchSecureCustomTab(ctx, url)
+            if (view?.canGoBack() == true) {
+                view.goBack()
+            } else {
+                view?.loadUrl("about:blank")
+            }
+            return true
+        }
+        return false
+    }
+
+    fun handleCustomUri(url: String, webView: android.webkit.WebView?): Boolean {
+        val lower = url.lowercase()
+        if (lower.startsWith("http://") || 
+            lower.startsWith("https://") || 
+            lower.startsWith("about:") || 
+            lower.startsWith("javascript:") || 
+            lower.startsWith("data:") || 
+            lower.startsWith("blob:") || 
+            lower.startsWith("file:")
+        ) {
+            return false
+        }
+        try {
+            val intent = android.content.Intent.parseUri(url, android.content.Intent.URI_INTENT_SCHEME)
+            if (intent != null) {
+                try {
+                    ctx.startActivity(intent)
+                    return true
+                } catch (e: Exception) {
+                    val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+                    if (fallbackUrl != null && (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
+                        webView?.loadUrl(fallbackUrl)
+                        return true
+                    }
+                    val uri = android.net.Uri.parse(url)
+                    val fallbackParam = uri.getQueryParameter("browser_fallback_url")
+                    if (fallbackParam != null && (fallbackParam.startsWith("http://") || fallbackParam.startsWith("https://"))) {
+                        webView?.loadUrl(fallbackParam)
+                        return true
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            try {
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                ctx.startActivity(intent)
+                return true
+            } catch (ex: Exception) {}
+        }
+        return true
+    }
+
     try {
         val webViewCacheDir = java.io.File(ctx.cacheDir, "WebView/Default/HTTP Cache/Code Cache")
         java.io.File(webViewCacheDir, "wasm").mkdirs()
@@ -6047,28 +6314,33 @@ fun createPrivateWebView(
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            databaseEnabled = false
+            databaseEnabled = true
+            javaScriptCanOpenWindowsAutomatically = true
+            setSupportMultipleWindows(true)
             savePassword = savePasswords
             saveFormData = false
-            cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
+            cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            }
             useWideViewPort = true
             loadWithOverviewMode = true
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
-            if (isDesktopMode) {
-                userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            }
+            userAgentString = getUserAgentForUrl(initialUrl, isDesktopMode)
         }
         setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
             onDownloadRequested(url, userAgent, contentDisposition, mimetype, contentLength)
         }
         val cookieManager = android.webkit.CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
-        cookieManager.setAcceptThirdPartyCookies(this, false)
+        cookieManager.setAcceptThirdPartyCookies(this, true)
         webViewClient = object : android.webkit.WebViewClient() {
             override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                if (checkAndRedirectSocialLogin(view, url)) return
                 super.onPageStarted(view, url, favicon)
+                view?.settings?.userAgentString = getUserAgentForUrl(url, isDesktopMode)
                 onUpdate { tab ->
                     tab.copy(
                         url = url ?: tab.url,
@@ -6080,6 +6352,9 @@ fun createPrivateWebView(
             }
             override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                try {
+                    android.webkit.CookieManager.getInstance().flush()
+                } catch (e: Exception) {}
                 onUpdate { tab ->
                     tab.copy(
                         url = url ?: tab.url,
@@ -6091,7 +6366,18 @@ fun createPrivateWebView(
                 }
             }
             override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): Boolean {
-                return false
+                val url = request?.url?.toString() ?: return false
+                if (checkAndRedirectSocialLogin(view, url)) return true
+                return handleCustomUri(url, view)
+            }
+            @Deprecated("Deprecated in Java")
+            override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, url: String?): Boolean {
+                if (url == null) return false
+                if (checkAndRedirectSocialLogin(view, url)) return true
+                return handleCustomUri(url, view)
+            }
+            override fun onReceivedSslError(view: android.webkit.WebView?, handler: android.webkit.SslErrorHandler?, error: android.net.http.SslError?) {
+                handler?.proceed()
             }
         }
         webChromeClient = object : android.webkit.WebChromeClient() {
@@ -6107,10 +6393,120 @@ fun createPrivateWebView(
                     tab.copy(title = title ?: tab.title)
                 }
             }
+            override fun onCreateWindow(
+                view: android.webkit.WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: android.os.Message?
+            ): Boolean {
+                if (view == null || resultMsg == null) return false
+                val newWebView = android.webkit.WebView(view.context).apply {
+                    settings.apply {
+                        javaScriptEnabled = true
+                        domStorageEnabled = true
+                        databaseEnabled = true
+                        javaScriptCanOpenWindowsAutomatically = true
+                        setSupportMultipleWindows(true)
+                        savePassword = savePasswords
+                        saveFormData = false
+                        cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                            mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                        }
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
+                        setSupportZoom(true)
+                        builtInZoomControls = true
+                        displayZoomControls = false
+                        userAgentString = getUserAgentForUrl(null, isDesktopMode)
+                    }
+                    val popupCookieManager = android.webkit.CookieManager.getInstance()
+                    popupCookieManager.setAcceptCookie(true)
+                    popupCookieManager.setAcceptThirdPartyCookies(this, true)
+                    
+                    webViewClient = object : android.webkit.WebViewClient() {
+                        override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                            if (checkAndRedirectSocialLogin(view, url)) return
+                            super.onPageStarted(view, url, favicon)
+                            view?.settings?.userAgentString = getUserAgentForUrl(url, isDesktopMode)
+                        }
+                        override fun shouldOverrideUrlLoading(newView: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): Boolean {
+                            val url = request?.url?.toString() ?: return false
+                            if (checkAndRedirectSocialLogin(newView, url)) return true
+                            return handleCustomUri(url, newView)
+                        }
+                        @Deprecated("Deprecated in Java")
+                        override fun shouldOverrideUrlLoading(newView: android.webkit.WebView?, url: String?): Boolean {
+                            if (url == null) return false
+                            if (checkAndRedirectSocialLogin(newView, url)) return true
+                            return handleCustomUri(url, newView)
+                        }
+                        override fun onPageFinished(newView: android.webkit.WebView?, url: String?) {
+                            super.onPageFinished(newView, url)
+                            try {
+                                android.webkit.CookieManager.getInstance().flush()
+                            } catch (e: Exception) {}
+                        }
+                        override fun onReceivedSslError(newView: android.webkit.WebView?, handler: android.webkit.SslErrorHandler?, error: android.net.http.SslError?) {
+                            handler?.proceed()
+                        }
+                    }
+                    webChromeClient = object : android.webkit.WebChromeClient() {
+                        override fun onCloseWindow(window: android.webkit.WebView?) {
+                            onCreatePopup(null)
+                            try {
+                                window?.destroy()
+                            } catch (e: Exception) {}
+                        }
+                    }
+                }
+                
+                onCreatePopup(newWebView)
+                
+                val transport = resultMsg.obj as? android.webkit.WebView.WebViewTransport
+                if (transport != null) {
+                    if (newWebView.isAttachedToWindow) {
+                        transport.webView = newWebView
+                        resultMsg.sendToTarget()
+                    } else {
+                        newWebView.addOnAttachStateChangeListener(object : android.view.View.OnAttachStateChangeListener {
+                            override fun onViewAttachedToWindow(v: android.view.View) {
+                                transport.webView = newWebView
+                                resultMsg.sendToTarget()
+                                newWebView.removeOnAttachStateChangeListener(this)
+                            }
+                            override fun onViewDetachedFromWindow(v: android.view.View) {}
+                        })
+                    }
+                    return true
+                }
+                return false
+            }
         }
-        clearCache(true)
-        clearHistory()
         if (initialUrl != "home") { loadUrl(initialUrl) }
+    }
+}
+fun launchSecureCustomTab(context: android.content.Context, url: String) {
+    try {
+        val builder = androidx.browser.customtabs.CustomTabsIntent.Builder()
+        builder.setShowTitle(true)
+        builder.setShareState(androidx.browser.customtabs.CustomTabsIntent.SHARE_STATE_ON)
+        val params = androidx.browser.customtabs.CustomTabColorSchemeParams.Builder()
+            .setToolbarColor(android.graphics.Color.parseColor("#161B2B"))
+            .setNavigationBarColor(android.graphics.Color.parseColor("#0A0C16"))
+            .build()
+        builder.setDefaultColorSchemeParams(params)
+        val customTabsIntent = builder.build()
+        customTabsIntent.intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        customTabsIntent.launchUrl(context, android.net.Uri.parse(url))
+    } catch (e: Exception) {
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } catch (ex: Exception) {
+            android.widget.Toast.makeText(context, "Secure browser could not be launched.", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 }
 fun clearAllBrowsingData(
@@ -6121,6 +6517,7 @@ fun clearAllBrowsingData(
     webViews.values.forEach { webView ->
         try {
             webView.stopLoading()
+            (webView.parent as? android.view.ViewGroup)?.removeView(webView)
             webView.clearHistory()
             webView.clearCache(true)
             webView.loadUrl("about:blank")
@@ -6177,6 +6574,8 @@ fun PrivateBrowserSection(
     var showBookmarks by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var isEditingUrl by remember { mutableStateOf(false) }
+    var editingUrlText by remember { mutableStateOf("") }
 
     val browserBookmarks by viewModel.browserBookmarks.collectAsStateWithLifecycle()
     val browserHistory by viewModel.browserHistory.collectAsStateWithLifecycle()
@@ -6185,6 +6584,7 @@ fun PrivateBrowserSection(
     val clearHistoryOnExit by viewModel.clearHistoryOnExit.collectAsStateWithLifecycle()
 
     var showSearchEngineDialog by remember { mutableStateOf(false) }
+    var activePopupWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
 
     // Restore WebViews for existing tabs
     androidx.compose.runtime.LaunchedEffect(tabs.toList()) {
@@ -6198,7 +6598,8 @@ fun PrivateBrowserSection(
                     isDesktopMode = tab.isDesktopMode,
                     onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
                         viewModel.startVaultDownload(context, downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
-                    }
+                    },
+                    onCreatePopup = { activePopupWebView = it }
                 ) { transform ->
                     val index = tabs.indexOfFirst { it.id == tab.id }
                     if (index != -1) {
@@ -6227,7 +6628,8 @@ fun PrivateBrowserSection(
             savePasswords = savePasswords,
             onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
                 viewModel.startVaultDownload(context, downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
-            }
+            },
+            onCreatePopup = { activePopupWebView = it }
         ) { transform ->
             val index = tabs.indexOfFirst { it.id == tabId }
             if (index != -1) {
@@ -6562,27 +6964,279 @@ fun PrivateBrowserSection(
     Box(modifier = modifier.fillMaxSize().background(Color(0xFF0A0C16)).navigationBarsPadding()) {
         Column(modifier = Modifier.fillMaxSize()) {
             val isHome = activeTab?.url == "home" || activeTab?.url == "about:blank" || activeTab?.url?.isEmpty() == true
-            if (isHome) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF161B2B))
+                    .statusBarsPadding()
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .drawBehind {
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.08f),
+                            start = androidx.compose.ui.geometry.Offset(0f, size.height),
+                            end = androidx.compose.ui.geometry.Offset(size.width, size.height),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                if (isEditingUrl) {
+                    IconButton(onClick = { isEditingUrl = false }) {
+                        Icon(Icons.Default.Close, "Cancel", tint = Color.White)
+                    }
+                    
+                    OutlinedTextField(
+                        value = editingUrlText,
+                        onValueChange = { editingUrlText = it },
+                        placeholder = { Text("Search or enter URL", color = Color.Gray, fontSize = 14.sp) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 4.dp)
+                            .height(48.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF1C1F2D),
+                            unfocusedContainerColor = Color(0xFF1C1F2D),
+                            focusedBorderColor = Color(0xFF5E8AFF),
+                            unfocusedBorderColor = Color.Transparent,
+                            cursorColor = Color.White,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = {
+                                var target = editingUrlText.trim()
+                                if (target.isNotEmpty()) {
+                                    if (!target.startsWith("http://") && !target.startsWith("https://")) {
+                                        if (target.contains(".") && !target.contains(" ")) {
+                                            target = "https://$target"
+                                        } else {
+                                            val q = java.net.URLEncoder.encode(target, "UTF-8")
+                                            target = when (searchEngine) {
+                                                "DuckDuckGo" -> "https://duckduckgo.com/?q=$q"
+                                                "Bing" -> "https://www.bing.com/search?q=$q"
+                                                "Yahoo" -> "https://search.yahoo.com/search?p=$q"
+                                                else -> "https://www.google.com/search?q=$q"
+                                            }
+                                        }
+                                    }
+                                    activeWebView?.loadUrl(target)
+                                }
+                                isEditingUrl = false
+                            }
+                        ),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
+                    )
+                    
+                    IconButton(onClick = {
+                        var target = editingUrlText.trim()
+                        if (target.isNotEmpty()) {
+                            if (!target.startsWith("http://") && !target.startsWith("https://")) {
+                                if (target.contains(".") && !target.contains(" ")) {
+                                    target = "https://$target"
+                                } else {
+                                    val q = java.net.URLEncoder.encode(target, "UTF-8")
+                                    target = when (searchEngine) {
+                                        "DuckDuckGo" -> "https://duckduckgo.com/?q=$q"
+                                        "Bing" -> "https://www.bing.com/search?q=$q"
+                                        "Yahoo" -> "https://search.yahoo.com/search?p=$q"
+                                        else -> "https://www.google.com/search?q=$q"
+                                    }
+                                }
+                            }
+                            activeWebView?.loadUrl(target)
+                        }
+                        isEditingUrl = false
+                    }) {
+                        Icon(Icons.Default.Check, "Go", tint = Color(0xFF5E8AFF))
+                    }
+                } else {
                     IconButton(onClick = { goBackOrExit() }) {
                         Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
                     }
-                    Text(
-                        "Private browser",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 4.dp)
-                    )
+                    
+                    if (isHome) {
+                        Text(
+                            text = "Private browser",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 4.dp)
+                        )
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp)
+                                .height(38.dp)
+                                .clip(RoundedCornerShape(19.dp))
+                                .background(Color(0xFF1E202B))
+                                .clickable {
+                                    editingUrlText = activeTab?.url ?: ""
+                                    isEditingUrl = true
+                                }
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Secure Connection",
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            val displayUrl = try {
+                                java.net.URL(activeTab?.url).host.removePrefix("www.")
+                            } catch(e: Exception) {
+                                activeTab?.title ?: "Website"
+                            }
+                            Text(
+                                text = displayUrl,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            IconButton(
+                                onClick = { activeWebView?.reload() },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Refresh",
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                    
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, "More Options", tint = Color.White)
+                        }
+                        
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier.background(Color(0xFF1E202B), RoundedCornerShape(8.dp))
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Bookmarks", color = Color.White) },
+                                onClick = { 
+                                    showMenu = false
+                                    showBookmarks = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.Star, "Bookmarks", tint = Color.White) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("History", color = Color.White) },
+                                onClick = { 
+                                    showMenu = false
+                                    showHistory = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.History, "History", tint = Color.White) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Downloads", color = Color.White) },
+                                onClick = { 
+                                    showMenu = false
+                                    showDownloads = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.Download, "Downloads", tint = Color.White) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Desktop site", color = Color.White) },
+                                onClick = { 
+                                    showMenu = false
+                                    val webView = webViews[activeTabId]
+                                    if (webView != null && activeTab != null) {
+                                        val newMode = !activeTab.isDesktopMode
+                                        val index = tabs.indexOfFirst { it.id == activeTabId }
+                                        if (index != -1) {
+                                            tabs[index] = tabs[index].copy(isDesktopMode = newMode)
+                                        }
+                                        if (newMode) {
+                                            webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                            webView.settings.loadWithOverviewMode = true
+                                            webView.settings.useWideViewPort = true
+                                            webView.settings.setSupportZoom(true)
+                                            webView.settings.builtInZoomControls = true
+                                            webView.settings.displayZoomControls = false
+                                        } else {
+                                            webView.settings.userAgentString = android.webkit.WebSettings.getDefaultUserAgent(context)
+                                            webView.settings.loadWithOverviewMode = true
+                                            webView.settings.useWideViewPort = true
+                                            webView.settings.setSupportZoom(true)
+                                            webView.settings.builtInZoomControls = true
+                                            webView.settings.displayZoomControls = false
+                                        }
+                                        webView.clearCache(true)
+                                        webView.reload()
+                                    }
+                                },
+                                leadingIcon = { 
+                                    Icon(
+                                        if (activeTab?.isDesktopMode == true) Icons.Default.DesktopMac else Icons.Default.Laptop, 
+                                        "Desktop site", 
+                                        tint = if (activeTab?.isDesktopMode == true) Color(0xFF5E8AFF) else Color.White
+                                    ) 
+                                }
+                            )
+                             DropdownMenuItem(
+                                text = { Text("Secure login (Chrome)", color = Color.White) },
+                                onClick = { 
+                                    showMenu = false
+                                    val currentUrl = activeTab?.url
+                                    if (currentUrl != null && currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty()) {
+                                        launchSecureCustomTab(context, currentUrl)
+                                    } else {
+                                        launchSecureCustomTab(context, "https://www.google.com")
+                                    }
+                                },
+                                leadingIcon = { Icon(Icons.Default.Security, "Secure Login", tint = Color(0xFF4CAF50)) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Settings", color = Color.White) },
+                                onClick = { 
+                                    showMenu = false
+                                    showSettings = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.Settings, "Settings", tint = Color.White) }
+                            )
+                            androidx.compose.material3.HorizontalDivider(color = Color.DarkGray)
+                            DropdownMenuItem(
+                                text = { Text("Return to Vault", color = Color.White) },
+                                onClick = { 
+                                    showMenu = false
+                                    onExit()
+                                },
+                                leadingIcon = { Icon(Icons.Default.Lock, "Return to Vault", tint = Color.White) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Panic Mode", color = Color(0xFFFF5252)) },
+                                onClick = { 
+                                    showMenu = false
+                                    if (clearHistoryOnExit) {
+                                        viewModel.clearBrowserHistory()
+                                    }
+                                    clearAllBrowsingData(context, tabs, webViews)
+                                    onPanic()
+                                },
+                                leadingIcon = { Icon(Icons.Default.Warning, "Panic Mode", tint = Color(0xFFFF5252)) }
+                            )
+                        }
+                    }
                 }
-            } else {
-                Spacer(modifier = Modifier.statusBarsPadding())
             }
             
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -6682,23 +7336,27 @@ fun PrivateBrowserSection(
                     }
                 } else {
                     if (activeWebView != null) {
-                        androidx.compose.runtime.key(activeWebView.hashCode()) {
-                            AndroidView(
-                                factory = { activeWebView },
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                        if (activeTab?.isLoading == true) {
-                            LinearProgressIndicator(
-                                progress = { (activeTab.progress) / 100f },
-                                modifier = Modifier.fillMaxWidth().height(2.dp).align(Alignment.TopCenter),
-                                color = Color(0xFF5E8AFF),
-                                trackColor = Color.Transparent
-                            )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            androidx.compose.runtime.key(activeWebView.hashCode()) {
+                                AndroidView(
+                                    factory = { _ ->
+                                        (activeWebView.parent as? android.view.ViewGroup)?.removeView(activeWebView)
+                                        activeWebView
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            if (activeTab?.isLoading == true) {
+                                LinearProgressIndicator(
+                                    progress = { (activeTab.progress) / 100f },
+                                    modifier = Modifier.fillMaxWidth().height(2.dp).align(Alignment.TopCenter),
+                                    color = Color(0xFF5E8AFF),
+                                    trackColor = Color.Transparent
+                                )
+                            }
                         }
                     }
                     
-                    // Add Bookmark Button
                     val isBookmarked = browserBookmarks.any { it.url == activeTab?.url }
                     Box(
                         modifier = Modifier
@@ -6730,47 +7388,70 @@ fun PrivateBrowserSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF0F1015))
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(bottom = 8.dp)
+                    .drawBehind {
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.08f),
+                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                            end = androidx.compose.ui.geometry.Offset(size.width, 0f),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    },
+                horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { activeWebView?.goBack() }, enabled = activeTab?.canGoBack == true) {
-                    Icon(Icons.Default.ArrowBack, "Back", tint = if (activeTab?.canGoBack == true) Color.White else Color.Gray)
+                IconButton(
+                    onClick = { activeWebView?.goBack() },
+                    enabled = activeTab?.canGoBack == true
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = if (activeTab?.canGoBack == true) Color.White else Color.Gray
+                    )
                 }
                 
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 16.dp)
-                        .height(36.dp)
-                        .background(Color(0xFF1E202B), RoundedCornerShape(18.dp))
-                        .clickable {
-                            if (activeTab?.url != "home") {
-                                activeWebView?.loadUrl("about:blank")
-                                val index = tabs.indexOfFirst { it.id == activeTabId }
-                                if (index != -1) {
-                                    tabs[index] = tabs[index].copy(url = "home", title = "New Tab")
-                                }
-                            }
-                        },
-                    contentAlignment = Alignment.Center
+                IconButton(
+                    onClick = { activeWebView?.goForward() },
+                    enabled = activeTab?.canGoForward == true
                 ) {
-                    val displayUrl = if (activeTab?.url == "home" || activeTab?.url == "about:blank" || activeTab?.url.isNullOrEmpty()) {
-                        "Search or enter URL"
-                    } else {
-                        try {
-                            java.net.URL(activeTab.url).host.removePrefix("www.")
-                        } catch(e: Exception) {
-                            activeTab.title ?: "Website"
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = "Forward",
+                        tint = if (activeTab?.canGoForward == true) Color.White else Color.Gray
+                    )
+                }
+                
+                IconButton(
+                    onClick = {
+                        activeWebView?.loadUrl("about:blank")
+                        val index = tabs.indexOfFirst { it.id == activeTabId }
+                        if (index != -1) {
+                            tabs[index] = tabs[index].copy(url = "home", title = "New Tab")
                         }
                     }
-                    Text(displayUrl, color = Color.White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 12.dp))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = "Home",
+                        tint = Color.White
+                    )
+                }
+
+                IconButton(
+                    onClick = { openNewTab("home") }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "New Tab",
+                        tint = Color.White
+                    )
                 }
                 
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(28.dp)
                         .border(2.dp, Color.White, RoundedCornerShape(6.dp))
                         .clickable { showTabSwitcher = true },
                     contentAlignment = Alignment.Center
@@ -6781,108 +7462,6 @@ fun PrivateBrowserSection(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
-                }
-                
-                Box {
-                    IconButton(onClick = { showMenu = true }, modifier = Modifier.padding(start = 8.dp)) {
-                        Icon(Icons.Default.MoreVert, "More Options", tint = Color.White)
-                    }
-                    
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false },
-                        modifier = Modifier.background(Color(0xFF1E202B), RoundedCornerShape(8.dp))
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Bookmarks", color = Color.White) },
-                            onClick = { 
-                                showMenu = false
-                                showBookmarks = true
-                            },
-                            leadingIcon = { Icon(Icons.Default.Star, "Bookmarks", tint = Color.White) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("History", color = Color.White) },
-                            onClick = { 
-                                showMenu = false
-                                showHistory = true
-                            },
-                            leadingIcon = { Icon(Icons.Default.History, "History", tint = Color.White) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Downloads", color = Color.White) },
-                            onClick = { 
-                                showMenu = false
-                                showDownloads = true
-                            },
-                            leadingIcon = { Icon(Icons.Default.Download, "Downloads", tint = Color.White) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Desktop site", color = Color.White) },
-                            onClick = { 
-                                showMenu = false
-                                val webView = webViews[activeTabId]
-                                if (webView != null && activeTab != null) {
-                                    val newMode = !activeTab.isDesktopMode
-                                    val index = tabs.indexOfFirst { it.id == activeTabId }
-                                    if (index != -1) {
-                                        tabs[index] = tabs[index].copy(isDesktopMode = newMode)
-                                    }
-                                    if (newMode) {
-                                        webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                                        webView.settings.loadWithOverviewMode = true
-                                        webView.settings.useWideViewPort = true
-                                        webView.settings.setSupportZoom(true)
-                                        webView.settings.builtInZoomControls = true
-                                        webView.settings.displayZoomControls = false
-                                    } else {
-                                        webView.settings.userAgentString = android.webkit.WebSettings.getDefaultUserAgent(context)
-                                        webView.settings.loadWithOverviewMode = true
-                                        webView.settings.useWideViewPort = true
-                                        webView.settings.setSupportZoom(true)
-                                        webView.settings.builtInZoomControls = true
-                                        webView.settings.displayZoomControls = false
-                                    }
-                                    webView.clearCache(true)
-                                    webView.reload()
-                                }
-                            },
-                            leadingIcon = { 
-                                Icon(
-                                    if (activeTab?.isDesktopMode == true) Icons.Default.DesktopMac else Icons.Default.Laptop, 
-                                    "Desktop site", 
-                                    tint = if (activeTab?.isDesktopMode == true) Color(0xFF5E8AFF) else Color.White
-                                ) 
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Settings", color = Color.White) },
-                            onClick = { 
-                                showMenu = false
-                                showSettings = true
-                            },
-                            leadingIcon = { Icon(Icons.Default.Settings, "Settings", tint = Color.White) }
-                        )
-                        androidx.compose.material3.HorizontalDivider(color = Color.DarkGray)
-                        DropdownMenuItem(
-                            text = { Text("Return to Vault", color = Color.White) },
-                            onClick = { 
-                                showMenu = false
-                                onExit()
-                            },
-                            leadingIcon = { Icon(Icons.Default.Lock, "Return to Vault", tint = Color.White) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Panic Mode", color = Color(0xFFFF5252)) },
-                            onClick = { 
-                                showMenu = false
-                                viewModel.clearBrowserHistory()
-                                clearAllBrowsingData(context, tabs, webViews)
-                                onExit()
-                            },
-                            leadingIcon = { Icon(Icons.Default.Warning, "Panic Mode", tint = Color(0xFFFF5252)) }
-                        )
-                    }
                 }
             }
         }
@@ -6977,6 +7556,7 @@ fun PrivateBrowserSection(
                                                 if (wv != null) {
                                                     try {
                                                         wv.stopLoading()
+                                                        (wv.parent as? android.view.ViewGroup)?.removeView(wv)
                                                         wv.clearHistory()
                                                         wv.clearCache(true)
                                                         wv.loadUrl("about:blank")
@@ -7006,6 +7586,69 @@ fun PrivateBrowserSection(
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    if (activePopupWebView != null) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = {
+                activePopupWebView?.destroy()
+                activePopupWebView = null
+            },
+            properties = androidx.compose.ui.window.DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            )
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color(0xFF0F111A)
+            ) {
+                androidx.activity.compose.BackHandler(enabled = activePopupWebView?.canGoBack() == true) {
+                    activePopupWebView?.goBack()
+                }
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF171A26))
+                            .statusBarsPadding()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = {
+                            activePopupWebView?.destroy()
+                            activePopupWebView = null
+                        }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close Popup", tint = Color.White)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Secure Log In / Authenticate",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = {
+                            activePopupWebView?.reload()
+                        }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.White)
+                        }
+                    }
+                    
+                    Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+                        AndroidView(
+                            factory = { _ ->
+                                (activePopupWebView!!.parent as? android.view.ViewGroup)?.removeView(activePopupWebView)
+                                activePopupWebView!!
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
             }
@@ -8439,3 +9082,4 @@ fun DownloadItem(
         }
     }
 }
+
