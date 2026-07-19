@@ -13,14 +13,15 @@
                 android:endX="108"
                 android:endY="108"
                 android:type="linear">
+                <!-- Luxurious space gray/dark metallic gradient matching user image background -->
                 <item
-                    android:color="#0F172A"
+                    android:color="#2D3035"
                     android:offset="0.0" />
                 <item
-                    android:color="#1E1B4B"
+                    android:color="#1A1B1F"
                     android:offset="0.5" />
                 <item
-                    android:color="#311B92"
+                    android:color="#0F1012"
                     android:offset="1.0" />
             </gradient>
         </aapt:attr>

@@ -5,25 +5,65 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Cyberpunk glowing hexagon or frame -->
+    <!-- Soft drop shadow for the rounded calculator tile to make it float in 3D -->
     <path
-        android:pathData="M 54,22 L 80,35 V 73 L 54,86 L 28,73 V 35 Z"
-        android:fillColor="#0D001A"
-        android:strokeColor="#EC4899"
-        android:strokeWidth="2.5" />
+        android:pathData="M 32,37.5 q 0,-5 5,-5 h 34 q 5,0 5,5 v 34 q 0,5 -5,5 h -34 q -5,0 -5,-5 z"
+        android:fillColor="#50000000" />
 
-    <!-- Plus Symbol in center -->
+    <!-- Perfectly padded 4-quadrant rounded Neon Calculator Tile centered in 66dp safe zone (X: 32 to 76, Y: 32 to 76) -->
+    <!-- Top-Left Quadrant (Dark Slate) -->
     <path
-        android:pathData="M54,42 V58 M46,50 H62"
-        android:strokeColor="#06B6D4"
-        android:strokeWidth="3.5"
+        android:pathData="M 32,37 q 0,-5 5,-5 h 17 v 22 h -22 z"
+        android:fillColor="#1E293B" />
+
+    <!-- Top-Right Quadrant (Deeper Slate) -->
+    <path
+        android:pathData="M 54,32 h 17 q 5,0 5,5 v 17 h -22 z"
+        android:fillColor="#0F172A" />
+
+    <!-- Bottom-Left Quadrant (Dark Slate) -->
+    <path
+        android:pathData="M 32,54 h 22 v 22 h -17 q -5,0 -5,-5 z"
+        android:fillColor="#1E293B" />
+
+    <!-- Bottom-Right Quadrant (Neon Emerald Green) -->
+    <path
+        android:pathData="M 54,54 h 22 v 17 q 0,5 -5,5 h -17 z"
+        android:fillColor="#10B981" />
+
+    <!-- Divider lines -->
+    <path
+        android:pathData="M 32,54 h 44 M 54,32 v 44"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="1.2" />
+
+    <!-- Operators perfectly centered in neon order -->
+    <!-- Plus + in Top-Left quadrant (centered at 43, 43) -->
+    <path
+        android:pathData="M 39.5,43 h 7 M 43,39.5 v 7"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
         android:strokeLineCap="round" />
 
-    <!-- Equal Symbol at bottom -->
+    <!-- Minus − in Top-Right quadrant (centered at 65, 43) -->
     <path
-        android:pathData="M44,66 H64 M44,72 H64"
-        android:strokeColor="#F43F5E"
-        android:strokeWidth="3"
+        android:pathData="M 61.5,43 h 7"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+
+    <!-- Multiply × in Bottom-Left quadrant (centered at 43, 65) -->
+    <path
+        android:pathData="M 39.5,61.5 L 46.5,68.5 M 46.5,61.5 L 39.5,68.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+
+    <!-- Equals = in Bottom-Right quadrant (centered at 65, 65) -->
+    <path
+        android:pathData="M 61.5,63.2 h 7 M 61.5,66.8 h 7"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
         android:strokeLineCap="round" />
 
 </vector>

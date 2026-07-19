@@ -20,6 +20,8 @@ import androidx.camera.view.PreviewView
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,16 +57,41 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.common.InputImage
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.text.AnnotatedString
+
+
 // Theme Constant matches Calculator Screen
 private val ThemePurple = Color(0xFF635BFF)
 private val ThemeContainerBorder = Color(0xFF1E2438)
 private val BrandBg = Color(0xFF090D1A)
 private val TextMedium = Color(0xFF8B92A5)
 
+data class LastMediaInfo(
+    val id: String,
+    val path: String,
+    val isVideo: Boolean,
+    val name: String,
+    val size: String,
+    val raw: String
+)
+
 @Composable
 fun SecureCameraView(
     viewModel: CalculatorViewModel,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onViewMedia: ((String, Int, List<String>) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -77,6 +104,31 @@ fun SecureCameraView(
     var activeRecording by remember { mutableStateOf<Recording?>(null) }
     var showPermissionError by remember { mutableStateOf(false) }
 
+    val vaultFiles by viewModel.vaultFiles.collectAsStateWithLifecycle()
+    
+    val mediaFiles = remember(vaultFiles) {
+        vaultFiles.filter {
+            it.contains("|||image/") || it.contains("|||video/")
+        }
+    }
+
+    val lastCapturedFile = remember(vaultFiles) {
+        vaultFiles.firstOrNull {
+            it.contains("|||image/") || it.contains("|||video/")
+        }?.let { fileStr ->
+            val parts = fileStr.split("|||")
+            if (parts.size >= 6) {
+                val id = parts[0]
+                val mimeType = parts[3]
+                val path = parts[4]
+                val isVideo = mimeType.startsWith("video/")
+                val name = parts[2]
+                val size = parts[5]
+                LastMediaInfo(id = id, path = path, isVideo = isVideo, name = name, size = size, raw = fileStr)
+            } else null
+        }
+    }
+
     // Use cases references
     var imageCapture: ImageCapture? by remember { mutableStateOf(null) }
     var videoCapture: VideoCapture<Recorder>? by remember { mutableStateOf(null) }
@@ -84,12 +136,96 @@ fun SecureCameraView(
 
     val cameraProviderFuture = remember { try { CameraInitializer.initAndGetProvider(context) } catch (e: Exception) { null } }
 
+    var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
+
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    DisposableEffect(cameraProviderFuture) {
+        onDispose {
+            try {
+                cameraProviderFuture?.get()?.unbindAll()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    LaunchedEffect(isFrontCamera, isVideoMode, cameraProviderFuture, previewViewRef, hasCameraPermission) {
+        if (!hasCameraPermission) return@LaunchedEffect
+        val previewView = previewViewRef ?: return@LaunchedEffect
+        val cameraProvider = withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                cameraProviderFuture?.get()
+            } catch (e: Exception) {
+                null
+            }
+        } ?: return@LaunchedEffect
+
+        val preview = Preview.Builder().build().apply {
+            setSurfaceProvider(previewView.surfaceProvider)
+        }
+
+        val imgCap = ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
+        imageCapture = imgCap
+
+        val recorder = Recorder.Builder()
+            .setQualitySelector(QualitySelector.from(Quality.HD))
+            .build()
+        val vidCap = VideoCapture.withOutput(recorder)
+        videoCapture = vidCap
+
+        val cameraSelector = if (isFrontCamera) {
+            CameraSelector.DEFAULT_FRONT_CAMERA
+        } else {
+            CameraSelector.DEFAULT_BACK_CAMERA
+        }
+
+        try {
+            cameraProvider.unbindAll()
+            camera = cameraProvider.bindToLifecycle(
+                lifecycleOwner,
+                cameraSelector,
+                preview,
+                if (isVideoMode) vidCap else imgCap
+            )
+            
+            // Set initial flash and torch state
+            imgCap.flashMode = when (flashMode) {
+                "ON" -> ImageCapture.FLASH_MODE_ON
+                "OFF" -> ImageCapture.FLASH_MODE_OFF
+                else -> ImageCapture.FLASH_MODE_AUTO
+            }
+            camera?.cameraControl?.enableTorch(isVideoMode && flashMode == "ON")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    LaunchedEffect(flashMode, isVideoMode, imageCapture, camera) {
+        val imgCap = imageCapture
+        if (imgCap != null) {
+            imgCap.flashMode = when (flashMode) {
+                "ON" -> ImageCapture.FLASH_MODE_ON
+                "OFF" -> ImageCapture.FLASH_MODE_OFF
+                else -> ImageCapture.FLASH_MODE_AUTO
+            }
+        }
+        camera?.cameraControl?.enableTorch(isVideoMode && flashMode == "ON")
+    }
+
     // Handle permissions natively
     val permissionsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { perms ->
         viewModel.isPickingFile = false
         val cameraGranted = perms[Manifest.permission.CAMERA] ?: false
+        hasCameraPermission = cameraGranted
         if (!cameraGranted) {
             showPermissionError = true
         }
@@ -144,65 +280,11 @@ fun SecureCameraView(
             factory = { ctx ->
                 PreviewView(ctx).apply {
                     implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                    previewViewRef = this
                 }
             },
             modifier = Modifier.fillMaxSize(),
-            update = { previewView ->
-                val cameraProvider = try {
-                    cameraProviderFuture?.get() ?: return@AndroidView
-                } catch (e: Exception) {
-                    return@AndroidView
-                }
-
-                val preview = Preview.Builder().build().apply {
-                    setSurfaceProvider(previewView.surfaceProvider)
-                }
-
-                // Photo Capture Config
-                val imgCap = ImageCapture.Builder()
-                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                    .setFlashMode(
-                        when (flashMode) {
-                            "ON" -> ImageCapture.FLASH_MODE_ON
-                            "OFF" -> ImageCapture.FLASH_MODE_OFF
-                            else -> ImageCapture.FLASH_MODE_AUTO
-                        }
-                    )
-                    .build()
-                imageCapture = imgCap
-
-                // Video Capture Config
-                val recorder = Recorder.Builder()
-                    .setQualitySelector(QualitySelector.from(Quality.HD))
-                    .build()
-                val vidCap = VideoCapture.withOutput(recorder)
-                videoCapture = vidCap
-
-                val cameraSelector = if (isFrontCamera) {
-                    CameraSelector.DEFAULT_FRONT_CAMERA
-                } else {
-                    CameraSelector.DEFAULT_BACK_CAMERA
-                }
-
-                try {
-                    cameraProvider.unbindAll()
-                    camera = cameraProvider.bindToLifecycle(
-                        lifecycleOwner,
-                        cameraSelector,
-                        preview,
-                        if (isVideoMode) vidCap else imgCap
-                    )
-                    
-                    // Enable/Disable flash/torch based on selection
-                    camera?.let { cam ->
-                        if (isVideoMode) {
-                            cam.cameraControl.enableTorch(flashMode == "ON")
-                        }
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
+            update = {}
         )
 
         // Top Control Overlay
@@ -245,16 +327,6 @@ fun SecureCameraView(
                     contentDescription = "Flash Mode",
                     tint = if (flashMode == "OFF") Color.LightGray else Color.Yellow
                 )
-            }
-
-            // Front/Back Switcher Button
-            IconButton(
-                onClick = { isFrontCamera = !isFrontCamera },
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-            ) {
-                Icon(Icons.Default.FlipCameraAndroid, contentDescription = "Flip Camera", tint = Color.White)
             }
         }
 
@@ -333,102 +405,180 @@ fun SecureCameraView(
                 }
             }
 
-            // Capture Shutter trigger button
-            Box(
+            // Controls Row (Gallery Preview, Shutter Button, Switcher Button)
+            Row(
                 modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.2f))
-                    .padding(6.dp),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Left: Gallery Thumbnail (Last captured photo/video)
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .size(56.dp)
                         .clip(CircleShape)
-                        .background(if (isVideoMode) Color.Red else Color.White)
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
                         .clickable {
-                            if (isVideoMode) {
-                                // Toggle Video Recording
-                                if (isRecording) {
-                                    activeRecording?.stop()
-                                    activeRecording = null
-                                    isRecording = false
-                                } else {
-                                    val vidCap = videoCapture ?: return@clickable
-                                    val id = System.currentTimeMillis().toString()
-                                    val vaultDir = File(context.filesDir, "vault_files")
-                                    if (!vaultDir.exists()) vaultDir.mkdirs()
-                                    val destFile = File(vaultDir, "$id.mp4")
-
-                                    val outputOpts = FileOutputOptions.Builder(destFile).build()
-                                    
-                                    try {
-                                        val recording = vidCap.output
-                                            .prepareRecording(context, outputOpts)
-                                            .apply {
-                                                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                                                    withAudioEnabled()
-                                                }
-                                            }
-                                            .start(ContextCompat.getMainExecutor(context)) { recordEvent ->
-                                                when (recordEvent) {
-                                                    is VideoRecordEvent.Start -> {
-                                                        isRecording = true
-                                                    }
-                                                    is VideoRecordEvent.Finalize -> {
-                                                        isRecording = false
-                                                        if (!recordEvent.hasError()) {
-                                                            viewModel.registerDirectVaultFile(
-                                                                context,
-                                                                destFile,
-                                                                "Video_$id.mp4",
-                                                                "video/mp4"
-                                                            )
-                                                            Toast.makeText(context, "Video secured directly in Vault!", Toast.LENGTH_SHORT).show()
-                                                        } else {
-                                                            Toast.makeText(context, "Failed to capture video", Toast.LENGTH_SHORT).show()
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        activeRecording = recording
-                                    } catch (e: Exception) {
-                                        Toast.makeText(context, "Video recording error", Toast.LENGTH_SHORT).show()
-                                    }
+                            if (lastCapturedFile != null && onViewMedia != null) {
+                                val index = mediaFiles.indexOf(lastCapturedFile.raw)
+                                if (index != -1) {
+                                    onViewMedia(lastCapturedFile.raw, index, mediaFiles)
                                 }
-                            } else {
-                                // Capture Photo
-                                val imgCap = imageCapture ?: return@clickable
-                                val id = System.currentTimeMillis().toString()
-                                val vaultDir = File(context.filesDir, "vault_files")
-                                if (!vaultDir.exists()) vaultDir.mkdirs()
-                                val destFile = File(vaultDir, "$id.jpg")
-
-                                val outputOpts = ImageCapture.OutputFileOptions.Builder(destFile).build()
-                                
-                                imgCap.takePicture(
-                                    outputOpts,
-                                    ContextCompat.getMainExecutor(context),
-                                    object : ImageCapture.OnImageSavedCallback {
-                                        override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                                            viewModel.registerDirectVaultFile(
-                                                context,
-                                                destFile,
-                                                "Photo_$id.jpg",
-                                                "image/jpeg"
-                                            )
-                                            Toast.makeText(context, "Photo secured directly in Vault!", Toast.LENGTH_SHORT).show()
-                                        }
-
-                                        override fun onError(exception: ImageCaptureException) {
-                                            Toast.makeText(context, "Capture failed: ${exception.message}", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (lastCapturedFile != null) {
+                        AsyncImage(
+                            model = coil.request.ImageRequest.Builder(context)
+                                .data(File(lastCapturedFile.path))
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Last captured item",
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                        if (lastCapturedFile.isVideo) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.3f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = "Video",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
-                )
+                    } else {
+                        // Default placeholder icon
+                        Icon(
+                            imageVector = Icons.Default.PhotoLibrary,
+                            contentDescription = "Gallery Empty",
+                            tint = Color.White.copy(alpha = 0.6f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+
+                // Center: Capture Shutter trigger button
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.2f))
+                        .padding(6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .background(if (isVideoMode) Color.Red else Color.White)
+                            .clickable {
+                                if (isVideoMode) {
+                                    // Toggle Video Recording
+                                    if (isRecording) {
+                                        activeRecording?.stop()
+                                        activeRecording = null
+                                        isRecording = false
+                                    } else {
+                                        val vidCap = videoCapture ?: return@clickable
+                                        val id = System.currentTimeMillis().toString()
+                                        val vaultDir = File(context.filesDir, "vault_files")
+                                        if (!vaultDir.exists()) vaultDir.mkdirs()
+                                        val destFile = File(vaultDir, "$id.mp4")
+
+                                        val outputOpts = FileOutputOptions.Builder(destFile).build()
+                                        
+                                        try {
+                                            val recording = vidCap.output
+                                                .prepareRecording(context, outputOpts)
+                                                .apply {
+                                                    if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                                        withAudioEnabled()
+                                                    }
+                                                }
+                                                .start(ContextCompat.getMainExecutor(context)) { recordEvent ->
+                                                    when (recordEvent) {
+                                                        is VideoRecordEvent.Start -> {
+                                                            isRecording = true
+                                                        }
+                                                        is VideoRecordEvent.Finalize -> {
+                                                            isRecording = false
+                                                            if (!recordEvent.hasError()) {
+                                                                viewModel.registerDirectVaultFile(
+                                                                    context,
+                                                                    destFile,
+                                                                    "Video_$id.mp4",
+                                                                    "video/mp4"
+                                                                )
+                                                                Toast.makeText(context, "Video secured directly in Vault!", Toast.LENGTH_SHORT).show()
+                                                            } else {
+                                                                Toast.makeText(context, "Failed to capture video", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            activeRecording = recording
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Video recording error", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                } else {
+                                    // Capture Photo
+                                    val imgCap = imageCapture ?: return@clickable
+                                    val id = System.currentTimeMillis().toString()
+                                    val vaultDir = File(context.filesDir, "vault_files")
+                                    if (!vaultDir.exists()) vaultDir.mkdirs()
+                                    val destFile = File(vaultDir, "$id.jpg")
+
+                                    val outputOpts = ImageCapture.OutputFileOptions.Builder(destFile).build()
+                                    
+                                    imgCap.takePicture(
+                                        outputOpts,
+                                        ContextCompat.getMainExecutor(context),
+                                        object : ImageCapture.OnImageSavedCallback {
+                                            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                                viewModel.registerDirectVaultFile(
+                                                    context,
+                                                    destFile,
+                                                    "Photo_$id.jpg",
+                                                    "image/jpeg"
+                                                )
+                                                Toast.makeText(context, "Photo secured directly in Vault!", Toast.LENGTH_SHORT).show()
+                                            }
+
+                                            override fun onError(exception: ImageCaptureException) {
+                                                Toast.makeText(context, "Capture failed: ${exception.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                    )
+                }
+
+                // Right: Front/Back Switcher Button
+                IconButton(
+                    onClick = { isFrontCamera = !isFrontCamera },
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FlipCameraAndroid,
+                        contentDescription = "Flip Camera",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     }
@@ -442,24 +592,44 @@ fun SecureScannerView(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
+    val clipboardManager = LocalClipboardManager.current
+    val uriHandler = LocalUriHandler.current
+    val hapticFeedback = LocalHapticFeedback.current
 
     var isFrontCamera by remember { mutableStateOf(false) }
-    var flashMode by remember { mutableStateOf("AUTO") }
+    var isFlashOn by remember { mutableStateOf(false) }
+    var isScanningPaused by remember { mutableStateOf(false) }
     var showPermissionError by remember { mutableStateOf(false) }
 
-    // Captured image for processing review
-    var capturedTempFile by remember { mutableStateOf<File?>(null) }
-    var capturedBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    // Active scanned item (floating card overlay)
+    var activeScanItem by remember { mutableStateOf<QrScanItem?>(null) }
 
-    // Use cases references
-    var imageCapture: ImageCapture? by remember { mutableStateOf(null) }
+    // Show Scan History dialog/slide-up
+    var showHistoryScreen by remember { mutableStateOf(false) }
+
+    // Search query for history
+    var historySearchQuery by remember { mutableStateOf("") }
+
+    // State for delete confirmation dialog
+    var showClearHistoryConfirm by remember { mutableStateOf(false) }
+
+    // Camera variables
+    var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
+    var cameraControl: CameraControl? by remember { mutableStateOf(null) }
     val cameraProviderFuture = remember { try { CameraInitializer.initAndGetProvider(context) } catch (e: Exception) { null } }
 
-    // Handle permissions natively
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    // Permission launcher
     val permissionsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         viewModel.isPickingFile = false
+        hasCameraPermission = granted
         if (!granted) showPermissionError = true
     }
 
@@ -470,240 +640,872 @@ fun SecureScannerView(
         }
     }
 
-    if (capturedBitmap != null && capturedTempFile != null) {
-        // --- Document Processing / Review Screen ---
-        DocumentReviewScreen(
-            originalBitmap = capturedBitmap!!,
-            tempFile = capturedTempFile!!,
-            viewModel = viewModel,
-            onSaved = {
-                capturedBitmap = null
-                capturedTempFile = null
-                onDismiss()
-            },
-            onCancel = {
-                capturedTempFile?.delete()
-                capturedBitmap = null
-                capturedTempFile = null
+    DisposableEffect(cameraProviderFuture) {
+        onDispose {
+            try {
+                cameraProviderFuture?.get()?.unbindAll()
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-        )
-    } else {
-        // --- Live Scanner Camera Frame ---
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black)
-        ) {
+        }
+    }
+
+    // Bind Camera Preview and Image Analysis
+    LaunchedEffect(isFrontCamera, cameraProviderFuture, previewViewRef, hasCameraPermission) {
+        if (!hasCameraPermission) return@LaunchedEffect
+        val previewView = previewViewRef ?: return@LaunchedEffect
+        val cameraProvider = withContext(Dispatchers.IO) {
+            try {
+                cameraProviderFuture?.get()
+            } catch (e: Exception) {
+                null
+            }
+        } ?: return@LaunchedEffect
+
+        val preview = Preview.Builder().build().apply {
+            setSurfaceProvider(previewView.surfaceProvider)
+        }
+
+        val imageAnalysis = ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .build()
+
+        imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(context), object : ImageAnalysis.Analyzer {
+            @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
+            override fun analyze(imageProxy: ImageProxy) {
+                val mediaImage = imageProxy.image
+                if (mediaImage != null && !isScanningPaused && activeScanItem == null && !showHistoryScreen) {
+                    val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                    val scanner = BarcodeScanning.getClient()
+                    scanner.process(image)
+                        .addOnSuccessListener { barcodes ->
+                            if (barcodes.isNotEmpty()) {
+                                val barcode = barcodes.first()
+                                val rawValue = barcode.rawValue ?: ""
+                                if (rawValue.isNotEmpty()) {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    val parsed = parseBarcode(barcode)
+                                    
+                                    // Save inside vault scan history (automatically supports Decoy or Real Vault inside ViewModel)
+                                    val savedItem = viewModel.addQrScanItem(
+                                        rawValue = rawValue,
+                                        type = parsed.type,
+                                        title = parsed.title,
+                                        formattedDetails = parsed.details
+                                    )
+                                    activeScanItem = savedItem
+                                    isScanningPaused = true
+                                }
+                            }
+                        }
+                        .addOnFailureListener {
+                            it.printStackTrace()
+                        }
+                        .addOnCompleteListener {
+                            imageProxy.close()
+                        }
+                } else {
+                    imageProxy.close()
+                }
+            }
+        })
+
+        val cameraSelector = if (isFrontCamera) {
+            CameraSelector.DEFAULT_FRONT_CAMERA
+        } else {
+            CameraSelector.DEFAULT_BACK_CAMERA
+        }
+
+        try {
+            cameraProvider.unbindAll()
+            val camera = cameraProvider.bindToLifecycle(
+                lifecycleOwner,
+                cameraSelector,
+                preview,
+                imageAnalysis
+            )
+            cameraControl = camera.cameraControl
+            // Sync torch mode
+            cameraControl?.enableTorch(isFlashOn)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // Sync Torch state change
+    LaunchedEffect(isFlashOn) {
+        try {
+            cameraControl?.enableTorch(isFlashOn)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // Entire layout
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        if (hasCameraPermission) {
             AndroidView(
                 factory = { ctx ->
                     PreviewView(ctx).apply {
                         implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                        previewViewRef = this
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
-                update = { previewView ->
-                    val cameraProvider = try {
-                        cameraProviderFuture?.get() ?: return@AndroidView
-                    } catch (e: Exception) {
-                        return@AndroidView
-                    }
+                update = {}
+            )
 
-                    val preview = Preview.Builder().build().apply {
-                        setSurfaceProvider(previewView.surfaceProvider)
-                    }
+            // Scanning Overlay Laser Line and Alignment border
+            if (!isScanningPaused && activeScanItem == null && !showHistoryScreen) {
+                val infiniteTransition = rememberInfiniteTransition(label = "LaserEffect")
+                val laserProgress by infiniteTransition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(2200, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "LaserLine"
+                )
 
-                    val imgCap = ImageCapture.Builder()
-                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-                        .setFlashMode(
-                            when (flashMode) {
-                                "ON" -> ImageCapture.FLASH_MODE_ON
-                                "OFF" -> ImageCapture.FLASH_MODE_OFF
-                                else -> ImageCapture.FLASH_MODE_AUTO
-                            }
-                        )
-                        .build()
-                    imageCapture = imgCap
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val canvasWidth = size.width
+                    val canvasHeight = size.height
 
-                    val cameraSelector = if (isFrontCamera) {
-                        CameraSelector.DEFAULT_FRONT_CAMERA
-                    } else {
-                        CameraSelector.DEFAULT_BACK_CAMERA
-                    }
+                    // Translucent dark mask
+                    drawRect(
+                        color = Color.Black.copy(alpha = 0.6f),
+                        size = size
+                    )
 
-                    try {
-                        cameraProvider.unbindAll()
-                        cameraProvider.bindToLifecycle(
-                            lifecycleOwner,
-                            cameraSelector,
-                            preview,
-                            imgCap
-                        )
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
+                    // Target scanning cutout box (square for QR codes)
+                    val boxSize = canvasWidth * 0.7f
+                    val x = (canvasWidth - boxSize) / 2
+                    val y = (canvasHeight - boxSize) / 2
+
+                    drawRoundRect(
+                        color = Color.Transparent,
+                        topLeft = Offset(x, y),
+                        size = Size(boxSize, boxSize),
+                        cornerRadius = CornerRadius(24.dp.toPx(), 24.dp.toPx()),
+                        blendMode = androidx.compose.ui.graphics.BlendMode.Clear
+                    )
+
+                    // Outer alignment target box
+                    drawRoundRect(
+                        color = ThemePurple,
+                        topLeft = Offset(x, y),
+                        size = Size(boxSize, boxSize),
+                        cornerRadius = CornerRadius(24.dp.toPx(), 24.dp.toPx()),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx())
+                    )
+
+                    // Green Scanner Laser
+                    val laserYPosition = y + (boxSize * laserProgress)
+                    drawLine(
+                        color = Color(0xFF00FFCC),
+                        start = Offset(x + 12.dp.toPx(), laserYPosition),
+                        end = Offset(x + boxSize - 12.dp.toPx(), laserYPosition),
+                        strokeWidth = 3.dp.toPx()
+                    )
                 }
-            )
-
-            // Dynamic Scanning Mask and Green Laser line
-            val infiniteTransition = rememberInfiniteTransition(label = "LaserEffect")
-            val laserProgress by infiniteTransition.animateFloat(
-                initialValue = 0f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(2500, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "LaserLine"
-            )
-
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val canvasWidth = size.width
-                val canvasHeight = size.height
-
-                // Draw translucent gray mask overlay
-                drawRect(
-                    color = Color.Black.copy(alpha = 0.65f),
-                    size = size
-                )
-
-                // Cutout dimensions representing standard document sheet ratio
-                val width = canvasWidth * 0.85f
-                val height = canvasHeight * 0.65f
-                val x = (canvasWidth - width) / 2
-                val y = (canvasHeight - height) / 2
-
-                // Clear/punch the document rectangle cutout
-                drawRoundRect(
-                    color = Color.Transparent,
-                    topLeft = Offset(x, y),
-                    size = Size(width, height),
-                    cornerRadius = CornerRadius(16.dp.toPx(), 16.dp.toPx()),
-                    blendMode = androidx.compose.ui.graphics.BlendMode.Clear
-                )
-
-                // Draw premium alignment guides
-                drawRoundRect(
-                    color = ThemePurple,
-                    topLeft = Offset(x, y),
-                    size = Size(width, height),
-                    cornerRadius = CornerRadius(16.dp.toPx(), 16.dp.toPx()),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
-                )
-
-                // Laser Scanning Line with soft neon glow
-                val laserYPosition = y + (height * laserProgress)
-                drawLine(
-                    color = Color(0xFF00FFCC),
-                    start = Offset(x + 4.dp.toPx(), laserYPosition),
-                    end = Offset(x + width - 4.dp.toPx(), laserYPosition),
-                    strokeWidth = 3.dp.toPx()
+            } else {
+                // Dim camera view completely when paused or overlay is showing
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.75f))
                 )
             }
-
-            // Top Control Action Bar
-            Row(
+        } else {
+            // No Permission state
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .padding(32.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Exit Scanner", tint = Color.White)
-                }
-
-                Text(
-                    text = "ALIGN DOCUMENT",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier
-                        .background(ThemePurple.copy(alpha = 0.8f), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                Icon(
+                    imageVector = Icons.Default.CameraAlt,
+                    contentDescription = null,
+                    tint = TextMedium,
+                    modifier = Modifier.size(64.dp)
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Camera Permission Required",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Please enable camera permissions to scan QR codes securely.",
+                    color = TextMedium,
+                    textAlign = TextAlign.Center,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = { permissionsLauncher.launch(Manifest.permission.CAMERA) },
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
+                ) {
+                    Text("Grant Permission", color = Color.White)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(onClick = onDismiss) {
+                    Text("Go Back", color = ThemePurple)
+                }
+            }
+        }
 
-                // Flash Switcher
+        // Top Glassmorphic Navigation & Control Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Close / Exit
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+            ) {
+                Icon(Icons.Default.Close, contentDescription = "Exit Scanner", tint = Color.White)
+            }
+
+            // Title / Status Label
+            Text(
+                text = if (isScanningPaused) "SCANNING PAUSED" else "ALIGN QR CODE",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier
+                    .background(
+                        if (isScanningPaused) Color.DarkGray.copy(alpha = 0.8f) else ThemePurple.copy(alpha = 0.8f),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
+            )
+
+            // Flash / Camera Switch controls
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Torch Switch
                 IconButton(
-                    onClick = {
-                        flashMode = when (flashMode) {
-                            "AUTO" -> "ON"
-                            "ON" -> "OFF"
-                            else -> "AUTO"
-                        }
-                    },
+                    onClick = { isFlashOn = !isFlashOn },
                     modifier = Modifier
                         .size(44.dp)
                         .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                 ) {
                     Icon(
-                        imageVector = when (flashMode) {
-                            "ON" -> Icons.Default.FlashOn
-                            "OFF" -> Icons.Default.FlashOff
-                            else -> Icons.Default.FlashAuto
-                        },
+                        imageVector = if (isFlashOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
                         contentDescription = "Flash Mode",
-                        tint = if (flashMode == "OFF") Color.LightGray else Color.Yellow
+                        tint = if (isFlashOn) Color.Yellow else Color.White
+                    )
+                }
+
+                // Front/Back Switch
+                IconButton(
+                    onClick = { isFrontCamera = !isFrontCamera },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Cameraswitch,
+                        contentDescription = "Switch Camera",
+                        tint = Color.White
                     )
                 }
             }
+        }
 
-            // Bottom Shutter Button
+        // Floating Scanner Controls Bottom Row (History & Pause State)
+        if (activeScanItem == null && !showHistoryScreen) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    .padding(bottom = 32.dp),
+                    .padding(bottom = 36.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(76.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.2f))
-                        .padding(6.dp),
-                    contentAlignment = Alignment.Center
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
+                    // History Button
+                    Button(
+                        onClick = { showHistoryScreen = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.65f)),
+                        border = BorderStroke(1.dp, ThemeContainerBorder.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(20.dp),
+                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp)
+                    ) {
+                        Icon(Icons.Default.History, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Private Scan History", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    // Pause/Resume Analyzer Button
+                    IconButton(
+                        onClick = { isScanningPaused = !isScanningPaused },
                         modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .clickable {
-                                val imgCap = imageCapture ?: return@clickable
-                                val id = System.currentTimeMillis().toString()
-                                val tempFile = File(context.cacheDir, "scan_$id.jpg")
+                            .size(44.dp)
+                            .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                            .border(1.dp, ThemeContainerBorder.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (isScanningPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                            contentDescription = "Pause / Resume scanning",
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
+        }
 
-                                val outputOpts = ImageCapture.OutputFileOptions.Builder(tempFile).build()
-                                imgCap.takePicture(
-                                    outputOpts,
-                                    ContextCompat.getMainExecutor(context),
-                                    object : ImageCapture.OnImageSavedCallback {
-                                        override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                                            val options = BitmapFactory.Options().apply { inMutable = true }
-                                            val bitmap = BitmapFactory.decodeFile(tempFile.absolutePath, options)
-                                            if (bitmap != null) {
-                                                capturedTempFile = tempFile
-                                                capturedBitmap = bitmap
-                                            } else {
-                                                Toast.makeText(context, "Scan decode error", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
+        // Scanned Detail Glassmorphic Card (Floating Overlay)
+        AnimatedVisibility(
+            visible = activeScanItem != null,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(16.dp)
+        ) {
+            activeScanItem?.let { item ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, ThemeContainerBorder.copy(alpha = 0.6f), RoundedCornerShape(24.dp)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1424).copy(alpha = 0.95f)),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp)
+                    ) {
+                        // Title header based on type
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(ThemePurple.copy(alpha = 0.2f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = when (item.type) {
+                                            "WIFI" -> Icons.Default.Wifi
+                                            "URL" -> Icons.Default.Link
+                                            "CONTACT" -> Icons.Default.Person
+                                            "EMAIL" -> Icons.Default.Email
+                                            "PHONE" -> Icons.Default.Phone
+                                            else -> Icons.Default.Description
+                                        },
+                                        contentDescription = null,
+                                        tint = ThemePurple,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = when (item.type) {
+                                            "WIFI" -> "WI-FI NETWORK"
+                                            "URL" -> "WEBSITE URL"
+                                            "CONTACT" -> "CONTACT INFO"
+                                            "EMAIL" -> "EMAIL DETECTED"
+                                            "PHONE" -> "PHONE NUMBER"
+                                            else -> "PLAIN TEXT"
+                                        },
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ThemePurple,
+                                        letterSpacing = 1.sp
+                                    )
+                                    Text(
+                                        text = item.title,
+                                        color = Color.White,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
 
-                                        override fun onError(exception: ImageCaptureException) {
-                                            Toast.makeText(context, "Failed to capture document: ${exception.message}", Toast.LENGTH_SHORT).show()
+                            // Close Details Overlay
+                            IconButton(
+                                onClick = {
+                                    activeScanItem = null
+                                    isScanningPaused = false // resume scanning
+                                },
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .background(Color.White.copy(alpha = 0.05f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.LightGray, modifier = Modifier.size(16.dp))
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Box for Formatted Details with clean border
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                                .border(1.dp, ThemeContainerBorder.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                                .padding(14.dp)
+                        ) {
+                            Column {
+                                Text(
+                                    text = item.formattedDetails,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 14.sp,
+                                    lineHeight = 20.sp
+                                )
+                                if (item.type == "WIFI") {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    // Extract password from details if possible to make copying easy
+                                    val passwordLine = item.formattedDetails.lines().firstOrNull { it.contains("Password:", ignoreCase = true) }
+                                    val passwordVal = passwordLine?.substringAfter("Password:")?.trim() ?: ""
+                                    if (passwordVal.isNotEmpty() && passwordVal != "None") {
+                                        Button(
+                                            onClick = {
+                                                clipboardManager.setText(AnnotatedString(passwordVal))
+                                                Toast.makeText(context, "Password copied!", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple.copy(alpha = 0.15f)),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.height(32.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                                        ) {
+                                            Icon(Icons.Default.ContentCopy, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Copy Wi-Fi Password", color = ThemePurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        // Action row (Copy, Open URL, etc.)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Button(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(item.rawValue))
+                                    Toast.makeText(context, "Copied raw scanner content!", Toast.LENGTH_SHORT).show()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.08f)),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Copy Content", color = Color.White, fontSize = 13.sp)
+                            }
+
+                            val isValidUrl = item.type == "URL" || item.rawValue.startsWith("http://", true) || item.rawValue.startsWith("https://", true)
+                            if (isValidUrl) {
+                                Button(
+                                    onClick = {
+                                        try {
+                                            val urlToOpen = if (!item.rawValue.startsWith("http://", true) && !item.rawValue.startsWith("https://", true)) {
+                                                "https://${item.rawValue}"
+                                            } else {
+                                                item.rawValue
+                                            }
+                                            uriHandler.openUri(urlToOpen)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Cannot open URL", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.weight(1.1f)
+                                ) {
+                                    Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Open URL", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Full Screen Slide-Up Private Scan History Screen
+        AnimatedVisibility(
+            visible = showHistoryScreen,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            val historyItems by viewModel.qrScanHistory.collectAsStateWithLifecycle()
+            val filteredItems = remember(historyItems, historySearchQuery) {
+                if (historySearchQuery.isBlank()) {
+                    historyItems
+                } else {
+                    historyItems.filter {
+                        it.title.contains(historySearchQuery, ignoreCase = true) ||
+                                it.formattedDetails.contains(historySearchQuery, ignoreCase = true) ||
+                                it.rawValue.contains(historySearchQuery, ignoreCase = true)
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(BrandBg)
+                    .statusBarsPadding()
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Header Area
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = { showHistoryScreen = false },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(Color.White.copy(alpha = 0.05f), CircleShape)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Private Scan History",
+                                color = Color.White,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        if (historyItems.isNotEmpty()) {
+                            IconButton(
+                                onClick = { showClearHistoryConfirm = true },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(Color.Red.copy(alpha = 0.1f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.DeleteSweep, contentDescription = "Clear All", tint = Color(0xFFFF5252))
+                            }
+                        }
+                    }
+
+                    // Interactive Search Bar
+                    OutlinedTextField(
+                        value = historySearchQuery,
+                        onValueChange = { historySearchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(bottom = 12.dp),
+                        placeholder = { Text("Search inside scan history...", color = TextMedium, fontSize = 14.sp) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextMedium) },
+                        trailingIcon = {
+                            if (historySearchQuery.isNotEmpty()) {
+                                IconButton(onClick = { historySearchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color.White)
+                                }
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = ThemePurple,
+                            unfocusedBorderColor = ThemeContainerBorder.copy(alpha = 0.5f),
+                            focusedContainerColor = Color(0xFF13192B),
+                            unfocusedContainerColor = Color(0xFF0C101D),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        singleLine = true
+                    )
+
+                    // Scrollable Scan History list
+                    if (filteredItems.isEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .padding(32.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .background(ThemePurple.copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CenterFocusWeak,
+                                    contentDescription = null,
+                                    tint = ThemePurple,
+                                    modifier = Modifier.size(36.dp)
                                 )
                             }
-                    )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Text(
+                                text = if (historySearchQuery.isEmpty()) "No QR Scans Saved" else "No matches found",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = if (historySearchQuery.isEmpty()) "Any QR code you scan will automatically appear in this Private Scan History." else "Try modifying your search filter query.",
+                                color = TextMedium,
+                                textAlign = TextAlign.Center,
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(bottom = 24.dp)
+                        ) {
+                            items(
+                                items = filteredItems,
+                                key = { it.id }
+                            ) { item ->
+                                val dateStr = remember(item.timestamp) {
+                                    SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(item.timestamp))
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color(0xFF0F1424), RoundedCornerShape(18.dp))
+                                        .border(1.dp, ThemeContainerBorder.copy(alpha = 0.4f), RoundedCornerShape(18.dp))
+                                        .clickable {
+                                            // Open Details popup
+                                            activeScanItem = item
+                                            showHistoryScreen = false
+                                        }
+                                        .padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .background(ThemePurple.copy(alpha = 0.15f), CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = when (item.type) {
+                                                    "WIFI" -> Icons.Default.Wifi
+                                                    "URL" -> Icons.Default.Link
+                                                    "CONTACT" -> Icons.Default.Person
+                                                    "EMAIL" -> Icons.Default.Email
+                                                    "PHONE" -> Icons.Default.Phone
+                                                    else -> Icons.Default.Description
+                                                },
+                                                contentDescription = null,
+                                                tint = ThemePurple,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(14.dp))
+
+                                        Column {
+                                            Text(
+                                                text = item.title,
+                                                color = Color.White,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = item.rawValue,
+                                                color = TextMedium,
+                                                fontSize = 12.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = dateStr,
+                                                color = ThemePurple.copy(alpha = 0.7f),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+
+                                    // Individual Delete Action
+                                    IconButton(
+                                        onClick = { viewModel.deleteQrScanItem(item.id) },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(Color.White.copy(alpha = 0.03f), CircleShape)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete Item",
+                                            tint = Color.LightGray.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+            }
+        }
+    }
+
+    // Clear History Confirmation dialog
+    if (showClearHistoryConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearHistoryConfirm = false },
+            title = { Text("Clear Scan History?", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+            text = { Text("Are you absolutely sure you want to delete all scans from your Private Scan History? This action is irreversible.", color = Color.LightGray, fontSize = 14.sp) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.clearAllQrScanHistory()
+                        showClearHistoryConfirm = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
+                ) {
+                    Text("Clear All", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearHistoryConfirm = false }) {
+                    Text("Cancel", color = ThemePurple)
+                }
+            },
+            containerColor = Color(0xFF0F1424),
+            shape = RoundedCornerShape(24.dp)
+        )
+    }
+}
+
+// Private QrCode parser helper
+private data class ParsedQr(val type: String, val title: String, val details: String)
+
+private fun parseBarcode(barcode: Barcode): ParsedQr {
+    val raw = barcode.rawValue ?: ""
+    return when (barcode.valueType) {
+        Barcode.TYPE_WIFI -> {
+            val wifi = barcode.wifi
+            val ssid = wifi?.ssid ?: ""
+            val pwd = wifi?.password ?: ""
+            val encryption = when (wifi?.encryptionType) {
+                Barcode.WiFi.TYPE_OPEN -> "None"
+                Barcode.WiFi.TYPE_WEP -> "WEP"
+                Barcode.WiFi.TYPE_WPA -> "WPA/WPA2"
+                else -> "WPA"
+            }
+            ParsedQr(
+                type = "WIFI",
+                title = ssid,
+                details = "Network SSID: $ssid\nPassword: $pwd\nSecurity: $encryption"
+            )
+        }
+        Barcode.TYPE_URL -> {
+            val urlStr = barcode.url?.url ?: raw
+            ParsedQr(
+                type = "URL",
+                title = barcode.url?.title?.ifBlank { "Website URL" } ?: urlStr,
+                details = urlStr
+            )
+        }
+        Barcode.TYPE_CONTACT_INFO -> {
+            val contact = barcode.contactInfo
+            val name = contact?.name?.formattedName ?: "Contact"
+            val phone = contact?.phones?.firstOrNull()?.number ?: ""
+            val email = contact?.emails?.firstOrNull()?.address ?: ""
+            val org = contact?.organization ?: ""
+            val title = name
+            val details = buildString {
+                append("Name: $name\n")
+                if (phone.isNotEmpty()) append("Phone: $phone\n")
+                if (email.isNotEmpty()) append("Email: $email\n")
+                if (org.isNotEmpty()) append("Organization: $org\n")
+            }.trim()
+            ParsedQr(type = "CONTACT", title = title, details = details)
+        }
+        Barcode.TYPE_EMAIL -> {
+            val email = barcode.email
+            val to = email?.address ?: ""
+            val sub = email?.subject ?: ""
+            val body = email?.body ?: ""
+            ParsedQr(
+                type = "EMAIL",
+                title = to,
+                details = "To: $to\nSubject: $sub\nBody: $body"
+            )
+        }
+        Barcode.TYPE_PHONE -> {
+            val phoneNum = barcode.phone?.number ?: raw
+            ParsedQr(
+                type = "PHONE",
+                title = phoneNum,
+                details = phoneNum
+            )
+        }
+        else -> {
+            val isUrl = raw.startsWith("http://", ignoreCase = true) || raw.startsWith("https://", ignoreCase = true)
+            if (isUrl) {
+                ParsedQr(
+                    type = "URL",
+                    title = raw,
+                    details = raw
+                )
+            } else {
+                ParsedQr(
+                    type = "TEXT",
+                    title = if (raw.length > 25) raw.take(22) + "..." else raw,
+                    details = raw
+                )
             }
         }
     }

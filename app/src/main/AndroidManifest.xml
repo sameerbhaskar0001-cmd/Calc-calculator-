@@ -10,11 +10,8 @@
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
-    <attribution
-        android:tag="default"
-        android:label="@string/app_name" />
-
     <application
+        android:name=".MainApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -26,13 +23,133 @@
         <activity
             android:name=".MainAppActivity"
             android:exported="true"
+            android:theme="@style/Theme.MyApplication" />
+
+        <!-- 1. Default Calculator Alias -->
+        <activity-alias
+            android:name=".LauncherDefault"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
             android:label="@string/app_name"
-            android:theme="@style/Theme.MyApplication">
+            android:targetActivity=".MainAppActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+
+        <!-- 2. Classic Calculator Alias -->
+        <activity-alias
+            android:name=".LauncherCalcClassic"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_calc_classic"
+            android:label="Classic Calc"
+            android:targetActivity=".MainAppActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- 3. Retro Calculator Alias -->
+        <activity-alias
+            android:name=".LauncherCalcRetro"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_calc_retro"
+            android:label="Retro Calc"
+            android:targetActivity=".MainAppActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- 4. Neon Calculator Alias -->
+        <activity-alias
+            android:name=".LauncherCalcNeon"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_calc_neon"
+            android:label="Neon Calc"
+            android:targetActivity=".MainAppActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- 5. Notes Disguise Alias -->
+        <activity-alias
+            android:name=".LauncherNotes"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_notes"
+            android:label="Notes"
+            android:targetActivity=".MainAppActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- 6. Compass Disguise Alias -->
+        <activity-alias
+            android:name=".LauncherCompass"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_compass"
+            android:label="Compass"
+            android:targetActivity=".MainAppActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- 7. Voice Recorder Disguise Alias -->
+        <activity-alias
+            android:name=".LauncherVoice"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_voice"
+            android:label="Recorder"
+            android:targetActivity=".MainAppActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- 8. Sudoku Disguise Alias -->
+        <activity-alias
+            android:name=".LauncherSudoku"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_sudoku"
+            android:label="Sudoku"
+            android:targetActivity=".MainAppActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- 9. Weather Disguise Alias -->
+        <activity-alias
+            android:name=".LauncherWeather"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_weather"
+            android:label="Weather"
+            android:targetActivity=".MainAppActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
             <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"

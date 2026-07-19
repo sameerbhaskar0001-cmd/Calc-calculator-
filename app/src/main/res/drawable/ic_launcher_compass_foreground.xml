@@ -5,40 +5,93 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Compass Outer Ring -->
+    <!-- White dial circle -->
     <path
-        android:pathData="M54,22 A32,32 0 1 1 54,86 A32,32 0 1 1 54,22 Z"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="3" />
+        android:pathData="M 54,21 A 33,33 0 1 1 54,87 A 33,33 0 1 1 54,21 Z"
+        android:fillColor="#FFFFFF" />
 
-    <!-- Degree markers -->
+    <!-- Dial outer grey rim -->
     <path
-        android:pathData="M54,22 v6 M54,86 v-6 M22,54 h6 M86,54 h-6 M31,31 l4,4 M77,77 l-4,-4 M31,77 l4,-4 M77,31 l-4,4"
-        android:strokeColor="#94A3B8"
-        android:strokeWidth="1.5"
-        android:strokeLineCap="round" />
+        android:pathData="M 54,21 A 33,33 0 1 1 54,87 A 33,33 0 1 1 54,21 Z"
+        android:strokeColor="#C8C8CC"
+        android:strokeWidth="1.2" />
 
-    <!-- North Pointer (Red needle) -->
+    <!-- Concentric thin grey line inside the dial -->
     <path
-        android:pathData="M54,54 L54,30 L48,46 Z"
-        android:fillColor="#EF4444" />
-    <path
-        android:pathData="M54,54 L54,30 L60,46 Z"
-        android:fillColor="#DC2626" />
+        android:pathData="M 54,25 A 29,29 0 1 1 54,83 A 29,29 0 1 1 54,25 Z"
+        android:strokeColor="#E5E5EA"
+        android:strokeWidth="0.8" />
 
-    <!-- South Pointer (Silver needle) -->
+    <!-- Tick marks -->
     <path
-        android:pathData="M54,54 L54,78 L48,62 Z"
-        android:fillColor="#E2E8F0" />
-    <path
-        android:pathData="M54,54 L54,78 L60,62 Z"
-        android:fillColor="#CBD5E1" />
+        android:pathData="M54,21 v4 M54,87 v-4 M21,54 h4 M87,54 h-4 M31,31 l3,3 M77,77 l-3,-3 M31,77 l3,-3 M77,31 l-3,3"
+        android:strokeColor="#1C1C1E"
+        android:strokeWidth="1" />
 
-    <!-- Center pivot pin -->
+    <!-- Cardinal Directions N, S, E, W written precisely as paths -->
+    <!-- North (N) - Vibrant Red -->
     <path
-        android:pathData="M54,54 A4,4 0 1 1 54,53.9"
-        android:fillColor="#F1F5F9"
-        android:strokeColor="#475569"
-        android:strokeWidth="1.5" />
+        android:pathData="M 51.5,31.5 V 26.5 L 56.5,31.5 V 26.5"
+        android:strokeColor="#FF2D55"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- South (S) - Charcoal Black -->
+    <path
+        android:pathData="M 56,77.5 c -1,-1 -4,0 -4,1.5 c 0,1.5 4,1 4,2.5 c 0,1.5 -3,1.5 -4,1"
+        android:strokeColor="#1C1C1E"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- East (E) - Charcoal Black -->
+    <path
+        android:pathData="M 83.5,51.5 H 79.5 V 56.5 H 83.5 M 79.5,54 H 82.5"
+        android:strokeColor="#1C1C1E"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- West (W) - Charcoal Black -->
+    <path
+        android:pathData="M 24.5,51.5 L 26,56.5 L 27.5,53 L 29,56.5 L 30.5,51.5"
+        android:strokeColor="#1C1C1E"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- 3D Rotated Needle -->
+    <!-- North-West Facet (Vibrant Light Red) -->
+    <path
+        android:pathData="M 54,54 L 51,52 L 67,36 Z"
+        android:fillColor="#FF4D4D" />
+
+    <!-- North-East Facet (Deep Shadowed Red) -->
+    <path
+        android:pathData="M 54,54 L 57,56 L 67,36 Z"
+        android:fillColor="#C11B17" />
+
+    <!-- South-West Facet (Shadowed Dark Silver) -->
+    <path
+        android:pathData="M 54,54 L 51,52 L 41,72 Z"
+        android:fillColor="#7F8C8D" />
+
+    <!-- South-East Facet (Shiny Silver Light) -->
+    <path
+        android:pathData="M 54,54 L 57,56 L 41,72 Z"
+        android:fillColor="#BDC3C7" />
+
+    <!-- Outer Pivot Base -->
+    <path
+        android:pathData="M 54,51 A 3,3 0 1 1 53.99,51"
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#95A5A6"
+        android:strokeWidth="0.8" />
+
+    <!-- Inner Pivot Pin -->
+    <path
+        android:pathData="M 54,52.5 A 1.5,1.5 0 1 1 53.99,52.5"
+        android:fillColor="#7F8C8D" />
 
 </vector>

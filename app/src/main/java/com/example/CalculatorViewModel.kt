@@ -8,6 +8,12 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.CameraSelector
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.ProcessLifecycleOwner
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -129,6 +135,127 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     val lastUpdated: StateFlow<String> = _lastUpdated.asStateFlow()
 
     // --- Option 4: Secret Vault State ---
+    private val _vaultPin = MutableStateFlow(prefs.getString("vault_pin", "7777") ?: "7777")
+    val vaultPin: StateFlow<String> = _vaultPin.asStateFlow()
+
+    private val _decoyPin = MutableStateFlow(prefs.getString("decoy_pin", "1111") ?: "1111")
+    val decoyPin: StateFlow<String> = _decoyPin.asStateFlow()
+
+    // --- Google Drive Cloud Backup State ---
+    val googleDriveManager = GoogleDriveManager(application)
+    
+    private val _googleDriveEmail = MutableStateFlow<String?>(googleDriveManager.userEmail)
+    val googleDriveEmail: StateFlow<String?> = _googleDriveEmail.asStateFlow()
+
+    private val _googleDriveName = MutableStateFlow<String?>(googleDriveManager.userName)
+    val googleDriveName: StateFlow<String?> = _googleDriveName.asStateFlow()
+
+    private val _googleDriveConnected = MutableStateFlow(googleDriveManager.isConnected)
+    val googleDriveConnected: StateFlow<Boolean> = _googleDriveConnected.asStateFlow()
+
+    private val _cloudBackupInfo = MutableStateFlow<BackupMetadata?>(null)
+    val cloudBackupInfo: StateFlow<BackupMetadata?> = _cloudBackupInfo.asStateFlow()
+
+    init {
+        if (googleDriveManager.isConnected) {
+            fetchCloudBackupInfo()
+        }
+    }
+
+    fun fetchCloudBackupInfo() {
+        viewModelScope.launch {
+            _cloudBackupInfo.value = googleDriveManager.getBackupInfo()
+        }
+    }
+
+    fun handleGoogleDriveAuthCode(code: String, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+        viewModelScope.launch {
+            val success = googleDriveManager.handleAuthCode(code)
+            if (success) {
+                _googleDriveEmail.value = googleDriveManager.userEmail
+                _googleDriveName.value = googleDriveManager.userName
+                _googleDriveConnected.value = true
+                fetchCloudBackupInfo()
+                onSuccess()
+            } else {
+                onFailure("Failed to authenticate with Google Drive.")
+            }
+        }
+    }
+
+    fun disconnectGoogleDrive() {
+        googleDriveManager.disconnect()
+        _googleDriveEmail.value = null
+        _googleDriveName.value = null
+        _googleDriveConnected.value = false
+        _cloudBackupInfo.value = null
+    }
+
+    fun backupToGoogleDrive(context: Context, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val tempFile = File(context.cacheDir, "calculator_vault_backup.zip")
+                if (tempFile.exists()) tempFile.delete()
+                
+                val outputStream = FileOutputStream(tempFile)
+                val exportSuccess = exportBackupToZip(context, outputStream)
+                if (!exportSuccess) {
+                    onFailure("Failed to prepare local backup file.")
+                    return@launch
+                }
+
+                val uploadSuccess = withContext(Dispatchers.IO) {
+                    googleDriveManager.uploadBackup(tempFile)
+                }
+
+                try { tempFile.delete() } catch (e: Exception) {}
+
+                if (uploadSuccess) {
+                    fetchCloudBackupInfo()
+                    onSuccess()
+                } else {
+                    onFailure("Google Drive upload failed. Please try again.")
+                }
+            } catch (e: Exception) {
+                onFailure("Backup failed: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    fun restoreFromGoogleDrive(context: Context, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val tempFile = File(context.cacheDir, "calculator_vault_backup.zip")
+                if (tempFile.exists()) tempFile.delete()
+
+                val downloadSuccess = withContext(Dispatchers.IO) {
+                    googleDriveManager.downloadBackup(tempFile)
+                }
+
+                if (!downloadSuccess) {
+                    onFailure("Failed to download backup file from Google Drive.")
+                    return@launch
+                }
+
+                val importSuccess = withContext(Dispatchers.IO) {
+                    tempFile.inputStream().use { inputStream ->
+                        importBackupFromZip(context, inputStream)
+                    }
+                }
+
+                try { tempFile.delete() } catch (e: Exception) {}
+
+                if (importSuccess) {
+                    onSuccess()
+                } else {
+                    onFailure("Failed to import/unzip downloaded backup file.")
+                }
+            } catch (e: Exception) {
+                onFailure("Restore failed: ${e.localizedMessage}")
+            }
+        }
+    }
+
     private val _vaultUnlocked = MutableStateFlow(false)
     val vaultUnlocked: StateFlow<Boolean> = _vaultUnlocked.asStateFlow()
 
@@ -162,6 +289,82 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _recentlyOpened = MutableStateFlow<List<RecentItem>>(emptyList())
     val recentlyOpened: StateFlow<List<RecentItem>> = _recentlyOpened.asStateFlow()
+
+    private val _qrScanHistory = MutableStateFlow<List<QrScanItem>>(emptyList())
+    val qrScanHistory: StateFlow<List<QrScanItem>> = _qrScanHistory.asStateFlow()
+
+    fun loadQrScanHistory() {
+        val isDecoy = _decoyActive.value
+        val key = if (isDecoy) "decoy_scan_history" else "vault_scan_history"
+        val jsonStr = prefs.getString(key, null)
+        val list = mutableListOf<QrScanItem>()
+        if (jsonStr != null) {
+            try {
+                val array = org.json.JSONArray(jsonStr)
+                for (i in 0 until array.length()) {
+                    val itemJson = array.getString(i)
+                    val obj = org.json.JSONObject(itemJson)
+                    list.add(
+                        QrScanItem(
+                            id = obj.getString("id"),
+                            rawValue = obj.getString("rawValue"),
+                            type = obj.getString("type"),
+                            timestamp = obj.getLong("timestamp"),
+                            title = obj.getString("title"),
+                            formattedDetails = obj.getString("formattedDetails")
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        _qrScanHistory.value = list.sortedByDescending { it.timestamp }
+    }
+
+    fun addQrScanItem(rawValue: String, type: String, title: String, formattedDetails: String): QrScanItem {
+        val item = QrScanItem(
+            id = System.currentTimeMillis().toString() + "_" + java.util.UUID.randomUUID().toString().take(6),
+            rawValue = rawValue,
+            type = type,
+            timestamp = System.currentTimeMillis(),
+            title = title,
+            formattedDetails = formattedDetails
+        )
+        val updatedList = listOf(item) + _qrScanHistory.value
+        _qrScanHistory.value = updatedList
+        saveQrScanHistory(updatedList)
+        return item
+    }
+
+    fun deleteQrScanItem(id: String) {
+        val updatedList = _qrScanHistory.value.filter { it.id != id }
+        _qrScanHistory.value = updatedList
+        saveQrScanHistory(updatedList)
+    }
+
+    fun clearAllQrScanHistory() {
+        _qrScanHistory.value = emptyList()
+        saveQrScanHistory(emptyList())
+    }
+
+    private fun saveQrScanHistory(list: List<QrScanItem>) {
+        val array = org.json.JSONArray()
+        for (item in list) {
+            val obj = org.json.JSONObject().apply {
+                put("id", item.id)
+                put("rawValue", item.rawValue)
+                put("type", item.type)
+                put("timestamp", item.timestamp)
+                put("title", item.title)
+                put("formattedDetails", item.formattedDetails)
+            }
+            array.put(obj.toString())
+        }
+        val isDecoy = _decoyActive.value
+        val key = if (isDecoy) "decoy_scan_history" else "vault_scan_history"
+        prefs.edit().putString(key, array.toString()).apply()
+    }
 
     fun loadFolders() {
         val saved = prefs.getStringSet("vault_folders", setOf("Personal", "Work", "Finance")) ?: setOf("Personal", "Work", "Finance")
@@ -425,6 +628,14 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     val intruderAttempts: StateFlow<List<String>> = _intruderAttempts.asStateFlow()
 
+    private var consecutiveFailedAttempts = 0
+
+    private val _intruderSelfieEnabled = MutableStateFlow(prefs.getBoolean("intruder_selfie_enabled", true))
+    val intruderSelfieEnabled: StateFlow<Boolean> = _intruderSelfieEnabled.asStateFlow()
+
+    private val _failedAttemptsThreshold = MutableStateFlow(prefs.getInt("failed_attempts_threshold", 1))
+    val failedAttemptsThreshold: StateFlow<Int> = _failedAttemptsThreshold.asStateFlow()
+
 
     private val _intruderDetectionEnabled = MutableStateFlow(prefs.getBoolean("intruder_detection_enabled", true))
     val intruderDetectionEnabled: StateFlow<Boolean> = _intruderDetectionEnabled.asStateFlow()
@@ -456,6 +667,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _panicAction = MutableStateFlow(prefs.getString("panic_action", "lock") ?: "lock")
     val panicAction: StateFlow<String> = _panicAction.asStateFlow()
 
+    private val _panicExitAction = MutableStateFlow(prefs.getString("panic_exit_action", "close") ?: "close")
+    val panicExitAction: StateFlow<String> = _panicExitAction.asStateFlow()
+
     private val _activeAppIcon = MutableStateFlow(prefs.getString("active_app_icon", "LauncherCalculator") ?: "LauncherCalculator")
     val activeAppIcon: StateFlow<String> = _activeAppIcon.asStateFlow()
 
@@ -470,6 +684,18 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _fileLossProtection = MutableStateFlow(prefs.getBoolean("file_loss_protection", false))
     val fileLossProtection: StateFlow<Boolean> = _fileLossProtection.asStateFlow()
+
+    private val _lockOnBackground = MutableStateFlow(prefs.getBoolean("lock_on_background", true))
+    val lockOnBackground: StateFlow<Boolean> = _lockOnBackground.asStateFlow()
+
+    private val _hideNotifications = MutableStateFlow(prefs.getBoolean("hide_notifications", false))
+    val hideNotifications: StateFlow<Boolean> = _hideNotifications.asStateFlow()
+
+    private val _clipboardProtection = MutableStateFlow(prefs.getBoolean("clipboard_protection", true))
+    val clipboardProtection: StateFlow<Boolean> = _clipboardProtection.asStateFlow()
+
+    private val _stealthMode = MutableStateFlow(prefs.getBoolean("stealth_mode", false))
+    val stealthMode: StateFlow<Boolean> = _stealthMode.asStateFlow()
 
     private val _pendingDeleteSender = MutableStateFlow<android.content.IntentSender?>(null)
     val pendingDeleteSender: StateFlow<android.content.IntentSender?> = _pendingDeleteSender.asStateFlow()
@@ -1151,19 +1377,21 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     // --- Option 4: Secret Vault Methods ---
     fun getVaultPin(): String {
-        return prefs.getString("vault_pin", "7777") ?: "7777"
+        return _vaultPin.value
     }
 
     fun setVaultPin(newPin: String) {
-        prefs.edit().putString("vault_pin", newPin).apply()
+        prefs.edit().putString("vault_pin", newPin).commit()
+        _vaultPin.value = newPin
     }
 
     fun getDecoyPin(): String {
-        return prefs.getString("decoy_pin", "1111") ?: "1111"
+        return _decoyPin.value
     }
 
     fun setDecoyPin(newPin: String) {
-        prefs.edit().putString("decoy_pin", newPin).apply()
+        prefs.edit().putString("decoy_pin", newPin).commit()
+        _decoyPin.value = newPin
     }
 
     fun loadVaultData() {
@@ -1230,6 +1458,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             loadFolderAssociations()
             loadFavorites()
             loadRecentlyOpened()
+            loadQrScanHistory()
         }
     }
 
@@ -1256,6 +1485,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun unlockVault(isDecoy: Boolean) {
+        consecutiveFailedAttempts = 0
         _decoyActive.value = isDecoy
         loadVaultData()
         updateLastInteraction()
@@ -1273,17 +1503,121 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun logFailedUnlockAttempt(pin: String) {
+        val count = consecutiveFailedAttempts + 1
+        consecutiveFailedAttempts = count
+
         val timestamp = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm:ss", Locale.getDefault()).format(java.util.Date())
-        val attemptSerialized = "$timestamp|||$pin"
+        val attemptSerialized = "$timestamp|||$pin||||||$count"
         val updatedAttempts = listOf(attemptSerialized) + _intruderAttempts.value
         val limitedAttempts = updatedAttempts.take(50) // keep last 50
         _intruderAttempts.value = limitedAttempts
         prefs.edit().putStringSet("intruder_attempts", limitedAttempts.toSet()).apply()
+
+        // Check if we should capture an intruder selfie
+        if (_intruderSelfieEnabled.value && count >= _failedAttemptsThreshold.value) {
+            captureIntruderSelfie()
+        }
+    }
+
+    fun captureIntruderSelfie() {
+        val context = getApplication<Application>()
+        val cameraPermission = ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.CAMERA
+        )
+        if (cameraPermission != PackageManager.PERMISSION_GRANTED) {
+            android.util.Log.w("Vault", "Camera permission not granted for Intruder Selfie")
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.Main) {
+            try {
+                val cameraProviderFuture = CameraInitializer.initAndGetProvider(context)
+                cameraProviderFuture.addListener({
+                    var cameraProvider: ProcessCameraProvider? = null
+                    try {
+                        cameraProvider = cameraProviderFuture.get()
+
+                        val imageCapture = ImageCapture.Builder()
+                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                            .build()
+
+                        val selfieDir = File(context.filesDir, "intruder_selfies")
+                        if (!selfieDir.exists()) {
+                            selfieDir.mkdirs()
+                        }
+                        val id = System.currentTimeMillis().toString()
+                        val destFile = File(selfieDir, "selfie_$id.jpg")
+
+                        val outputOpts = ImageCapture.OutputFileOptions.Builder(destFile).build()
+
+                        cameraProvider.unbindAll()
+                        cameraProvider.bindToLifecycle(
+                            ProcessLifecycleOwner.get(),
+                            CameraSelector.DEFAULT_FRONT_CAMERA,
+                            imageCapture
+                        )
+
+                        imageCapture.takePicture(
+                            outputOpts,
+                            ContextCompat.getMainExecutor(context),
+                            object : ImageCapture.OnImageSavedCallback {
+                                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                    android.util.Log.i("Vault", "Intruder selfie saved successfully: ${destFile.absolutePath}")
+                                    addSelfieToLastAttempt(destFile.absolutePath)
+                                    cameraProvider.unbindAll()
+                                }
+
+                                override fun onError(exception: ImageCaptureException) {
+                                    android.util.Log.e("Vault", "Intruder selfie capture failed: ${exception.message}", exception)
+                                    cameraProvider.unbindAll()
+                                }
+                            }
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("Vault", "Error starting camera in callback", e)
+                        try {
+                            cameraProvider?.unbindAll()
+                        } catch (ex: Exception) {
+                            ex.printStackTrace()
+                        }
+                    }
+                }, ContextCompat.getMainExecutor(context))
+            } catch (e: Exception) {
+                android.util.Log.e("Vault", "Error in captureIntruderSelfie execution", e)
+            }
+        }
+    }
+
+    fun addSelfieToLastAttempt(photoPath: String) {
+        val currentList = _intruderAttempts.value
+        if (currentList.isNotEmpty()) {
+            val lastAttempt = currentList.first()
+            val parts = lastAttempt.split("|||")
+            if (parts.size >= 2) {
+                val timestamp = parts[0]
+                val pin = parts[1]
+                val failedCount = if (parts.size >= 4) parts[3] else "1"
+                val updatedLast = "$timestamp|||$pin|||$photoPath|||$failedCount"
+                val updatedList = listOf(updatedLast) + currentList.drop(1)
+                _intruderAttempts.value = updatedList
+                prefs.edit().putStringSet("intruder_attempts", updatedList.toSet()).apply()
+            }
+        }
     }
 
     fun clearIntruderAttempts() {
         _intruderAttempts.value = emptyList()
         prefs.edit().remove("intruder_attempts").apply()
+        // Also delete any saved selfie photos to clean up disk
+        try {
+            val selfieDir = File(getApplication<Application>().filesDir, "intruder_selfies")
+            if (selfieDir.exists()) {
+                selfieDir.deleteRecursively()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun addVaultNote(title: String, content: String): String {
@@ -2222,6 +2556,11 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         _panicAction.value = action
     }
 
+    fun setPanicExitAction(action: String) {
+        prefs.edit().putString("panic_exit_action", action).apply()
+        _panicExitAction.value = action
+    }
+
 
 
     fun toggleAppLock(appPackageName: String) {
@@ -2240,6 +2579,46 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         _preventScreenshots.value = enabled
     }
 
+    fun setActiveAppIcon(context: android.content.Context, iconId: String) {
+        prefs.edit().putString("active_app_icon", iconId).apply()
+        _activeAppIcon.value = iconId
+
+        try {
+            val packageManager = context.packageManager
+            val packageName = context.packageName
+
+            val componentMapping = mapOf(
+                "LauncherCalculator" to "com.example.LauncherDefault",
+                "LauncherCalcClassic" to "com.example.LauncherCalcClassic",
+                "LauncherCalcRetro" to "com.example.LauncherCalcRetro",
+                "LauncherCalcNeon" to "com.example.LauncherCalcNeon",
+                "LauncherNotes" to "com.example.LauncherNotes",
+                "LauncherCompass" to "com.example.LauncherCompass",
+                "LauncherVoice" to "com.example.LauncherVoice",
+                "LauncherSudoku" to "com.example.LauncherSudoku",
+                "LauncherWeather" to "com.example.LauncherWeather"
+            )
+
+            val activeComponentClass = componentMapping[iconId] ?: "com.example.LauncherDefault"
+
+            componentMapping.values.forEach { componentClass ->
+                val state = if (componentClass == activeComponentClass) {
+                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                } else {
+                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                }
+                val componentName = android.content.ComponentName(packageName, componentClass)
+                packageManager.setComponentEnabledSetting(
+                    componentName,
+                    state,
+                    android.content.pm.PackageManager.DONT_KILL_APP
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     fun setScreenDownLock(enabled: Boolean) {
         prefs.edit().putBoolean("screen_down_lock", enabled).apply()
         _screenDownLock.value = enabled
@@ -2250,9 +2629,39 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         _intruderDetectionEnabled.value = enabled
     }
 
+    fun setIntruderSelfieEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("intruder_selfie_enabled", enabled).apply()
+        _intruderSelfieEnabled.value = enabled
+    }
+
+    fun setFailedAttemptsThreshold(count: Int) {
+        prefs.edit().putInt("failed_attempts_threshold", count).apply()
+        _failedAttemptsThreshold.value = count
+    }
+
     fun setAutoLockDuration(seconds: Int) {
         prefs.edit().putInt("auto_lock_duration", seconds).apply()
         _autoLockDuration.value = seconds
+    }
+
+    fun setLockOnBackground(enabled: Boolean) {
+        prefs.edit().putBoolean("lock_on_background", enabled).apply()
+        _lockOnBackground.value = enabled
+    }
+
+    fun setHideNotifications(enabled: Boolean) {
+        prefs.edit().putBoolean("hide_notifications", enabled).apply()
+        _hideNotifications.value = enabled
+    }
+
+    fun setClipboardProtection(enabled: Boolean) {
+        prefs.edit().putBoolean("clipboard_protection", enabled).apply()
+        _clipboardProtection.value = enabled
+    }
+
+    fun setStealthMode(enabled: Boolean) {
+        prefs.edit().putBoolean("stealth_mode", enabled).apply()
+        _stealthMode.value = enabled
     }
 
     fun setBlurThumbnails(enabled: Boolean) {
@@ -2785,6 +3194,240 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
             android.widget.Toast.makeText(context, "Failed to generate Welcome Guide.pdf", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
+
+    // --- Modern Backup & Restore Framework (Local Offline Support) ---
+
+    private fun exportPrefsToJson(prefs: android.content.SharedPreferences): String {
+        val json = org.json.JSONObject()
+        val all = prefs.all
+        for ((key, value) in all) {
+            if (value == null) continue
+            val item = org.json.JSONObject()
+            when (value) {
+                is String -> {
+                    item.put("type", "string")
+                    item.put("value", value)
+                }
+                is Boolean -> {
+                    item.put("type", "boolean")
+                    item.put("value", value)
+                }
+                is Int -> {
+                    item.put("type", "int")
+                    item.put("value", value)
+                }
+                is Long -> {
+                    item.put("type", "long")
+                    item.put("value", value)
+                }
+                is Float -> {
+                    item.put("type", "float")
+                    item.put("value", value.toDouble())
+                }
+                is Set<*> -> {
+                    item.put("type", "string_set")
+                    val arr = org.json.JSONArray()
+                    for (s in value) {
+                        if (s is String) {
+                            arr.put(s)
+                        }
+                    }
+                    item.put("value", arr)
+                }
+            }
+            json.put(key, item)
+        }
+        return json.toString()
+    }
+
+    private fun importPrefsFromJson(prefs: android.content.SharedPreferences, jsonStr: String, context: android.content.Context) {
+        val json = org.json.JSONObject(jsonStr)
+        val editor = prefs.edit()
+        editor.clear()
+        
+        val keys = json.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            val item = json.getJSONObject(key)
+            val type = item.getString("type")
+            
+            when (type) {
+                "string" -> {
+                    val value = item.getString("value")
+                    editor.putString(key, value)
+                }
+                "boolean" -> {
+                    val value = item.getBoolean("value")
+                    editor.putBoolean(key, value)
+                }
+                "int" -> {
+                    val value = item.getInt("value")
+                    editor.putInt(key, value)
+                }
+                "long" -> {
+                    val value = item.getLong("value")
+                    editor.putLong(key, value)
+                }
+                "float" -> {
+                    val value = item.getDouble("value").toFloat()
+                    editor.putFloat(key, value)
+                }
+                "string_set" -> {
+                    val arr = item.getJSONArray("value")
+                    val set = mutableSetOf<String>()
+                    for (i in 0 until arr.length()) {
+                        set.add(arr.getString(i))
+                    }
+                    
+                    if (key == "vault_files" || key == "decoy_files" || key == "recently_deleted_files" || key == "recently_deleted_decoy_files") {
+                        val updatedSet = set.map { fileStr ->
+                            val parts = fileStr.split("|||")
+                            if (parts.size >= 5) {
+                                val originalPath = parts[4]
+                                val filename = java.io.File(originalPath).name
+                                val newPath = java.io.File(java.io.File(context.filesDir, "vault_files"), filename).absolutePath
+                                
+                                val newParts = parts.toMutableList()
+                                newParts[4] = newPath
+                                newParts.joinToString("|||")
+                            } else {
+                                fileStr
+                            }
+                        }.toSet()
+                        editor.putStringSet(key, updatedSet)
+                    } else {
+                        editor.putStringSet(key, set)
+                    }
+                }
+            }
+        }
+        editor.apply()
+    }
+
+    fun exportBackupToZip(context: android.content.Context, outputStream: java.io.OutputStream): Boolean {
+        var zos: java.util.zip.ZipOutputStream? = null
+        try {
+            zos = java.util.zip.ZipOutputStream(outputStream)
+            
+            // 1. Export Shared Preferences
+            val jsonStr = exportPrefsToJson(prefs)
+            val prefsEntry = java.util.zip.ZipEntry("prefs.json")
+            zos.putNextEntry(prefsEntry)
+            zos.write(jsonStr.toByteArray(Charsets.UTF_8))
+            zos.closeEntry()
+            
+            // 2. Export Vault Files
+            val vaultDir = java.io.File(context.filesDir, "vault_files")
+            if (vaultDir.exists() && vaultDir.isDirectory) {
+                val files = vaultDir.listFiles()
+                if (files != null) {
+                    for (file in files) {
+                        if (file.isFile) {
+                            val entry = java.util.zip.ZipEntry("files/${file.name}")
+                            zos.putNextEntry(entry)
+                            file.inputStream().use { fis ->
+                                fis.copyTo(zos)
+                            }
+                            zos.closeEntry()
+                        }
+                    }
+                }
+            }
+            return true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return false
+        } finally {
+            try {
+                zos?.close()
+            } catch (e: Exception) {}
+        }
+    }
+
+    fun importBackupFromZip(context: android.content.Context, inputStream: java.io.InputStream): Boolean {
+        var zis: java.util.zip.ZipInputStream? = null
+        try {
+            zis = java.util.zip.ZipInputStream(inputStream)
+            
+            val vaultDir = java.io.File(context.filesDir, "vault_files")
+            if (!vaultDir.exists()) {
+                vaultDir.mkdirs()
+            }
+            
+            var entry = zis.nextEntry
+            var prefsJsonStr: String? = null
+            
+            while (entry != null) {
+                val name = entry.name
+                if (name == "prefs.json") {
+                    val baos = java.io.ByteArrayOutputStream()
+                    zis.copyTo(baos)
+                    prefsJsonStr = baos.toString("UTF-8")
+                } else if (name.startsWith("files/")) {
+                    val filename = java.io.File(name).name
+                    if (filename.isNotEmpty()) {
+                        val destFile = java.io.File(vaultDir, filename)
+                        destFile.outputStream().use { fos ->
+                            zis.copyTo(fos)
+                        }
+                    }
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+            
+            if (prefsJsonStr != null) {
+                importPrefsFromJson(prefs, prefsJsonStr, context)
+                
+                viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                    _soundEnabled.value = prefs.getBoolean("sound_enabled", true)
+                    _hapticProfile.value = prefs.getString("haptic_profile", "Crisp") ?: "Crisp"
+                    _lastUpdated.value = prefs.getString("last_rates_update", "Never") ?: "Never"
+                    
+                    _intruderDetectionEnabled.value = prefs.getBoolean("intruder_detection_enabled", true)
+                    _intruderSelfieEnabled.value = prefs.getBoolean("intruder_selfie_enabled", true)
+                    _failedAttemptsThreshold.value = prefs.getInt("failed_attempts_threshold", 1)
+                    _autoLockDuration.value = prefs.getInt("auto_lock_duration", -1)
+                    _blurThumbnails.value = prefs.getBoolean("blur_thumbnails", false)
+                    _lockedFolders.value = prefs.getStringSet("locked_folders", emptySet()) ?: emptySet()
+                    _biometricEnabled.value = prefs.getBoolean("biometric_enabled", false)
+                    _panicEnabled.value = prefs.getBoolean("panic_enabled", false)
+                    _panicAction.value = prefs.getString("panic_action", "lock") ?: "lock"
+                    _activeAppIcon.value = prefs.getString("active_app_icon", "LauncherCalculator") ?: "LauncherCalculator"
+                    _lockedApps.value = prefs.getStringSet("locked_apps", emptySet()) ?: emptySet()
+                    _preventScreenshots.value = prefs.getBoolean("prevent_screenshots", false)
+                    _screenDownLock.value = prefs.getBoolean("screen_down_lock", false)
+                    _fileLossProtection.value = prefs.getBoolean("file_loss_protection", false)
+                    _lockOnBackground.value = prefs.getBoolean("lock_on_background", true)
+                    _hideNotifications.value = prefs.getBoolean("hide_notifications", false)
+                    _clipboardProtection.value = prefs.getBoolean("clipboard_protection", true)
+                    _stealthMode.value = prefs.getBoolean("stealth_mode", false)
+                    _selectedLanguage.value = prefs.getString("selected_language", "en") ?: "en"
+                    _searchEngine.value = prefs.getString("browser_search_engine", "Google") ?: "Google"
+                    _savePasswords.value = prefs.getBoolean("browser_save_passwords", true)
+                    _clearHistoryOnExit.value = prefs.getBoolean("browser_clear_history", false)
+                    _vaultPin.value = prefs.getString("vault_pin", "7777") ?: "7777"
+                    _decoyPin.value = prefs.getString("decoy_pin", "1111") ?: "1111"
+                    _panicExitAction.value = prefs.getString("panic_exit_action", "close") ?: "close"
+                    
+                    loadFolders()
+                    loadFolderAssociations()
+                    loadFavorites()
+                    loadRecentlyOpened()
+                    loadVaultData()
+                }
+                return true
+            }
+            return false
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return false
+        } finally {
+            try {
+                zis?.close()
+            } catch (e: Exception) {}
+        }
+    }
 }
 
 data class DownloadTask(
@@ -2845,6 +3488,13 @@ data class VaultStorageInfo(
         val num = bytes / Math.pow(1024.0, index.toDouble())
         return String.format(java.util.Locale.US, "%.1f %s", num, units[index])
     }
-} 
-        
-        
+}
+
+data class QrScanItem(
+    val id: String,
+    val rawValue: String,
+    val type: String, // "TEXT", "URL", "WIFI", "CONTACT", "EMAIL", "PHONE"
+    val timestamp: Long,
+    val title: String,
+    val formattedDetails: String
+)

@@ -5,48 +5,65 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Retro beige case -->
+    <!-- Soft drop shadow for the rounded calculator tile to make it float in 3D -->
     <path
-        android:pathData="M32,24 h44 a8,8 0 0 1 8,8 v40 a8,8 0 0 1 -8,8 h-44 a8,8 0 0 1 -8,-8 v-40 a8,8 0 0 1 8,-8 z"
-        android:fillColor="#15FFFFFF"
-        android:strokeColor="#84CC16"
-        android:strokeWidth="2.5" />
+        android:pathData="M 32,37.5 q 0,-5 5,-5 h 34 q 5,0 5,5 v 34 q 0,5 -5,5 h -34 q -5,0 -5,-5 z"
+        android:fillColor="#50000000" />
 
-    <!-- Amber CRT screen -->
+    <!-- Perfectly padded 4-quadrant rounded Retro Calculator Tile centered in 66dp safe zone (X: 32 to 76, Y: 32 to 76) -->
+    <!-- Top-Left Quadrant (Medium Light Gray) -->
     <path
-        android:pathData="M38,30 h32 v14 h-32 z"
-        android:fillColor="#0A0F0D"
-        android:strokeColor="#84CC16"
-        android:strokeWidth="1.5" />
+        android:pathData="M 32,37 q 0,-5 5,-5 h 17 v 22 h -22 z"
+        android:fillColor="#7A7A7A" />
 
+    <!-- Top-Right Quadrant (Dark Gray/Black) -->
     <path
-        android:pathData="M44,37 h20"
-        android:strokeColor="#F59E0B"
-        android:strokeWidth="2.5"
+        android:pathData="M 54,32 h 17 q 5,0 5,5 v 17 h -22 z"
+        android:fillColor="#1C1C1E" />
+
+    <!-- Bottom-Left Quadrant (Medium Dark Gray) -->
+    <path
+        android:pathData="M 32,54 h 22 v 22 h -17 q -5,0 -5,-5 z"
+        android:fillColor="#5E5E5E" />
+
+    <!-- Bottom-Right Quadrant (Retro Vibrant Blue) -->
+    <path
+        android:pathData="M 54,54 h 22 v 17 q 0,5 -5,5 h -17 z"
+        android:fillColor="#1C7CD5" />
+
+    <!-- Divider lines -->
+    <path
+        android:pathData="M 32,54 h 44 M 54,32 v 44"
+        android:strokeColor="#131315"
+        android:strokeWidth="1.2" />
+
+    <!-- Operators perfectly centered in retro order -->
+    <!-- Minus − in Top-Left quadrant (centered at 43, 43) -->
+    <path
+        android:pathData="M 39.5,43 h 7"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
         android:strokeLineCap="round" />
 
-    <!-- Rubber keys (circular) -->
-    <group>
-        <!-- Circular keys row 1 -->
-        <path
-            android:pathData="M38,54 A3,3 0 1 1 38,53.9 M54,54 A3,3 0 1 1 54,53.9 M70,54 A3,3 0 1 1 70,53.9"
-            android:strokeColor="#84CC16"
-            android:strokeWidth="4.5"
-            android:strokeLineCap="round" />
+    <!-- Multiply × in Top-Right quadrant (centered at 65, 43) -->
+    <path
+        android:pathData="M 61.5,39.5 L 68.5,46.5 M 68.5,39.5 L 61.5,46.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
 
-        <!-- Circular keys row 2 -->
-        <path
-            android:pathData="M38,64 A3,3 0 1 1 38,63.9 M54,64 A3,3 0 1 1 54,63.9 M70,64 A3,3 0 1 1 70,63.9"
-            android:strokeColor="#F59E0B"
-            android:strokeWidth="4.5"
-            android:strokeLineCap="round" />
+    <!-- Plus + in Bottom-Left quadrant (centered at 43, 65) -->
+    <path
+        android:pathData="M 39.5,65 h 7 M 43,61.5 v 7"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
 
-        <!-- Circular keys row 3 -->
-        <path
-            android:pathData="M38,74 A3,3 0 1 1 38,73.9 M54,74 A3,3 0 1 1 54,73.9 M70,74 A3,3 0 1 1 70,73.9"
-            android:strokeColor="#84CC16"
-            android:strokeWidth="4.5"
-            android:strokeLineCap="round" />
-    </group>
+    <!-- Equals = in Bottom-Right quadrant (centered at 65, 65) -->
+    <path
+        android:pathData="M 61.5,63.2 h 7 M 61.5,66.8 h 7"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
 
 </vector>

@@ -13,14 +13,15 @@
                 android:endX="108"
                 android:endY="108"
                 android:type="linear">
+                <!-- Vibrant Apple Music pink-to-orange gradient -->
                 <item
-                    android:color="#450A0A"
+                    android:color="#FF2D55"
                     android:offset="0.0" />
                 <item
-                    android:color="#7F1D1D"
-                    android:offset="0.5" />
+                    android:color="#FF3B30"
+                    android:offset="0.4" />
                 <item
-                    android:color="#991B1B"
+                    android:color="#FF9500"
                     android:offset="1.0" />
             </gradient>
         </aapt:attr>

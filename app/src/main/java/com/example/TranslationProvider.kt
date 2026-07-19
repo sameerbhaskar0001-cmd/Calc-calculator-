@@ -29,7 +29,7 @@ object TranslationProvider {
             "security_settings" to "Security Settings",
             "fake_vault" to "Fake Vault",
             "change_pin" to "Change PIN",
-            "export_import" to "Export & Import",
+            "backup" to "Backup",
             "hide_apps" to "Hide Apps",
             "about" to "About",
 
