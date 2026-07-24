@@ -61,6 +61,24 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
 
     private val prefs = application.getSharedPreferences("exchange_calc_prefs", Context.MODE_PRIVATE)
+    val initialSystemTimezone: String = java.util.TimeZone.getDefault().id
+
+    // --- Preferred Time Zone State ---
+    private val _preferredTimezone = MutableStateFlow(prefs.getString("preferred_timezone", "Asia/Kolkata") ?: "Asia/Kolkata")
+    val preferredTimezone: StateFlow<String> = _preferredTimezone.asStateFlow()
+
+    fun setPreferredTimezone(tz: String) {
+        prefs.edit().putString("preferred_timezone", tz).apply()
+        _preferredTimezone.value = tz
+        applyTimezone(tz)
+    }
+
+    fun applyTimezone(tz: String) {
+        try {
+            val tzId = if (tz == "System") initialSystemTimezone else tz
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(tzId))
+        } catch (e: Exception) {}
+    }
 
     // --- Supported Currencies list ---
     val currencies = listOf(
@@ -157,6 +175,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     val cloudBackupInfo: StateFlow<BackupMetadata?> = _cloudBackupInfo.asStateFlow()
 
     init {
+        applyTimezone(_preferredTimezone.value)
         if (googleDriveManager.isConnected) {
             fetchCloudBackupInfo()
         }
@@ -654,6 +673,357 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _lastInteractionTime = MutableStateFlow(System.currentTimeMillis())
     val lastInteractionTime: StateFlow<Long> = _lastInteractionTime.asStateFlow()
+
+    // --- Hero Profile States ---
+    private val _ownerName = MutableStateFlow(prefs.getString("owner_name", "Vault Owner") ?: "Vault Owner")
+    val ownerName: StateFlow<String> = _ownerName.asStateFlow()
+
+    private val _ownerAvatarUri = MutableStateFlow(prefs.getString("owner_avatar_uri", "") ?: "")
+    val ownerAvatarUri: StateFlow<String> = _ownerAvatarUri.asStateFlow()
+
+    private val _ownerAvatarScale = MutableStateFlow(
+        prefs.getFloat("owner_avatar_scale_${prefs.getString("owner_avatar_uri", "") ?: ""}", 1.0f)
+    )
+    val ownerAvatarScale: StateFlow<Float> = _ownerAvatarScale.asStateFlow()
+
+    private val _ownerAvatarOffsetX = MutableStateFlow(
+        prefs.getFloat("owner_avatar_offset_x_${prefs.getString("owner_avatar_uri", "") ?: ""}", 0f)
+    )
+    val ownerAvatarOffsetX: StateFlow<Float> = _ownerAvatarOffsetX.asStateFlow()
+
+    private val _ownerAvatarOffsetY = MutableStateFlow(
+        prefs.getFloat("owner_avatar_offset_y_${prefs.getString("owner_avatar_uri", "") ?: ""}", 0f)
+    )
+    val ownerAvatarOffsetY: StateFlow<Float> = _ownerAvatarOffsetY.asStateFlow()
+
+    private val _premiumState = MutableStateFlow(prefs.getString("premium_state", "Free") ?: "Free")
+    val premiumState: StateFlow<String> = _premiumState.asStateFlow()
+
+    private val _vaultId = MutableStateFlow(getOrCreateVaultId())
+    val vaultId: StateFlow<String> = _vaultId.asStateFlow()
+
+    private val _overallSecurityRating = MutableStateFlow("Excellent")
+    val overallSecurityRating: StateFlow<String> = _overallSecurityRating.asStateFlow()
+
+    private val _securityItems = MutableStateFlow(
+        listOf(
+            SecurityItemState("encryption", "Encryption", "Active", "Safe"),
+            SecurityItemState("privacy", "Privacy Protection", "Excellent", "Safe"),
+            SecurityItemState("cloud", "Cloud Access", "Disabled", "Warning"),
+            SecurityItemState("backup", "Backup Protection", "Not Configured", "Attention"),
+            SecurityItemState("risk", "Risk Level", "Minimal", "Safe")
+        )
+    )
+    val securityItems: StateFlow<List<SecurityItemState>> = _securityItems.asStateFlow()
+
+    private fun getVoiceNotesTimestamp(): Long? {
+        val dir = File(getApplication<Application>().filesDir, "secure_voice_notes")
+        val metadataFile = File(dir, "metadata.json")
+        if (!metadataFile.exists()) return null
+        return try {
+            val jsonStr = metadataFile.readText()
+            val jsonArray = org.json.JSONArray(jsonStr)
+            if (jsonArray.length() > 0) {
+                jsonArray.getJSONObject(0).optLong("timestamp", System.currentTimeMillis())
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun formatDate(timestampMs: Long): String {
+        val sdf = java.text.SimpleDateFormat("dd MMMM yyyy", java.util.Locale.getDefault())
+        try {
+            val tzId = if (preferredTimezone.value == "System") initialSystemTimezone else preferredTimezone.value
+            sdf.timeZone = java.util.TimeZone.getTimeZone(tzId)
+        } catch (e: Exception) {}
+        return sdf.format(java.util.Date(timestampMs))
+    }
+
+    val journeyTimeline: StateFlow<List<JourneyTimelineItem>> = combine(
+        _vaultFiles, _vaultNotes, _qrScanHistory, _premiumState, preferredTimezone
+    ) { files, notes, qrScans, premium, tz ->
+        val list = mutableListOf<JourneyTimelineItem>()
+        
+        // 1. Vault Created
+        var createdTime = prefs.getLong("vault_created_time", 0L)
+        if (createdTime == 0L) {
+            createdTime = System.currentTimeMillis()
+            prefs.edit().putLong("vault_created_time", createdTime).apply()
+        }
+        list.add(
+            JourneyTimelineItem(
+                id = "vault_created",
+                icon = "🔐",
+                title = "Vault Created",
+                date = formatDate(createdTime),
+                description = "Your secure journey started.",
+                timestamp = createdTime
+            )
+        )
+        
+        // Compute storage counts from files
+        var photosCount = 0
+        var videosCount = 0
+        var docsCount = 0
+        
+        files.forEach { file ->
+            val parts = file.split("|||")
+            if (parts.size >= 5) {
+                val mimeType = parts[3].lowercase()
+                if (mimeType.startsWith("image/")) {
+                    photosCount++
+                } else if (mimeType.startsWith("video/")) {
+                    videosCount++
+                } else {
+                    docsCount++
+                }
+            }
+        }
+        
+        // 2. First Secret Saved
+        if (files.isNotEmpty()) {
+            val firstFileTime = files.mapNotNull {
+                it.split("|||").getOrNull(0)?.toLongOrNull()
+            }.minOrNull() ?: (createdTime + 60000)
+            list.add(
+                JourneyTimelineItem(
+                    id = "first_secret",
+                    icon = "📂",
+                    title = "First Secret Saved",
+                    date = formatDate(firstFileTime),
+                    description = "Safely hid your first private file inside the vault.",
+                    timestamp = firstFileTime
+                )
+            )
+        }
+        
+        // 3. First Secure Note
+        if (notes.isNotEmpty()) {
+            var noteTime = prefs.getLong("first_note_time", 0L)
+            if (noteTime == 0L) {
+                noteTime = System.currentTimeMillis()
+                prefs.edit().putLong("first_note_time", noteTime).apply()
+            }
+            list.add(
+                JourneyTimelineItem(
+                    id = "first_note",
+                    icon = "📝",
+                    title = "First Secure Note",
+                    date = formatDate(noteTime),
+                    description = "Created an encrypted text note in your secret notepad.",
+                    timestamp = noteTime
+                )
+            )
+        }
+        
+        // 4. First Hidden Photo
+        if (photosCount > 0) {
+            var photoTime = prefs.getLong("first_photo_time", 0L)
+            if (photoTime == 0L) {
+                photoTime = System.currentTimeMillis()
+                prefs.edit().putLong("first_photo_time", photoTime).apply()
+            }
+            list.add(
+                JourneyTimelineItem(
+                    id = "first_photo",
+                    icon = "📷",
+                    title = "First Hidden Photo",
+                    date = formatDate(photoTime),
+                    description = "Moved a private memory into the secure image gallery.",
+                    timestamp = photoTime
+                )
+            )
+        }
+        
+        // 5. First Hidden Video
+        if (videosCount > 0) {
+            var videoTime = prefs.getLong("first_video_time", 0L)
+            if (videoTime == 0L) {
+                videoTime = System.currentTimeMillis()
+                prefs.edit().putLong("first_video_time", videoTime).apply()
+            }
+            list.add(
+                JourneyTimelineItem(
+                    id = "first_video",
+                    icon = "🎥",
+                    title = "First Hidden Video",
+                    date = formatDate(videoTime),
+                    description = "Imported your first confidential video into the media player.",
+                    timestamp = videoTime
+                )
+            )
+        }
+        
+        // 6. First Hidden Document
+        if (docsCount > 0) {
+            var docTime = prefs.getLong("first_doc_time", 0L)
+            if (docTime == 0L) {
+                docTime = System.currentTimeMillis()
+                prefs.edit().putLong("first_doc_time", docTime).apply()
+            }
+            list.add(
+                JourneyTimelineItem(
+                    id = "first_doc",
+                    icon = "📄",
+                    title = "First Hidden Document",
+                    date = formatDate(docTime),
+                    description = "Safeguarded your first critical PDF or text document.",
+                    timestamp = docTime
+                )
+            )
+        }
+        
+        // 7. First Secure Browser Session
+        val hasBrowserHistory = prefs.getString("browser_history", "[]") != "[]"
+        if (hasBrowserHistory) {
+            var browserTime = prefs.getLong("first_browser_time", 0L)
+            if (browserTime == 0L) {
+                browserTime = System.currentTimeMillis()
+                prefs.edit().putLong("first_browser_time", browserTime).apply()
+            }
+            list.add(
+                JourneyTimelineItem(
+                    id = "first_browser",
+                    icon = "🌐",
+                    title = "First Secure Browser Session",
+                    date = formatDate(browserTime),
+                    description = "Browsed anonymously with auto-clearing tracking.",
+                    timestamp = browserTime
+                )
+            )
+        }
+        
+        // 8. First Voice Note
+        val voiceNotesTime = getVoiceNotesTimestamp()
+        if (voiceNotesTime != null) {
+            list.add(
+                JourneyTimelineItem(
+                    id = "first_voice_note",
+                    icon = "🎤",
+                    title = "First Voice Note",
+                    date = formatDate(voiceNotesTime),
+                    description = "Recorded a secure, encrypted private voice memo.",
+                    timestamp = voiceNotesTime
+                )
+            )
+        }
+        
+        // 9. First QR Scan
+        if (qrScans.isNotEmpty()) {
+            val qrTime = qrScans.lastOrNull()?.timestamp ?: createdTime
+            list.add(
+                JourneyTimelineItem(
+                    id = "first_qr_scan",
+                    icon = "📱",
+                    title = "First QR Scan",
+                    date = formatDate(qrTime),
+                    description = "Scanned and saved a private QR code or link.",
+                    timestamp = qrTime
+                )
+            )
+        }
+        
+        // 10. First Metadata Cleaned
+        val hasCleanedMetadata = prefs.getBoolean("first_metadata_cleaned", false)
+        if (hasCleanedMetadata) {
+            val metadataTime = prefs.getLong("time_metadata_cleaned", createdTime)
+            list.add(
+                JourneyTimelineItem(
+                    id = "first_metadata_cleaned",
+                    icon = "🧹",
+                    title = "First Metadata Cleaned",
+                    date = formatDate(metadataTime),
+                    description = "Stripped private EXIF location data from an image.",
+                    timestamp = metadataTime
+                )
+            )
+        }
+        
+        // 11. First Password Generated
+        val hasGeneratedPassword = prefs.getBoolean("first_password_generated", false)
+        if (hasGeneratedPassword) {
+            val passwordTime = prefs.getLong("time_password_generated", createdTime)
+            list.add(
+                JourneyTimelineItem(
+                    id = "first_password_generated",
+                    icon = "🔑",
+                    title = "First Password Generated",
+                    date = formatDate(passwordTime),
+                    description = "Created an uncrackable local password for your accounts.",
+                    timestamp = passwordTime
+                )
+            )
+        }
+        
+        // 12. Security Status Improved
+        val isSecurityImproved = prefs.getBoolean("security_status_improved", false)
+        if (isSecurityImproved) {
+            val securityTime = prefs.getLong("time_security_improved", createdTime)
+            list.add(
+                JourneyTimelineItem(
+                    id = "security_improved",
+                    icon = "🛡",
+                    title = "Security Status Improved",
+                    date = formatDate(securityTime),
+                    description = "Enhanced your vault defenses and security ratings.",
+                    timestamp = securityTime
+                )
+            )
+        }
+        
+        // 13. Premium Activated
+        if (premium == "Premium" || premium == "Lifetime") {
+            var premiumTime = prefs.getLong("premium_activated_time", 0L)
+            if (premiumTime == 0L) {
+                premiumTime = System.currentTimeMillis()
+                prefs.edit().putLong("premium_activated_time", premiumTime).apply()
+            }
+            list.add(
+                JourneyTimelineItem(
+                    id = "premium_activated",
+                    icon = "💎",
+                    title = "Premium Activated",
+                    date = formatDate(premiumTime),
+                    description = "Unlocked premium privacy features and tools.",
+                    timestamp = premiumTime
+                )
+            )
+        }
+        
+        // 14. Lifetime Activated
+        if (premium == "Lifetime") {
+            var lifetimeTime = prefs.getLong("lifetime_activated_time", 0L)
+            if (lifetimeTime == 0L) {
+                lifetimeTime = System.currentTimeMillis()
+                prefs.edit().putLong("lifetime_activated_time", lifetimeTime).apply()
+            }
+            list.add(
+                JourneyTimelineItem(
+                    id = "lifetime_activated",
+                    icon = "👑",
+                    title = "Lifetime Activated",
+                    date = formatDate(lifetimeTime),
+                    description = "Enjoying lifetime ultimate vault protection.",
+                    timestamp = lifetimeTime
+                )
+            )
+        }
+        
+        list.sortedByDescending { it.timestamp }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    private fun getOrCreateVaultId(): String {
+        val existing = prefs.getString("vault_id", null)
+        if (!existing.isNullOrEmpty()) return existing
+        val chars = "0123456789ABCDEF"
+        val randomPart = (1..6).map { chars[(0 until chars.length).random()] }.joinToString("")
+        val newId = "SV-$randomPart"
+        prefs.edit().putString("vault_id", newId).apply()
+        return newId
+    }
 
     var isPickingFile = false
 
@@ -2544,11 +2914,23 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     fun setBiometricEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("biometric_enabled", enabled).apply()
         _biometricEnabled.value = enabled
+        if (enabled && !prefs.getBoolean("security_status_improved", false)) {
+            prefs.edit()
+                .putBoolean("security_status_improved", true)
+                .putLong("time_security_improved", System.currentTimeMillis())
+                .apply()
+        }
     }
 
     fun setPanicEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("panic_enabled", enabled).apply()
         _panicEnabled.value = enabled
+        if (enabled && !prefs.getBoolean("security_status_improved", false)) {
+            prefs.edit()
+                .putBoolean("security_status_improved", true)
+                .putLong("time_security_improved", System.currentTimeMillis())
+                .apply()
+        }
     }
 
     fun setPanicAction(action: String) {
@@ -2627,11 +3009,23 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     fun setIntruderDetectionEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("intruder_detection_enabled", enabled).apply()
         _intruderDetectionEnabled.value = enabled
+        if (enabled && !prefs.getBoolean("security_status_improved", false)) {
+            prefs.edit()
+                .putBoolean("security_status_improved", true)
+                .putLong("time_security_improved", System.currentTimeMillis())
+                .apply()
+        }
     }
 
     fun setIntruderSelfieEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("intruder_selfie_enabled", enabled).apply()
         _intruderSelfieEnabled.value = enabled
+        if (enabled && !prefs.getBoolean("security_status_improved", false)) {
+            prefs.edit()
+                .putBoolean("security_status_improved", true)
+                .putLong("time_security_improved", System.currentTimeMillis())
+                .apply()
+        }
     }
 
     fun setFailedAttemptsThreshold(count: Int) {
@@ -2662,6 +3056,42 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     fun setStealthMode(enabled: Boolean) {
         prefs.edit().putBoolean("stealth_mode", enabled).apply()
         _stealthMode.value = enabled
+    }
+
+    fun setOwnerName(name: String) {
+        prefs.edit().putString("owner_name", name).apply()
+        _ownerName.value = name
+    }
+
+    fun setOwnerAvatarUri(uri: String) {
+        prefs.edit().putString("owner_avatar_uri", uri).apply()
+        _ownerAvatarUri.value = uri
+        _ownerAvatarScale.value = prefs.getFloat("owner_avatar_scale_$uri", 1.0f)
+        _ownerAvatarOffsetX.value = prefs.getFloat("owner_avatar_offset_x_$uri", 0f)
+        _ownerAvatarOffsetY.value = prefs.getFloat("owner_avatar_offset_y_$uri", 0f)
+    }
+
+    fun setOwnerAvatarScale(scale: Float) {
+        val uri = _ownerAvatarUri.value
+        prefs.edit().putFloat("owner_avatar_scale_$uri", scale).apply()
+        _ownerAvatarScale.value = scale
+    }
+
+    fun setOwnerAvatarOffsetX(offset: Float) {
+        val uri = _ownerAvatarUri.value
+        prefs.edit().putFloat("owner_avatar_offset_x_$uri", offset).apply()
+        _ownerAvatarOffsetX.value = offset
+    }
+
+    fun setOwnerAvatarOffsetY(offset: Float) {
+        val uri = _ownerAvatarUri.value
+        prefs.edit().putFloat("owner_avatar_offset_y_$uri", offset).apply()
+        _ownerAvatarOffsetY.value = offset
+    }
+
+    fun setPremiumState(state: String) {
+        prefs.edit().putString("premium_state", state).apply()
+        _premiumState.value = state
     }
 
     fun setBlurThumbnails(enabled: Boolean) {
@@ -2706,7 +3136,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _browserHistory = MutableStateFlow<List<BrowserHistory>>(emptyList())
     val browserHistory: StateFlow<List<BrowserHistory>> = _browserHistory.asStateFlow()
 
-    private val _searchEngine = MutableStateFlow(prefs.getString("browser_search_engine", "Google") ?: "Google")
+    private val _searchEngine = MutableStateFlow(prefs.getString("browser_search_engine", "DuckDuckGo") ?: "DuckDuckGo")
     val searchEngine: StateFlow<String> = _searchEngine.asStateFlow()
 
     private val _savePasswords = MutableStateFlow(prefs.getBoolean("browser_save_passwords", true))
@@ -3403,12 +3833,20 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     _clipboardProtection.value = prefs.getBoolean("clipboard_protection", true)
                     _stealthMode.value = prefs.getBoolean("stealth_mode", false)
                     _selectedLanguage.value = prefs.getString("selected_language", "en") ?: "en"
-                    _searchEngine.value = prefs.getString("browser_search_engine", "Google") ?: "Google"
+                    _searchEngine.value = prefs.getString("browser_search_engine", "DuckDuckGo") ?: "DuckDuckGo"
                     _savePasswords.value = prefs.getBoolean("browser_save_passwords", true)
                     _clearHistoryOnExit.value = prefs.getBoolean("browser_clear_history", false)
                     _vaultPin.value = prefs.getString("vault_pin", "7777") ?: "7777"
                     _decoyPin.value = prefs.getString("decoy_pin", "1111") ?: "1111"
                     _panicExitAction.value = prefs.getString("panic_exit_action", "close") ?: "close"
+                    _ownerName.value = prefs.getString("owner_name", "Vault Owner") ?: "Vault Owner"
+                    _ownerAvatarUri.value = prefs.getString("owner_avatar_uri", "") ?: ""
+                    val loadedUri = _ownerAvatarUri.value
+                    _ownerAvatarScale.value = prefs.getFloat("owner_avatar_scale_$loadedUri", 1.0f)
+                    _ownerAvatarOffsetX.value = prefs.getFloat("owner_avatar_offset_x_$loadedUri", 0f)
+                    _ownerAvatarOffsetY.value = prefs.getFloat("owner_avatar_offset_y_$loadedUri", 0f)
+                    _premiumState.value = prefs.getString("premium_state", "Free") ?: "Free"
+                    _vaultId.value = getOrCreateVaultId()
                     
                     loadFolders()
                     loadFolderAssociations()
@@ -3497,4 +3935,20 @@ data class QrScanItem(
     val timestamp: Long,
     val title: String,
     val formattedDetails: String
+)
+
+data class SecurityItemState(
+    val id: String,
+    val title: String,
+    val status: String,
+    val severity: String // "Safe", "Attention", "Warning"
+)
+
+data class JourneyTimelineItem(
+    val id: String,
+    val icon: String,
+    val title: String,
+    val date: String,
+    val description: String,
+    val timestamp: Long
 )

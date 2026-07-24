@@ -280,7 +280,7 @@ fun VaultContentScreen(
                             onNavigateBack()
                         },
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
                             .background(Color.White.copy(alpha = 0.05f))
                     ) {
@@ -289,14 +289,28 @@ fun VaultContentScreen(
                     
                     Spacer(modifier = Modifier.width(20.dp))
                     
-                    Text(
-                        text = title,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
-                        modifier = Modifier.weight(1f),
-                        letterSpacing = (-0.5).sp
-                    )
+                    val categoryLabel = when (title) {
+                        "Photos", "Videos" -> "SECURE MEDIA"
+                        "Documents" -> "ENCRYPTED FILE BOX"
+                        "Notes" -> "PRIVATE NOTEBOOK"
+                        else -> "VAULT CONTENT"
+                    }
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = categoryLabel,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ThemePurple.copy(alpha = 0.8f),
+                            letterSpacing = 1.8.sp
+                        )
+                        Text(
+                            text = title,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White,
+                            letterSpacing = (-0.5).sp
+                        )
+                    }
                     
                     Box {
                         IconButton(

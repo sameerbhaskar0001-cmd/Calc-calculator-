@@ -14,7 +14,7 @@ object TranslationProvider {
 
     private val translations = mapOf(
         "en" to mapOf(
-            "app_title" to "Calculator+",
+            "app_title" to "Secret Vault",
             "calculator" to "Calculator",
             "exchange" to "Exchange",
             "vault" to "Vault",
@@ -59,7 +59,7 @@ object TranslationProvider {
             "recently_deleted" to "Recently Deleted"
         ),
         "hi" to mapOf(
-            "app_title" to "कैलकुलेटर+",
+            "app_title" to "सीक्रेट वॉल्ट",
             "calculator" to "कैलकुलेटर",
             "exchange" to "विनिमय दर",
             "vault" to "तिजोरी",
@@ -96,7 +96,7 @@ object TranslationProvider {
             "recently_deleted" to "हाल ही में हटाए गए"
         ),
         "es" to mapOf(
-            "app_title" to "Calculadora+",
+            "app_title" to "Bóveda Secreta",
             "calculator" to "Calculadora",
             "exchange" to "Cambio",
             "vault" to "Bóveda",
@@ -133,7 +133,7 @@ object TranslationProvider {
             "recently_deleted" to "Eliminado Recientemente"
         ),
         "fr" to mapOf(
-            "app_title" to "Calculatrice+",
+            "app_title" to "Coffre-fort Secret",
             "calculator" to "Calculatrice",
             "exchange" to "Devise",
             "vault" to "Coffre",
@@ -170,7 +170,7 @@ object TranslationProvider {
             "recently_deleted" to "Récemment supprimé"
         ),
         "de" to mapOf(
-            "app_title" to "Rechner+",
+            "app_title" to "Geheimtresor",
             "calculator" to "Rechner",
             "exchange" to "Wechselkurs",
             "vault" to "Tresor",
@@ -207,7 +207,7 @@ object TranslationProvider {
             "recently_deleted" to "Zuletzt gelöscht"
         ),
         "ja" to mapOf(
-            "app_title" to "電卓+",
+            "app_title" to "秘密の保管庫",
             "calculator" to "電卓",
             "exchange" to "為替レート",
             "vault" to "保管庫",
@@ -244,7 +244,7 @@ object TranslationProvider {
             "recently_deleted" to "最近削除された項目"
         ),
         "ar" to mapOf(
-            "app_title" to "آلة حاسبة+",
+            "app_title" to "الخزنة السرية",
             "calculator" to "حاسبة",
             "exchange" to "العملات",
             "vault" to "الخزنة",
@@ -281,7 +281,7 @@ object TranslationProvider {
             "recently_deleted" to "المحذوفة مؤخراً"
         ),
         "ru" to mapOf(
-            "app_title" to "Калькулятор+",
+            "app_title" to "Секретный Сейф",
             "calculator" to "Калькулятор",
             "exchange" to "Валюта",
             "vault" to "Сейф",

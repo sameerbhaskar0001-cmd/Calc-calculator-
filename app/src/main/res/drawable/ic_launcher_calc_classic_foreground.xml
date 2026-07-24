@@ -5,64 +5,64 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Soft drop shadow for the rounded calculator tile to make it float in 3D -->
+    <!-- Drop shadow -->
     <path
         android:pathData="M 32,37.5 q 0,-5 5,-5 h 34 q 5,0 5,5 v 34 q 0,5 -5,5 h -34 q -5,0 -5,-5 z"
-        android:fillColor="#50000000" />
+        android:fillColor="#40000000" />
 
-    <!-- Perfectly padded 4-quadrant rounded Classic Calculator Tile centered in 66dp safe zone (X: 32 to 76, Y: 32 to 76) -->
-    <!-- Top-Left Quadrant (Dark Matte Gray) -->
+    <!-- Classic 4-Quadrant Calculator Tile -->
+    <!-- Top-Left: Orange ÷ -->
     <path
         android:pathData="M 32,37 q 0,-5 5,-5 h 17 v 22 h -22 z"
-        android:fillColor="#1C1C1E" />
+        android:fillColor="#FF9500" />
 
-    <!-- Top-Right Quadrant (Pure Black) -->
+    <!-- Top-Right: Dark Gray × -->
     <path
         android:pathData="M 54,32 h 17 q 5,0 5,5 v 17 h -22 z"
-        android:fillColor="#000000" />
+        android:fillColor="#505050" />
 
-    <!-- Bottom-Left Quadrant (Dark Matte Gray) -->
+    <!-- Bottom-Left: Dark Gray − -->
     <path
         android:pathData="M 32,54 h 22 v 22 h -17 q -5,0 -5,-5 z"
-        android:fillColor="#1C1C1E" />
+        android:fillColor="#505050" />
 
-    <!-- Bottom-Right Quadrant (Vibrant iOS Orange) -->
+    <!-- Bottom-Right: Light Gray + -->
     <path
         android:pathData="M 54,54 h 22 v 17 q 0,5 -5,5 h -17 z"
-        android:fillColor="#FF9F0A" />
+        android:fillColor="#D4D4D2" />
 
-    <!-- Divider lines (thin, subtle black) -->
+    <!-- Divider lines -->
     <path
         android:pathData="M 32,54 h 44 M 54,32 v 44"
-        android:strokeColor="#131315"
-        android:strokeWidth="1.2" />
+        android:strokeColor="#2C2C2E"
+        android:strokeWidth="1.5" />
 
-    <!-- Operators perfectly centered in 22dp safe area quadrants -->
-    <!-- Plus + in Top-Left quadrant (centered at 43, 43) -->
+    <!-- Operators -->
+    <!-- Top-Left: ÷ -->
     <path
-        android:pathData="M 39.5,43 h 7 M 43,39.5 v 7"
+        android:pathData="M 40,43 h 6 M 43,40.5 v 0.1 M 43,45.5 v 0.1"
         android:strokeColor="#FFFFFF"
         android:strokeWidth="2"
         android:strokeLineCap="round" />
 
-    <!-- Multiply × in Top-Right quadrant (centered at 65, 43) -->
+    <!-- Top-Right: × -->
     <path
         android:pathData="M 61.5,39.5 L 68.5,46.5 M 68.5,39.5 L 61.5,46.5"
         android:strokeColor="#FFFFFF"
         android:strokeWidth="2"
         android:strokeLineCap="round" />
 
-    <!-- Minus − in Bottom-Left quadrant (centered at 43, 65) -->
+    <!-- Bottom-Left: − -->
     <path
         android:pathData="M 39.5,65 h 7"
         android:strokeColor="#FFFFFF"
         android:strokeWidth="2"
         android:strokeLineCap="round" />
 
-    <!-- Equals = in Bottom-Right quadrant (centered at 65, 65) -->
+    <!-- Bottom-Right: + -->
     <path
-        android:pathData="M 61.5,63.2 h 7 M 61.5,66.8 h 7"
-        android:strokeColor="#FFFFFF"
+        android:pathData="M 61.5,65 h 7 M 65,61.5 v 7"
+        android:strokeColor="#1C1C1E"
         android:strokeWidth="2"
         android:strokeLineCap="round" />
 

@@ -1,0 +1,100 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#3F4147"/>
+      <stop offset="50%" stop-color="#2D2F34"/>
+      <stop offset="85%" stop-color="#1B1C20"/>
+      <stop offset="100%" stop-color="#141518"/>
+    </radialGradient>
+  </defs>
+  <!-- Background rect -->
+  <rect width="512" height="512" fill="url(#bgGrad)"/>
+  
+  <!-- Concentric vinyl groove circles -->
+  <g stroke="#FFFFFF" stroke-opacity="0.04" fill="none" stroke-width="1.2">
+    <circle cx="256" cy="256" r="4"/>
+    <circle cx="256" cy="256" r="7"/>
+    <circle cx="256" cy="256" r="10"/>
+    <circle cx="256" cy="256" r="13"/>
+    <circle cx="256" cy="256" r="16"/>
+    <circle cx="256" cy="256" r="19"/>
+    <circle cx="256" cy="256" r="22"/>
+    <circle cx="256" cy="256" r="25"/>
+    <circle cx="256" cy="256" r="28"/>
+    <circle cx="256" cy="256" r="31"/>
+    <circle cx="256" cy="256" r="34"/>
+    <circle cx="256" cy="256" r="37"/>
+    <circle cx="256" cy="256" r="40"/>
+    <circle cx="256" cy="256" r="43"/>
+    <circle cx="256" cy="256" r="46"/>
+    <circle cx="256" cy="256" r="49"/>
+    <circle cx="256" cy="256" r="52"/>
+    <circle cx="256" cy="256" r="55"/>
+    <circle cx="256" cy="256" r="58"/>
+    <circle cx="256" cy="256" r="61"/>
+    <circle cx="256" cy="256" r="64"/>
+    <circle cx="256" cy="256" r="67"/>
+    <circle cx="256" cy="256" r="70"/>
+    <circle cx="256" cy="256" r="73"/>
+    <circle cx="256" cy="256" r="76"/>
+    <circle cx="256" cy="256" r="79"/>
+    <circle cx="256" cy="256" r="82"/>
+    <circle cx="256" cy="256" r="85"/>
+    <circle cx="256" cy="256" r="88"/>
+    <circle cx="256" cy="256" r="91"/>
+    <circle cx="256" cy="256" r="94"/>
+    <circle cx="256" cy="256" r="97"/>
+    <circle cx="256" cy="256" r="100"/>
+    <circle cx="256" cy="256" r="103"/>
+    <circle cx="256" cy="256" r="106"/>
+    <circle cx="256" cy="256" r="109"/>
+    <circle cx="256" cy="256" r="112"/>
+    <circle cx="256" cy="256" r="115"/>
+    <circle cx="256" cy="256" r="118"/>
+    <circle cx="256" cy="256" r="121"/>
+    <circle cx="256" cy="256" r="124"/>
+    <circle cx="256" cy="256" r="127"/>
+    <circle cx="256" cy="256" r="130"/>
+    <circle cx="256" cy="256" r="133"/>
+    <circle cx="256" cy="256" r="136"/>
+    <circle cx="256" cy="256" r="139"/>
+    <circle cx="256" cy="256" r="142"/>
+    <circle cx="256" cy="256" r="145"/>
+    <circle cx="256" cy="256" r="148"/>
+    <circle cx="256" cy="256" r="151"/>
+    <circle cx="256" cy="256" r="154"/>
+    <circle cx="256" cy="256" r="157"/>
+    <circle cx="256" cy="256" r="160"/>
+    <circle cx="256" cy="256" r="163"/>
+    <circle cx="256" cy="256" r="166"/>
+    <circle cx="256" cy="256" r="169"/>
+    <circle cx="256" cy="256" r="172"/>
+    <circle cx="256" cy="256" r="175"/>
+    <circle cx="256" cy="256" r="178"/>
+    <circle cx="256" cy="256" r="181"/>
+    <circle cx="256" cy="256" r="184"/>
+    <circle cx="256" cy="256" r="187"/>
+    <circle cx="256" cy="256" r="190"/>
+    <circle cx="256" cy="256" r="193"/>
+    <circle cx="256" cy="256" r="196"/>
+    <circle cx="256" cy="256" r="199"/>
+    <circle cx="256" cy="256" r="202"/>
+    <circle cx="256" cy="256" r="205"/>
+    <circle cx="256" cy="256" r="208"/>
+    <circle cx="256" cy="256" r="211"/>
+    <circle cx="256" cy="256" r="214"/>
+    <circle cx="256" cy="256" r="217"/>
+    <circle cx="256" cy="256" r="220"/>
+    <circle cx="256" cy="256" r="223"/>
+    <circle cx="256" cy="256" r="226"/>
+    <circle cx="256" cy="256" r="229"/>
+    <circle cx="256" cy="256" r="232"/>
+    <circle cx="256" cy="256" r="235"/>
+    <circle cx="256" cy="256" r="238"/>
+    <circle cx="256" cy="256" r="241"/>
+    <circle cx="256" cy="256" r="244"/>
+    <circle cx="256" cy="256" r="247"/>
+    <circle cx="256" cy="256" r="250"/>
+    <circle cx="256" cy="256" r="253"/>
+  </g>
+</svg>

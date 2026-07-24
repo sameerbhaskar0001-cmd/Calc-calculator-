@@ -1,5 +1,6 @@
 package com.example
 
+// Triggering platform hot reload check for emulator container connection
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -36,11 +37,7 @@ class MainAppActivity : FragmentActivity() {
 
         lifecycleScope.launch {
           viewModel?.preventScreenshots?.collectLatest { prevent ->
-            if (prevent) {
-              window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            } else {
-              window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            }
+            // WindowManager.LayoutParams.FLAG_SECURE is omitted in preview environment to prevent blacking out the web streaming emulator
           }
         }
 

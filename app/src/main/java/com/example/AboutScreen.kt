@@ -1,0 +1,538 @@
+package com.example
+
+import android.widget.Toast
+import androidx.compose.animation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.ui.theme.LocalAppThemeColors
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AboutScreen(
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val themeColors = LocalAppThemeColors.current
+    val ThemePurple = themeColors.themePurple
+    val TextMedium = themeColors.textMedium
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .navigationBarsPadding()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+        ) {
+            // Header Row (Top App Bar: ← About)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.05f))
+                        .testTag("about_back_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Text(
+                    text = "About",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.testTag("about_screen_title")
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Security Shield Icon
+                Icon(
+                    imageVector = Icons.Default.VerifiedUser,
+                    contentDescription = "Verified Secure",
+                    tint = ThemePurple.copy(alpha = 0.7f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // TOP HERO CARD
+                UnifiedGlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("about_hero_card"),
+                    shape = RoundedCornerShape(24.dp),
+                    bgColor = Color(0xFF1B2031).copy(alpha = 0.95f),
+                    elevation = 4.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Styled Premium Icon Stack
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.size(80.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(CircleShape)
+                                    .background(ThemePurple.copy(alpha = 0.08f))
+                                    .border(1.dp, ThemePurple.copy(alpha = 0.2f), CircleShape)
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Shield,
+                                contentDescription = "Security Shield",
+                                tint = ThemePurple,
+                                modifier = Modifier.size(44.dp)
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Lock overlay",
+                                tint = Color.Black,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .align(Alignment.BottomEnd)
+                                    .clip(CircleShape)
+                                    .background(ThemePurple)
+                                    .padding(3.dp)
+                            )
+                        }
+
+                        // App Name and Tagline
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "Secret Vault",
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            Text(
+                                text = "Private • Secure • Local",
+                                color = TextMedium,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+
+                        // Version, Build Number, Status Badge Row
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = "v1.0.0",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White.copy(alpha = 0.06f))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+
+                            Text(
+                                text = "Build #2026.07.19",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White.copy(alpha = 0.06f))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+
+                            // Status Badge: Latest Version
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF4CAF50).copy(alpha = 0.15f))
+                                    .border(1.dp, Color(0xFF4CAF50).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF81C784))
+                                )
+                                Text(
+                                    text = "Latest Version",
+                                    color = Color(0xFF81C784),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // SECTION 1: App Information
+                AboutSectionTitle(title = "App Information")
+                UnifiedGlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    bgColor = Color(0xFF1B2031).copy(alpha = 0.95f)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        InfoItemRow(
+                            label = "Version",
+                            value = "v1.0.0",
+                            icon = Icons.Default.Info
+                        )
+                        Divider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(vertical = 12.dp))
+                        InfoItemRow(
+                            label = "Build Number",
+                            value = "2026.07.19.01",
+                            icon = Icons.Default.Build
+                        )
+                        Divider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(vertical = 12.dp))
+                        InfoItemRow(
+                            label = "Package Name",
+                            value = "com.aistudio.calculatorvault.app",
+                            icon = Icons.Default.Android
+                        )
+                        Divider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(vertical = 12.dp))
+                        InfoItemRow(
+                            label = "Developer",
+                            value = "Sam Unmatched",
+                            icon = Icons.Default.Code,
+                            valueColor = ThemePurple
+                        )
+                    }
+                }
+
+                // SECTION 2: Support
+                AboutSectionTitle(title = "Support")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ClickableAboutCard(
+                        title = "Contact Support",
+                        subtitle = "sameerbhaskar0001@gmail.com",
+                        icon = Icons.Default.Mail,
+                        testTag = "btn_contact_support",
+                        onClick = {
+                            Toast.makeText(context, "Support: sameerbhaskar0001@gmail.com", Toast.LENGTH_LONG).show()
+                        }
+                    )
+                    ClickableAboutCard(
+                        title = "Report a Bug",
+                        subtitle = "Help us improve by submitting a bug report",
+                        icon = Icons.Default.BugReport,
+                        testTag = "btn_report_bug",
+                        onClick = {
+                            Toast.makeText(context, "Bug Reporting system launched (Placeholder)", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                    ClickableAboutCard(
+                        title = "Send Feedback",
+                        subtitle = "Share your thoughts or feature requests",
+                        icon = Icons.Default.Feedback,
+                        testTag = "btn_send_feedback",
+                        onClick = {
+                            Toast.makeText(context, "Thank you for your feedback! (Placeholder)", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+
+                // SECTION 3: Legal
+                AboutSectionTitle(title = "Legal")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ClickableAboutCard(
+                        title = "Privacy Policy",
+                        subtitle = "How we protect and manage your data",
+                        icon = Icons.Default.PrivacyTip,
+                        testTag = "btn_privacy_policy",
+                        onClick = {
+                            Toast.makeText(context, "Privacy Policy loaded (Placeholder)", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                    ClickableAboutCard(
+                        title = "Terms & Conditions",
+                        subtitle = "Rules for using Secret Vault",
+                        icon = Icons.Default.Description,
+                        testTag = "btn_terms_conditions",
+                        onClick = {
+                            Toast.makeText(context, "Terms & Conditions loaded (Placeholder)", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                    ClickableAboutCard(
+                        title = "Open Source Licenses",
+                        subtitle = "Third-party libraries used in the app",
+                        icon = Icons.Default.LibraryBooks,
+                        testTag = "btn_licenses",
+                        onClick = {
+                            Toast.makeText(context, "Loading Licenses (Placeholder)", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+
+                // SECTION 4: Community
+                AboutSectionTitle(title = "Community")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ClickableAboutCard(
+                        title = "Rate App",
+                        subtitle = "Show your support by leaving a rating",
+                        icon = Icons.Default.Star,
+                        testTag = "btn_rate_app",
+                        onClick = {
+                            Toast.makeText(context, "Opening Store Page (Placeholder)", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                    ClickableAboutCard(
+                        title = "Share App",
+                        subtitle = "Recommend Secret Vault to friends",
+                        icon = Icons.Default.Share,
+                        testTag = "btn_share_app",
+                        onClick = {
+                            Toast.makeText(context, "Share sheet initialized (Placeholder)", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+
+                // SECTION 5: Updates
+                AboutSectionTitle(title = "Updates")
+                ClickableAboutCard(
+                    title = "Check for Updates",
+                    subtitle = "Verify if you are running the newest version",
+                    icon = Icons.Default.Update,
+                    testTag = "btn_check_updates",
+                    onClick = {
+                        Toast.makeText(context, "You are already using the latest version (v1.0.0)", Toast.LENGTH_SHORT).show()
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // FOOTER
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Designed & Developed by",
+                        color = TextMedium.copy(alpha = 0.7f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "Sam Unmatched",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Founder",
+                        color = TextMedium.copy(alpha = 0.7f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "Sameer Bhaskar",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "© 2026 Sam Unmatched",
+                        color = TextMedium.copy(alpha = 0.5f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(100.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun AboutSectionTitle(title: String) {
+    val themeColors = LocalAppThemeColors.current
+    Text(
+        text = title.uppercase(),
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        color = themeColors.textMedium,
+        modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp),
+        letterSpacing = 1.sp
+    )
+}
+
+@Composable
+fun InfoItemRow(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    valueColor: Color = Color.White
+) {
+    val themeColors = LocalAppThemeColors.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(themeColors.themePurple.copy(alpha = 0.08f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = themeColors.themePurple,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                color = themeColors.textMedium,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = value,
+                color = valueColor,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+fun ClickableAboutCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    testTag: String,
+    onClick: () -> Unit
+) {
+    val themeColors = LocalAppThemeColors.current
+    val ThemePurple = themeColors.themePurple
+
+    UnifiedGlassCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(testTag),
+        shape = RoundedCornerShape(20.dp),
+        bgColor = Color(0xFF1B2031).copy(alpha = 0.95f),
+        elevation = 2.dp,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(ThemePurple.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = title,
+                        tint = ThemePurple,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Column {
+                    Text(
+                        text = title,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = subtitle,
+                        fontSize = 11.sp,
+                        color = Color.White.copy(alpha = 0.5f),
+                        lineHeight = 14.sp
+                    )
+                }
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Open",
+                tint = Color.White.copy(alpha = 0.3f),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}

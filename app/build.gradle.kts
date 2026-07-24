@@ -113,6 +113,7 @@ dependencies {
   // implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
+  implementation("androidx.exifinterface:exifinterface:1.3.7")
   implementation(libs.coil.compose)
   implementation("io.coil-kt:coil-video:2.7.0")
   implementation(libs.converter.moshi)
