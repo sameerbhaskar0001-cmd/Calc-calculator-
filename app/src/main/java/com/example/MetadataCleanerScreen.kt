@@ -124,30 +124,35 @@ fun MetadataCleanerScreen(
                     )
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
                     Text(
                         text = "EXIF TRACKING REMOVER",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = ThemePurple.copy(alpha = 0.8f),
-                        letterSpacing = 1.8.sp
+                        letterSpacing = 1.8.sp,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Text(
                         text = "Metadata Cleaner",
                         color = Color.White,
                         fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
-                
-                Spacer(modifier = Modifier.weight(1f))
                 
                 // Security Badge (Offline indication)
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color(0xFF4CAF50).copy(alpha = 0.15f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -161,7 +166,8 @@ fun MetadataCleanerScreen(
                         text = "Local",
                         color = Color(0xFF81C784),
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        softWrap = false
                     )
                 }
             }

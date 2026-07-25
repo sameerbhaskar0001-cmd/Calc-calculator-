@@ -2291,7 +2291,7 @@ fun VaultTabUnlockedContent(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(16.dp)
                 ) {
                 // Clean and spacious Unlocked Header
                 if (activeSection == "Home") {
@@ -2433,6 +2433,7 @@ fun VaultTabUnlockedContent(
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
+                            
                             val homeAvatarModel = remember(ownerAvatarUri) {
                                 if (ownerAvatarUri.isEmpty()) {
                                     null
@@ -2658,6 +2659,7 @@ fun VaultTabUnlockedContent(
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
+                            val totalVaultItems = vaultFiles.size + vaultNotes.size
                             val currentHour = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).get(java.util.Calendar.HOUR_OF_DAY)
                             val greeting = when (currentHour) {
                                 in 5..11 -> "Good Morning 🌅"
@@ -2666,14 +2668,11 @@ fun VaultTabUnlockedContent(
                                 else -> "Good Night 🌙"
                             }
                             
-                            val totalVaultItems = vaultFiles.size + vaultNotes.size
                             val vaultStatusText = if (totalVaultItems == 0) {
                                 "Ready to organize your private files"
                             } else {
                                 "$totalVaultItems items stored privately"
                             }
-                            val statusIcon = if (totalVaultItems == 0) Icons.Default.Check else Icons.Default.CheckCircle
-                            val statusTint = ThemePurple
                             
                             Column(
                                 modifier = Modifier
@@ -2688,105 +2687,54 @@ fun VaultTabUnlockedContent(
                                     letterSpacing = 0.5.sp,
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Icon(statusIcon, contentDescription = "Status", tint = statusTint, modifier = Modifier.size(14.dp))
-                                        Text(
-                                            text = vaultStatusText,
-                                            fontSize = 12.sp,
-                                            color = Color.White.copy(alpha = 0.75f)
-                                        )
-                                    }
-                                    
-                                    // Security Shield Pulse Badge
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(Color(0xFF1B2A1E))
-                                            .border(1.dp, Color(0xFF4CAF50).copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-                                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            // Soft pulsing dot
-                                            val badgeInfiniteTransition = rememberInfiniteTransition(label = "badge_pulse")
-                                            val badgePulseAlpha by badgeInfiniteTransition.animateFloat(
-                                                initialValue = 0.3f,
-                                                targetValue = 1.0f,
-                                                animationSpec = infiniteRepeatable(
-                                                    animation = tween(800, easing = FastOutSlowInEasing),
-                                                    repeatMode = RepeatMode.Reverse
-                                                ),
-                                                label = "alpha"
-                                            )
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(6.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color(0xFF4CAF50).copy(alpha = badgePulseAlpha))
-                                            )
-                                            Text(
-                                                text = "SHIELD ACTIVE",
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF81C784),
-                                                letterSpacing = 0.8.sp
-                                            )
-                                        }
-                                    }
-                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = vaultStatusText,
+                                    fontSize = 12.sp,
+                                    color = Color.White.copy(alpha = 0.5f)
+                                )
                             }
                                              // Status Card
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(24.dp))
+                                    .clip(RoundedCornerShape(14.dp))
                                     .background(Brush.verticalGradient(listOf(Color(0xFF1E2640), Color(0xFF161B2B))))
-                                    .border(1.dp, ThemePurple.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
-                                    .padding(20.dp)
+                                    .border(1.dp, ThemePurple.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                                    .padding(12.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(56.dp)
+                                            .size(40.dp)
                                             .clip(CircleShape)
                                             .background(ThemePurple.copy(alpha = 0.15f))
-                                            .border(1.dp, ThemePurple.copy(alpha = 0.4f), CircleShape),
+                                            .border(1.dp, ThemePurple.copy(alpha = 0.3f), CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(Icons.Default.Home, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(28.dp))
+                                        Icon(Icons.Default.Home, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(20.dp))
                                     }
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = "PRIVATE WORKSPACE",
-                                            fontSize = 10.sp,
+                                            fontSize = 9.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White.copy(alpha = 0.6f),
                                             letterSpacing = 1.sp
                                         )
-                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Spacer(modifier = Modifier.height(1.dp))
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
                                                 text = "${vaultFiles.size + vaultNotes.size} items stored",
-                                                fontSize = 18.sp,
+                                                fontSize = 14.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color.White
                                             )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(13.dp))
                                         }
                                     }
                                 }
@@ -2804,43 +2752,43 @@ fun VaultTabUnlockedContent(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { 
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Storage" 
+                                         viewModel.triggerKeypressEffects(context)
+                                         activeSection = "Storage" 
                                     },
                                 colors = CardDefaults.cardColors(containerColor = Color(0xFF161B2B).copy(alpha = 0.95f)),
-                                shape = RoundedCornerShape(16.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
                             ) {
-                                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Folder, contentDescription = "Storage", tint = ThemePurple, modifier = Modifier.size(18.dp))
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Vault Storage", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                            Icon(Icons.Default.Folder, contentDescription = "Storage", tint = ThemePurple, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Vault Storage", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                         }
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("View Details", color = ThemePurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                            Icon(Icons.Default.ChevronRight, contentDescription = "View Details", tint = ThemePurple, modifier = Modifier.size(14.dp))
+                                            Text("View Details", color = ThemePurple, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            Icon(Icons.Default.ChevronRight, contentDescription = "View Details", tint = ThemePurple, modifier = Modifier.size(12.dp))
                                         }
                                     }
-                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Spacer(modifier = Modifier.height(6.dp))
                                     val storageInfo by viewModel.storageInfo.collectAsStateWithLifecycle()
                                     val maxStorage = 15L * 1024 * 1024 * 1024 // 15 GB
                                     val progress = if (maxStorage > 0) (storageInfo.totalBytes.toFloat() / maxStorage.toFloat()).coerceIn(0f, 1f) else 0f
                                     LinearProgressIndicator(
                                         progress = { progress },
-                                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                        modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
                                         color = ThemePurple,
                                         trackColor = Color(0xFF090D1A),
                                         strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
                                     )
-                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text("${storageInfo.totalUsedFormatted} Used", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                        Text("${storageInfo.totalUsedFormatted} Used", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                                         val freeBytes = maxStorage - storageInfo.totalBytes
                                         val freeFormatted = if (freeBytes <= 0) "0 B" else {
                                             val units = arrayOf("B", "KB", "MB", "GB", "TB")
@@ -2849,7 +2797,7 @@ fun VaultTabUnlockedContent(
                                             val num = freeBytes / Math.pow(1024.0, index.toDouble())
                                             String.format(java.util.Locale.US, "%.1f %s", num, units[index])
                                         }
-                                        Text("$freeFormatted Free", color = TextMedium, fontSize = 12.sp)
+                                        Text("$freeFormatted Free", color = TextMedium, fontSize = 11.sp)
                                     }
                                 }
                             }
@@ -3041,26 +2989,14 @@ fun VaultTabUnlockedContent(
                             )
                             
                             // Recent Activity
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "RECENT ACTIVITY",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    letterSpacing = 2.sp
-                                )
-                                Text(
-                                    text = "View All",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = ThemePurple,
-                                    modifier = Modifier.clickable { activeSection = "Explore" }
-                                )
-                            }
+                            Text(
+                                text = "RECENT ACTIVITY",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.5f),
+                                letterSpacing = 2.sp,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            )
                             
                             if (vaultFiles.isEmpty() && vaultNotes.isEmpty()) {
                                 Box(
@@ -3138,7 +3074,6 @@ fun VaultTabUnlockedContent(
                                                 } else ""
                                                 Text(timeStr, color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
                                             }
-                                            Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                                         }
                                     }
                                 }
@@ -3197,7 +3132,7 @@ fun VaultTabUnlockedContent(
                                 }
                                 Icon(Icons.Default.ArrowForward, contentDescription = "Open", tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
                             }
-                            Spacer(modifier = Modifier.height(100.dp))
+                            Spacer(modifier = Modifier.height(24.dp))
                         }
                     }
                 "Photos", "Videos", "Documents", "Notes", "Music & Audio" -> {
@@ -9739,6 +9674,25 @@ data class TabState(
     val isDesktopMode: Boolean = false
 )
 
+class ChromeContextWrapper(base: android.content.Context) : android.content.ContextWrapper(base) {
+    override fun getPackageName(): String {
+        val stack = Thread.currentThread().stackTrace
+        for (element in stack) {
+            val className = element.className
+            if (className.contains("webkit", ignoreCase = true) || 
+                className.contains("WebView", ignoreCase = true) ||
+                className.contains("Chromium", ignoreCase = true)) {
+                return "com.android.chrome"
+            }
+        }
+        return baseContext.packageName
+    }
+    override fun getApplicationContext(): android.content.Context {
+        val appCtx = super.getApplicationContext()
+        return if (appCtx != null) ChromeContextWrapper(appCtx) else this
+    }
+}
+
 fun createPrivateWebView(
     ctx: android.content.Context,
     tabId: String,
@@ -9753,10 +9707,88 @@ fun createPrivateWebView(
     val cleanDesktopUa = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     val iOSMobileUa = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
 
+    val bypassScript = """
+        (function() {
+            var ua = navigator.userAgent;
+            var isIOS = ua.indexOf('iPhone') > -1 || ua.indexOf('iPad') > -1 || ua.indexOf('Macintosh') > -1;
+            
+            if (isIOS) {
+                var platformStr = ua.indexOf('iPhone') > -1 ? 'iPhone' : (ua.indexOf('iPad') > -1 ? 'iPad' : 'MacIntel');
+                Object.defineProperty(navigator, 'platform', { get: function() { return platformStr; } });
+                Object.defineProperty(navigator, 'vendor', { get: function() { return 'Apple Computer, Inc.'; } });
+            } else {
+                Object.defineProperty(navigator, 'platform', { get: function() { return 'Win32'; } });
+                Object.defineProperty(navigator, 'vendor', { get: function() { return 'Google Inc.'; } });
+                if (!window.chrome) {
+                    window.chrome = { runtime: {} };
+                }
+            }
+            Object.defineProperty(navigator, 'webdriver', { get: function() { return false; } });
+
+            // Intercept XMLHttpRequest to modify headers (remove X-Requested-With and add Sec-CH-UA client hints if Chrome)
+            var originalOpen = XMLHttpRequest.prototype.open;
+            var originalSend = XMLHttpRequest.prototype.send;
+            var originalSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+
+            XMLHttpRequest.prototype.open = function(method, url) {
+                this._url = url;
+                this._headers = {};
+                return originalOpen.apply(this, arguments);
+            };
+
+            XMLHttpRequest.prototype.setRequestHeader = function(header, value) {
+                this._headers[header.toLowerCase()] = value;
+                if (header.toLowerCase() === 'x-requested-with') {
+                    return;
+                }
+                return originalSetRequestHeader.apply(this, arguments);
+            };
+
+            XMLHttpRequest.prototype.send = function() {
+                if (this._url && (this._url.indexOf('youtube.com') > -1 || this._url.indexOf('youtu.be') > -1)) {
+                    if (!isIOS) {
+                        originalSetRequestHeader.call(this, 'Sec-CH-UA', '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"');
+                        originalSetRequestHeader.call(this, 'Sec-CH-UA-Mobile', '?0');
+                        originalSetRequestHeader.call(this, 'Sec-CH-UA-Platform', '"Windows"');
+                    }
+                }
+                return originalSend.apply(this, arguments);
+            };
+
+            // Intercept fetch requests to do the same
+            if (window.fetch) {
+                var originalFetch = window.fetch;
+                window.fetch = function(input, init) {
+                    init = init || {};
+                    var headers = new Headers(init.headers || {});
+                    headers.delete('X-Requested-With');
+                    var url = '';
+                    if (typeof input === 'string') {
+                        url = input;
+                    } else if (input && input.url) {
+                        url = input.url;
+                    }
+                    if (url && (url.indexOf('youtube.com') > -1 || url.indexOf('youtu.be') > -1)) {
+                        if (!isIOS) {
+                            headers.set('Sec-CH-UA', '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"');
+                            headers.set('Sec-CH-UA-Mobile', '?0');
+                            headers.set('Sec-CH-UA-Platform', '"Windows"');
+                        }
+                    }
+                    init.headers = headers;
+                    return originalFetch.call(window, input, init);
+                };
+            }
+        })();
+    """.trimIndent()
+
     fun getUserAgentForUrl(url: String?, isDesktop: Boolean): String {
-        if (isDesktop) return cleanDesktopUa
         val lowerUrl = url?.lowercase() ?: ""
-        val isSocialOrAuth = lowerUrl.contains("facebook") ||
+        if (lowerUrl.contains("youtube.com") || lowerUrl.contains("youtu.be")) {
+            return if (isDesktop) cleanDesktopUa else cleanMobileUa
+        }
+        if (isDesktop) return cleanDesktopUa
+        val isSocialOrAuth = (lowerUrl.contains("facebook") ||
                 lowerUrl.contains("instagram") ||
                 lowerUrl.contains("google") ||
                 lowerUrl.contains("oauth") ||
@@ -9770,7 +9802,7 @@ fun createPrivateWebView(
                 lowerUrl.contains("apple") ||
                 lowerUrl.contains("microsoft") ||
                 lowerUrl.contains("firebase") ||
-                lowerUrl.contains("okta")
+                lowerUrl.contains("okta"))
                 
         return if (isSocialOrAuth) {
             iOSMobileUa
@@ -9830,12 +9862,31 @@ fun createPrivateWebView(
         java.io.File(webViewCacheDir, "wasm").mkdirs()
         java.io.File(webViewCacheDir, "js").mkdirs()
     } catch (e: Exception) {}
-    return android.webkit.WebView(ctx).apply {
+    val wrappedCtx = ChromeContextWrapper(ctx)
+    return object : android.webkit.WebView(wrappedCtx) {
+        override fun loadUrl(url: String) {
+            settings.userAgentString = getUserAgentForUrl(url, isDesktopMode)
+            val headers = HashMap<String, String>()
+            headers["X-Requested-With"] = ""
+            super.loadUrl(url, headers)
+        }
+        override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
+            settings.userAgentString = getUserAgentForUrl(url, isDesktopMode)
+            val headers = additionalHttpHeaders.toMutableMap()
+            headers["X-Requested-With"] = ""
+            super.loadUrl(url, headers)
+        }
+    }.apply {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
             android.webkit.WebView.setWebContentsDebuggingEnabled(
                 (ctx.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
             )
         }
+        try {
+            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(this, bypassScript, setOf("*"))
+            }
+        } catch (e: Throwable) {}
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -9844,6 +9895,7 @@ fun createPrivateWebView(
             setSupportMultipleWindows(true)
             savePassword = savePasswords
             saveFormData = false
+            mediaPlaybackRequiresUserGesture = false
             cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
                 mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
@@ -9854,6 +9906,11 @@ fun createPrivateWebView(
             builtInZoomControls = true
             displayZoomControls = false
             userAgentString = getUserAgentForUrl(initialUrl, isDesktopMode)
+            try {
+                if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+                    androidx.webkit.WebSettingsCompat.setRequestedWithHeaderOriginAllowList(this, emptySet())
+                }
+            } catch (e: Throwable) {}
         }
         setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
             onDownloadRequested(url, userAgent, contentDisposition, mimetype, contentLength)
@@ -9866,6 +9923,9 @@ fun createPrivateWebView(
                 if (checkAndRedirectSocialLogin(view, url)) return
                 super.onPageStarted(view, url, favicon)
                 view?.settings?.userAgentString = getUserAgentForUrl(url, isDesktopMode)
+                if (url != null && (url.contains("youtube.com") || url.contains("youtu.be"))) {
+                    view?.evaluateJavascript(bypassScript, null)
+                }
                 onUpdate { tab ->
                     tab.copy(
                         url = url ?: tab.url,
@@ -9877,6 +9937,9 @@ fun createPrivateWebView(
             }
             override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                if (url != null && (url.contains("youtube.com") || url.contains("youtu.be"))) {
+                    view?.evaluateJavascript(bypassScript, null)
+                }
                 try {
                     android.webkit.CookieManager.getInstance().flush()
                 } catch (e: Exception) {}
@@ -9890,13 +9953,16 @@ fun createPrivateWebView(
                     )
                 }
             }
+            override fun shouldInterceptRequest(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
+                return super.shouldInterceptRequest(view, request)
+            }
             override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return false
                 if (checkAndRedirectSocialLogin(view, url)) return true
                 if (handleCustomUri(url, view)) return true
                 val lowerUrl = url.lowercase()
                 if (lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://")) {
-                    view?.loadUrl(url, mapOf("X-Requested-With" to " "))
+                    view?.loadUrl(url)
                     return true
                 }
                 return false
@@ -9908,7 +9974,7 @@ fun createPrivateWebView(
                 if (handleCustomUri(url, view)) return true
                 val lowerUrl = url.lowercase()
                 if (lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://")) {
-                    view?.loadUrl(url, mapOf("X-Requested-With" to " "))
+                    view?.loadUrl(url)
                     return true
                 }
                 return false
@@ -9937,7 +10003,26 @@ fun createPrivateWebView(
                 resultMsg: android.os.Message?
             ): Boolean {
                 if (view == null || resultMsg == null) return false
-                val newWebView = android.webkit.WebView(view.context).apply {
+                val popupCtx = ChromeContextWrapper(view.context)
+                val newWebView = object : android.webkit.WebView(popupCtx) {
+                    override fun loadUrl(url: String) {
+                        settings.userAgentString = getUserAgentForUrl(url, isDesktopMode)
+                        val headers = HashMap<String, String>()
+                        headers["X-Requested-With"] = ""
+                        super.loadUrl(url, headers)
+                    }
+                    override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
+                        settings.userAgentString = getUserAgentForUrl(url, isDesktopMode)
+                        val headers = additionalHttpHeaders.toMutableMap()
+                        headers["X-Requested-With"] = ""
+                        super.loadUrl(url, headers)
+                    }
+                }.apply {
+                    try {
+                        if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                            androidx.webkit.WebViewCompat.addDocumentStartJavaScript(this, bypassScript, setOf("*"))
+                        }
+                    } catch (e: Throwable) {}
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
@@ -9946,6 +10031,7 @@ fun createPrivateWebView(
                         setSupportMultipleWindows(true)
                         savePassword = savePasswords
                         saveFormData = false
+                        mediaPlaybackRequiresUserGesture = false
                         cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
                             mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
@@ -9955,7 +10041,12 @@ fun createPrivateWebView(
                         setSupportZoom(true)
                         builtInZoomControls = true
                         displayZoomControls = false
-                        userAgentString = iOSMobileUa
+                        userAgentString = getUserAgentForUrl(null, isDesktopMode)
+                        try {
+                            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+                                androidx.webkit.WebSettingsCompat.setRequestedWithHeaderOriginAllowList(this, emptySet())
+                            }
+                        } catch (e: Throwable) {}
                     }
                     val popupCookieManager = android.webkit.CookieManager.getInstance()
                     popupCookieManager.setAcceptCookie(true)
@@ -9966,6 +10057,21 @@ fun createPrivateWebView(
                             if (checkAndRedirectSocialLogin(view, url)) return
                             super.onPageStarted(view, url, favicon)
                             view?.settings?.userAgentString = getUserAgentForUrl(url, isDesktopMode)
+                            if (url != null && (url.contains("youtube.com") || url.contains("youtu.be"))) {
+                                view?.evaluateJavascript(bypassScript, null)
+                            }
+                        }
+                        override fun onPageFinished(newView: android.webkit.WebView?, url: String?) {
+                            super.onPageFinished(newView, url)
+                            if (url != null && (url.contains("youtube.com") || url.contains("youtu.be"))) {
+                                newView?.evaluateJavascript(bypassScript, null)
+                            }
+                            try {
+                                android.webkit.CookieManager.getInstance().flush()
+                            } catch (e: Exception) {}
+                        }
+                        override fun shouldInterceptRequest(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
+                            return super.shouldInterceptRequest(view, request)
                         }
                         override fun shouldOverrideUrlLoading(newView: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): Boolean {
                             val url = request?.url?.toString() ?: return false
@@ -9973,7 +10079,7 @@ fun createPrivateWebView(
                             if (handleCustomUri(url, newView)) return true
                             val lowerUrl = url.lowercase()
                             if (lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://")) {
-                                newView?.loadUrl(url, mapOf("X-Requested-With" to " "))
+                                newView?.loadUrl(url)
                                 return true
                             }
                             return false
@@ -9985,16 +10091,10 @@ fun createPrivateWebView(
                             if (handleCustomUri(url, newView)) return true
                             val lowerUrl = url.lowercase()
                             if (lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://")) {
-                                newView?.loadUrl(url, mapOf("X-Requested-With" to " "))
+                                newView?.loadUrl(url)
                                 return true
                             }
                             return false
-                        }
-                        override fun onPageFinished(newView: android.webkit.WebView?, url: String?) {
-                            super.onPageFinished(newView, url)
-                            try {
-                                android.webkit.CookieManager.getInstance().flush()
-                            } catch (e: Exception) {}
                         }
                         override fun onReceivedSslError(newView: android.webkit.WebView?, handler: android.webkit.SslErrorHandler?, error: android.net.http.SslError?) {
                             handler?.proceed()
@@ -10519,7 +10619,7 @@ fun PrivateBrowserSection(
                     .fillMaxWidth()
                     .background(Color(0xFF161B2B))
                     .statusBarsPadding()
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
                     .drawBehind {
                         drawLine(
                             color = Color.White.copy(alpha = 0.08f),
@@ -10532,19 +10632,22 @@ fun PrivateBrowserSection(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 if (isEditingUrl) {
-                    IconButton(onClick = { isEditingUrl = false }) {
-                        Icon(Icons.Default.Close, "Cancel", tint = Color.White)
+                    IconButton(
+                        onClick = { isEditingUrl = false },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(Icons.Default.Close, "Cancel", tint = Color.White, modifier = Modifier.size(20.dp))
                     }
                     
                     OutlinedTextField(
                         value = editingUrlText,
                         onValueChange = { editingUrlText = it },
-                        placeholder = { Text("Search or enter URL", color = Color.Gray, fontSize = 14.sp) },
+                        placeholder = { Text("Search or enter URL", color = Color.Gray, fontSize = 13.sp) },
                         modifier = Modifier
                             .weight(1f)
                             .padding(horizontal = 4.dp)
-                            .height(40.dp),
-                        shape = RoundedCornerShape(24.dp),
+                            .height(36.dp),
+                        shape = RoundedCornerShape(18.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color(0xFF1C1F2D),
                             unfocusedContainerColor = Color(0xFF1C1F2D),
@@ -10578,59 +10681,65 @@ fun PrivateBrowserSection(
                                 isEditingUrl = false
                             }
                         ),
-                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
                     )
                     
-                    IconButton(onClick = {
-                        var target = editingUrlText.trim()
-                        if (target.isNotEmpty()) {
-                            if (!target.startsWith("http://") && !target.startsWith("https://")) {
-                                if (target.contains(".") && !target.contains(" ")) {
-                                    target = "https://$target"
-                                } else {
-                                    val q = java.net.URLEncoder.encode(target, "UTF-8")
-                                    target = when (searchEngine) {
-                                        "DuckDuckGo" -> "https://duckduckgo.com/?q=$q&kl=us-en"
-                                        "Bing" -> "https://www.bing.com/search?q=$q&setlang=en&cc=US"
-                                        "Yahoo" -> "https://search.yahoo.com/search?p=$q&ei=UTF-8&vc=US&vl=en"
-                                        else -> "https://www.google.com/search?q=$q&hl=en&gl=US"
+                    IconButton(
+                        onClick = {
+                            var target = editingUrlText.trim()
+                            if (target.isNotEmpty()) {
+                                if (!target.startsWith("http://") && !target.startsWith("https://")) {
+                                    if (target.contains(".") && !target.contains(" ")) {
+                                        target = "https://$target"
+                                    } else {
+                                        val q = java.net.URLEncoder.encode(target, "UTF-8")
+                                        target = when (searchEngine) {
+                                            "DuckDuckGo" -> "https://duckduckgo.com/?q=$q&kl=us-en"
+                                            "Bing" -> "https://www.bing.com/search?q=$q&setlang=en&cc=US"
+                                            "Yahoo" -> "https://search.yahoo.com/search?p=$q&ei=UTF-8&vc=US&vl=en"
+                                            else -> "https://www.google.com/search?q=$q&hl=en&gl=US"
+                                        }
                                     }
                                 }
+                                activeWebView?.loadUrl(target)
                             }
-                            activeWebView?.loadUrl(target)
-                        }
-                        isEditingUrl = false
-                    }) {
-                        Icon(Icons.Default.Check, "Go", tint = Color(0xFF5E8AFF))
+                            isEditingUrl = false
+                        },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(Icons.Default.Check, "Go", tint = Color(0xFF5E8AFF), modifier = Modifier.size(20.dp))
                     }
                 } else {
-                    IconButton(onClick = { goBackOrExit() }) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                    IconButton(
+                        onClick = { goBackOrExit() },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White, modifier = Modifier.size(20.dp))
                     }
                     
                     if (isHome) {
                         Text(
                             text = "Private browser",
                             color = Color.White,
-                            fontSize = 18.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(start = 4.dp)
+                                .padding(start = 6.dp)
                         )
                     } else {
                         Row(
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(horizontal = 8.dp)
-                                .height(38.dp)
-                                .clip(RoundedCornerShape(19.dp))
+                                .padding(horizontal = 4.dp)
+                                .height(32.dp)
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(Color(0xFF1E202B))
                                 .clickable {
                                     editingUrlText = activeTab?.url ?: ""
                                     isEditingUrl = true
                                 }
-                                .padding(horizontal = 12.dp),
+                                .padding(horizontal = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
@@ -10638,7 +10747,7 @@ fun PrivateBrowserSection(
                                 imageVector = Icons.Default.Lock,
                                 contentDescription = "Secure Connection",
                                 tint = Color(0xFF4CAF50),
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(12.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             val displayUrl = try {
@@ -10649,7 +10758,7 @@ fun PrivateBrowserSection(
                             Text(
                                 text = displayUrl,
                                 color = Color.White,
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false)
@@ -10657,21 +10766,24 @@ fun PrivateBrowserSection(
                             Spacer(modifier = Modifier.width(6.dp))
                             IconButton(
                                 onClick = { activeWebView?.reload() },
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(20.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Refresh,
                                     contentDescription = "Refresh",
                                     tint = Color.Gray,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(12.dp)
                                 )
                             }
                         }
                     }
                     
                     Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, "More Options", tint = Color.White)
+                        IconButton(
+                            onClick = { showMenu = true },
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(Icons.Default.MoreVert, "More Options", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                         
                         DropdownMenu(
@@ -10942,7 +11054,19 @@ fun PrivateBrowserSection(
                             QuickAccessItem(url = "https://www.google.com/?hl=en&gl=US", label = "Google", onClick = { activeWebView?.loadUrl("https://www.google.com/?hl=en&gl=US") })
                             QuickAccessItem(url = "https://duckduckgo.com/?kl=us-en", label = "DuckDuckGo", onClick = { activeWebView?.loadUrl("https://duckduckgo.com/?kl=us-en") })
                             QuickAccessItem(url = "https://en.wikipedia.org", label = "Wikipedia", onClick = { activeWebView?.loadUrl("https://en.wikipedia.org") })
-                            QuickAccessItem(url = "https://www.youtube.com/?gl=US&hl=en", label = "YouTube", onClick = { activeWebView?.loadUrl("https://www.youtube.com/?gl=US&hl=en") })
+                            QuickAccessItem(url = "https://x.com", label = "X / Twitter", onClick = { activeWebView?.loadUrl("https://x.com") })
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            QuickAccessItem(url = "https://www.pinterest.com", label = "Pinterest", onClick = { activeWebView?.loadUrl("https://www.pinterest.com") })
+                            QuickAccessItem(url = "https://www.reddit.com", label = "Reddit", onClick = { activeWebView?.loadUrl("https://www.reddit.com") })
+                            QuickAccessItem(url = "https://www.quora.com", label = "Quora", onClick = { activeWebView?.loadUrl("https://www.quora.com") })
+                            QuickAccessItem(url = "https://web.telegram.org", label = "Telegram", onClick = { activeWebView?.loadUrl("https://web.telegram.org") })
                         }
 
                         Spacer(modifier = Modifier.height(28.dp))
@@ -11077,7 +11201,7 @@ fun PrivateBrowserSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF0F1015))
-                    .padding(horizontal = 16.dp, vertical = 2.dp)
+                    .padding(horizontal = 16.dp, vertical = 1.dp)
                     .drawBehind {
                         drawLine(
                             color = Color.White.copy(alpha = 0.08f),
@@ -11092,26 +11216,26 @@ fun PrivateBrowserSection(
                 IconButton(
                     onClick = { activeWebView?.goBack() },
                     enabled = activeTab?.canGoBack == true,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
                         contentDescription = "Back",
                         tint = if (activeTab?.canGoBack == true) Color.White else Color.Gray,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
                 
                 IconButton(
                     onClick = { activeWebView?.goForward() },
                     enabled = activeTab?.canGoForward == true,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
                         contentDescription = "Forward",
                         tint = if (activeTab?.canGoForward == true) Color.White else Color.Gray,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
                 
@@ -11123,39 +11247,39 @@ fun PrivateBrowserSection(
                             tabs[index] = tabs[index].copy(url = "home", title = "New Tab")
                         }
                     },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Home,
                         contentDescription = "Home",
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
                 IconButton(
                     onClick = { openNewTab("home") },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = "New Tab",
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
                 
                 Box(
                     modifier = Modifier
-                        .size(28.dp)
-                        .border(2.dp, Color.White, RoundedCornerShape(6.dp))
+                        .size(22.dp)
+                        .border(1.5.dp, Color.White, RoundedCornerShape(5.dp))
                         .clickable { showTabSwitcher = true },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = tabs.size.toString(),
                         color = Color.White,
-                        fontSize = 12.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -11706,13 +11830,13 @@ fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.gr
     val themePurple = LocalAppThemeColors.current.themePurple
     UnifiedGlassCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(14.dp),
         bgColor = Color(0xFF161B2B).copy(alpha = 0.95f),
         elevation = 4.dp,
         onClick = onClick
     ) {
         Column(
-            modifier = Modifier.padding(16.dp).fillMaxWidth()
+            modifier = Modifier.padding(10.dp).fillMaxWidth()
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -11721,32 +11845,32 @@ fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.gr
             ) {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .size(30.dp)
+                        .clip(RoundedCornerShape(8.dp))
                         .background(themePurple.copy(alpha = 0.1f))
-                        .border(1.dp, themePurple.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+                        .border(1.dp, themePurple.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(icon, contentDescription = null, tint = themePurple, modifier = Modifier.size(18.dp))
+                    Icon(icon, contentDescription = null, tint = themePurple, modifier = Modifier.size(15.dp))
                 }
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             
-            Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(count, color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
+            Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(1.dp))
+            Text(count, color = Color.White.copy(alpha = 0.4f), fontSize = 10.sp)
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             
             // Preview content
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(6.dp))
                     .background(Color(0xFF0F121C))
-                    .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(8.dp)),
+                    .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(6.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 previewContent()
@@ -13714,14 +13838,17 @@ fun YourJourneySection(
                                     text = item.title,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = Color.White,
+                                    modifier = Modifier.weight(1f)
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = item.date,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color(0xFFA5B4FC).copy(alpha = 0.8f),
-                                    letterSpacing = 0.5.sp
+                                    letterSpacing = 0.5.sp,
+                                    modifier = Modifier.align(Alignment.CenterVertically)
                                 )
                             }
                             Text(

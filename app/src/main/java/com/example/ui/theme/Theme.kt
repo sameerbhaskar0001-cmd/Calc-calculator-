@@ -18,11 +18,7 @@ enum class AppTheme(val id: String, val displayName: String, val previewColor: C
     SUNSET_ROSE("sunset_rose", "Sunset Rose", Color(0xFFF43F5E)),
     MIDNIGHT_BLUE("midnight_blue", "Midnight Blue", Color(0xFF3B82F6)),
     GRAPHITE("graphite", "Graphite", Color(0xFFFFFFFF)),
-    LAVENDER_MIST("lavender_mist", "Lavender Mist", Color(0xFF8B5CF6)),
-    CYBERPUNK("cyberpunk", "Cyberpunk Neon", Color(0xFFFF007F)),
-    RETRO_TERMINAL("retro_terminal", "Retro Terminal", Color(0xFF39FF14)),
-    IMPERIAL_GOLD("imperial_gold", "Imperial Gold", Color(0xFFE5C158)),
-    SAKURA_BLOSSOM("sakura_blossom", "Sakura Blossom", Color(0xFFFDA4AF))
+    LAVENDER_MIST("lavender_mist", "Lavender Mist", Color(0xFF8B5CF6))
 }
 
 data class AppThemeColors(
@@ -113,50 +109,6 @@ val LavenderMistColors = AppThemeColors(
     digitBg = Color(0xFF2B2342)
 )
 
-val CyberpunkColors = AppThemeColors(
-    brandBg = Color(0xFF0F041C),
-    textDark = Color(0xFF00FFFF),
-    textMedium = Color(0xFFFF007F),
-    themePurple = Color(0xFFFFE600),
-    themeLightPurple = Color(0xFF26103E),
-    themeContainerBorder = Color(0xFF3E125D),
-    keypadBg = Color(0xFF140726),
-    digitBg = Color(0xFF250D45)
-)
-
-val RetroTerminalColors = AppThemeColors(
-    brandBg = Color(0xFF020904),
-    textDark = Color(0xFF39FF14),
-    textMedium = Color(0xFF1F8021),
-    themePurple = Color(0xFF00FF41),
-    themeLightPurple = Color(0xFF06210A),
-    themeContainerBorder = Color(0xFF0B3A11),
-    keypadBg = Color(0xFF051207),
-    digitBg = Color(0xFF0A240D)
-)
-
-val ImperialGoldColors = AppThemeColors(
-    brandBg = Color(0xFF13110F),
-    textDark = Color(0xFFF2E6D0),
-    textMedium = Color(0xFFC5A880),
-    themePurple = Color(0xFFE5C158),
-    themeLightPurple = Color(0xFF241F1A),
-    themeContainerBorder = Color(0xFF3B3229),
-    keypadBg = Color(0xFF191613),
-    digitBg = Color(0xFF2E2720)
-)
-
-val SakuraBlossomColors = AppThemeColors(
-    brandBg = Color(0xFF2B1F22),
-    textDark = Color(0xFFFFE4E6),
-    textMedium = Color(0xFFF472B6),
-    themePurple = Color(0xFFFDA4AF),
-    themeLightPurple = Color(0xFF3F2A2F),
-    themeContainerBorder = Color(0xFF52373D),
-    keypadBg = Color(0xFF2F2124),
-    digitBg = Color(0xFF453035)
-)
-
 val LocalAppThemeColors = androidx.compose.runtime.staticCompositionLocalOf { GraphiteColors }
 
 @Composable
@@ -172,10 +124,6 @@ fun MyApplicationTheme(
     AppTheme.MIDNIGHT_BLUE -> MidnightBlueColors
     AppTheme.GRAPHITE -> GraphiteColors
     AppTheme.LAVENDER_MIST -> LavenderMistColors
-    AppTheme.CYBERPUNK -> CyberpunkColors
-    AppTheme.RETRO_TERMINAL -> RetroTerminalColors
-    AppTheme.IMPERIAL_GOLD -> ImperialGoldColors
-    AppTheme.SAKURA_BLOSSOM -> SakuraBlossomColors
   }
 
   val colorScheme = lightColorScheme(

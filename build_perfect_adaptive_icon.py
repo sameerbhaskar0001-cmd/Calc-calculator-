@@ -60,7 +60,7 @@ fg_svg = '''<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://ww
     </linearGradient>
   </defs>
 
-  <g filter="url(#outerShadow)">
+  <g>
     <!-- Main Calculator Body Box (width=224, height=300, centered at x=256, y=256 -> x:144..368, y:106..406) -->
     <rect x="144" y="106" width="224" height="300" rx="34" fill="url(#bodyGrad)" stroke="#4E5158" stroke-width="2"/>
     <rect x="147" y="109" width="218" height="294" rx="31" fill="none" stroke="#161719" stroke-width="1.5" opacity="0.8"/>
@@ -78,28 +78,28 @@ fg_svg = '''<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://ww
     
     <!-- Key Rectangles -->
     <!-- Row 0: 7, 8, 9, ÷ -->
-    <rect x="164" y="206" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
-    <rect x="212" y="206" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
-    <rect x="260" y="206" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
-    <rect x="308" y="206" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
+    <rect x="164" y="206" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
+    <rect x="212" y="206" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
+    <rect x="260" y="206" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
+    <rect x="308" y="206" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
 
     <!-- Row 1: 4, 5, 6, × -->
-    <rect x="164" y="254" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
-    <rect x="212" y="254" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
-    <rect x="260" y="254" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
-    <rect x="308" y="254" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
+    <rect x="164" y="254" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
+    <rect x="212" y="254" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
+    <rect x="260" y="254" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
+    <rect x="308" y="254" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
 
     <!-- Row 2: 1, 2, 3, - -->
-    <rect x="164" y="302" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
-    <rect x="212" y="302" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
-    <rect x="260" y="302" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
-    <rect x="308" y="302" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
+    <rect x="164" y="302" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
+    <rect x="212" y="302" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
+    <rect x="260" y="302" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
+    <rect x="308" y="302" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
 
     <!-- Row 3: 0, ., C, + -->
-    <rect x="164" y="350" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
-    <rect x="212" y="350" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
-    <rect x="260" y="350" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
-    <rect x="308" y="350" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2" filter="url(#keyShadow)"/>
+    <rect x="164" y="350" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
+    <rect x="212" y="350" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
+    <rect x="260" y="350" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
+    <rect x="308" y="350" width="40" height="40" rx="8" fill="url(#keyGrad)" stroke="#1A1B1E" stroke-width="1.2"/>
 
     <!-- Key Text Labels -->
     <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif" font-size="18" font-weight="500" fill="#E2E8F0" text-anchor="middle">
@@ -166,5 +166,6 @@ subprocess.run(["ffmpeg", "-y", "-i", "fg.svg", "ic_launcher_foreground_user.png
 os.makedirs("app/src/main/res/drawable", exist_ok=True)
 subprocess.run(["cp", "ic_launcher_background.png", "app/src/main/res/drawable/ic_launcher_background.png"], check=True)
 subprocess.run(["cp", "ic_launcher_foreground_user.png", "app/src/main/res/drawable/ic_launcher_foreground_user.png"], check=True)
+subprocess.run(["cp", "ic_launcher_foreground_user.png", "app/src/main/res/drawable/ic_launcher_foreground.png"], check=True)
 
 print("PNG assets copied to drawable!")
