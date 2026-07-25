@@ -2291,14 +2291,14 @@ fun VaultTabUnlockedContent(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                 // Clean and spacious Unlocked Header
                 if (activeSection == "Home") {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 16.dp),
+                            .padding(bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -2675,29 +2675,35 @@ fun VaultTabUnlockedContent(
                             val statusIcon = if (totalVaultItems == 0) Icons.Default.Check else Icons.Default.CheckCircle
                             val statusTint = ThemePurple
                             
-                            Column(modifier = Modifier.padding(horizontal = 8.dp).padding(top = 8.dp, bottom = 8.dp)) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = greeting,
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    letterSpacing = 0.5.sp,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(statusIcon, contentDescription = "Status", tint = statusTint, modifier = Modifier.size(14.dp))
                                         Text(
-                                            text = greeting,
-                                            fontSize = 28.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            letterSpacing = 0.5.sp
+                                            text = vaultStatusText,
+                                            fontSize = 12.sp,
+                                            color = Color.White.copy(alpha = 0.75f)
                                         )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Icon(statusIcon, contentDescription = "Status", tint = statusTint, modifier = Modifier.size(14.dp))
-                                            Text(
-                                                text = vaultStatusText,
-                                                fontSize = 12.sp,
-                                                color = Color.White.copy(alpha = 0.75f)
-                                            )
-                                        }
                                     }
                                     
                                     // Security Shield Pulse Badge
@@ -8944,7 +8950,6 @@ fun VaultTabUnlockedContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF161B2B).copy(alpha = 0.95f))
-                        .navigationBarsPadding()
                         .height(56.dp)
                         .drawBehind {
                             // High-end glassmorphic top hairline divider
@@ -13782,6 +13787,8 @@ fun SecretVaultUnlockingAnimation(
 
     val p = progress.value
     val percent = (p * 100).toInt().coerceIn(0, 100)
+    val themeColors = LocalAppThemeColors.current
+    val themePurple = themeColors.themePurple
 
     // Combination Dial physics movement formulas
     val dialAngle = when {
@@ -13955,152 +13962,220 @@ fun SecretVaultUnlockingAnimation(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // The Combination Lock Dial wheel
+            // The Combination Lock Dial wheel with glowing ambient background
             Box(
-                modifier = Modifier
-                    .size(200.dp)
-                    .graphicsLayer {
-                        rotationZ = dialAngle
-                    },
+                modifier = Modifier.size(240.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val r = size.width / 2f
-                    val centerPt = Offset(r, r)
-
-                    // Outer shadow & rim
-                    drawCircle(
-                        color = Color(0xFF121212),
-                        radius = r,
-                        style = androidx.compose.ui.graphics.drawscope.Fill
-                    )
-                    drawCircle(
-                        color = Color(0xFF4B5563),
-                        radius = r,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4.dp.toPx())
-                    )
-                    drawCircle(
-                        color = Color(0xFF1F2937),
-                        radius = r - 6.dp.toPx(),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
-                    )
-
-                    // Inner Dial grip
-                    drawCircle(
-                        color = Color(0xFF1E293B),
-                        radius = r * 0.65f,
-                        style = androidx.compose.ui.graphics.drawscope.Fill
-                    )
-                    drawCircle(
-                        color = Color(0xFF475569),
-                        radius = r * 0.65f,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5.dp.toPx())
-                    )
-
-                    // Dial Notch Marks (Ticks) every 6 degrees (60 divisions total)
-                    for (i in 0 until 60) {
-                        val angleRad = Math.toRadians((i * 6).toDouble())
-                        val cosVal = Math.cos(angleRad).toFloat()
-                        val sinVal = Math.sin(angleRad).toFloat()
-
-                        val isMajor = i % 5 == 0
-                        val tickLen = if (isMajor) 12.dp.toPx() else 6.dp.toPx()
-                        val tickStroke = if (isMajor) 2.dp.toPx() else 1.dp.toPx()
-                        val tickColor = if (isMajor) Color(0xFFF1F5F9) else Color(0xFF94A3B8)
-
-                        val startPt = Offset(
-                            centerPt.x + (r - 18.dp.toPx()) * cosVal,
-                            centerPt.y + (r - 18.dp.toPx()) * sinVal
-                        )
-                        val endPt = Offset(
-                            centerPt.x + (r - 18.dp.toPx() - tickLen) * cosVal,
-                            centerPt.y + (r - 18.dp.toPx() - tickLen) * sinVal
-                        )
-
-                        drawLine(
-                            color = tickColor,
-                            start = startPt,
-                            end = endPt,
-                            strokeWidth = tickStroke
-                        )
-                    }
-                }
-
-                // Inner chrome handle bar/wheel
+                // Outer Ambient Purple/Cyber Glow
                 Box(
                     modifier = Modifier
-                        .size(100.dp)
+                        .size(230.dp)
                         .background(
-                            androidx.compose.ui.graphics.Brush.linearGradient(
-                                colors = listOf(Color(0xFF334155), Color(0xFF0F172A))
-                            ),
-                            shape = androidx.compose.foundation.shape.CircleShape
-                        ),
+                            androidx.compose.ui.graphics.Brush.radialGradient(
+                                colors = listOf(
+                                    themePurple.copy(alpha = 0.28f),
+                                    themePurple.copy(alpha = 0.05f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+
+                // The Combination Lock Dial wheel itself
+                Box(
+                    modifier = Modifier
+                        .size(200.dp)
+                        .graphicsLayer {
+                            rotationZ = dialAngle
+                        },
                     contentAlignment = Alignment.Center
                 ) {
-                    // Simple modern vault handle spoke overlay
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val r = size.width / 2f
+                        val centerPt = Offset(r, r)
+
+                        // 1. Outer Chrome Metallic Rim with sweep shading for 3D steel look
+                        val silverMetallic = androidx.compose.ui.graphics.Brush.sweepGradient(
+                            colors = listOf(
+                                Color(0xFFE2E8F0),
+                                Color(0xFF64748B),
+                                Color(0xFFF1F5F9),
+                                Color(0xFF334155),
+                                Color(0xFFCBD5E1),
+                                Color(0xFF94A3B8),
+                                Color(0xFFE2E8F0)
+                            ),
+                            center = centerPt
+                        )
+                        drawCircle(
+                            brush = silverMetallic,
+                            radius = r,
+                            style = androidx.compose.ui.graphics.drawscope.Fill
+                        )
+
+                        // 2. Beveled shadow ring inside outer rim
+                        drawCircle(
+                            color = Color(0xFF0F172A),
+                            radius = r - 4.dp.toPx(),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                        )
+
+                        // 3. Dark titanium/carbon inner disc
+                        val titaniumBg = androidx.compose.ui.graphics.Brush.radialGradient(
+                            colors = listOf(Color(0xFF334155), Color(0xFF1E293B), Color(0xFF0B0F19)),
+                            center = centerPt
+                        )
+                        drawCircle(
+                            brush = titaniumBg,
+                            radius = r - 6.dp.toPx(),
+                            style = androidx.compose.ui.graphics.drawscope.Fill
+                        )
+
+                        // 4. Fine glowing theme circle
+                        drawCircle(
+                            color = themePurple.copy(alpha = 0.4f),
+                            radius = r - 16.dp.toPx(),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+                        )
+
+                        // 5. Dial Notch Marks (Ticks) every 6 degrees (60 divisions total)
+                        for (i in 0 until 60) {
+                            val angleRad = Math.toRadians((i * 6).toDouble())
+                            val cosVal = Math.cos(angleRad).toFloat()
+                            val sinVal = Math.sin(angleRad).toFloat()
+
+                            val isMajor = i % 5 == 0
+                            val tickLen = if (isMajor) 12.dp.toPx() else 6.dp.toPx()
+                            val tickStroke = if (isMajor) 2.dp.toPx() else 1.dp.toPx()
+                            val tickColor = if (isMajor) Color(0xFFF1F5F9) else Color(0xFF94A3B8).copy(alpha = 0.6f)
+
+                            val startPt = Offset(
+                                centerPt.x + (r - 18.dp.toPx()) * cosVal,
+                                centerPt.y + (r - 18.dp.toPx()) * sinVal
+                            )
+                            val endPt = Offset(
+                                centerPt.x + (r - 18.dp.toPx() - tickLen) * cosVal,
+                                centerPt.y + (r - 18.dp.toPx() - tickLen) * sinVal
+                            )
+
+                            drawLine(
+                                color = tickColor,
+                                start = startPt,
+                                end = endPt,
+                                strokeWidth = tickStroke
+                            )
+                        }
+                    }
+
+                    // Inner chrome handle bar/wheel
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.8f)
-                            .height(14.dp)
+                            .size(100.dp)
                             .background(
-                                androidx.compose.ui.graphics.Brush.verticalGradient(
-                                    colors = listOf(Color.White, Color(0xFF64748B))
+                                androidx.compose.ui.graphics.Brush.radialGradient(
+                                    colors = listOf(Color(0xFFE2E8F0), Color(0xFF64748B), Color(0xFF1E293B))
                                 ),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                                shape = androidx.compose.foundation.shape.CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Glowing center neon ring
+                        Box(
+                            modifier = Modifier
+                                .size(92.dp)
+                                .background(Color.Transparent, shape = CircleShape)
+                                .border(1.5.dp, themePurple.copy(alpha = 0.5f), CircleShape)
+                        )
+
+                        // Brushed steel handle spoke overlay
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.85f)
+                                .height(16.dp)
+                                .background(
+                                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color(0xFFFFFFFF),
+                                            Color(0xFFE2E8F0),
+                                            Color(0xFF94A3B8),
+                                            Color(0xFF475569)
+                                        )
+                                    ),
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
+                                )
+                                .border(1.dp, themePurple.copy(alpha = 0.4f), androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
+                        ) {
+                            // Tiny glowing center bolt/rivet
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .align(Alignment.Center)
+                                    .background(Color.White, shape = CircleShape)
+                                    .border(1.dp, themePurple, CircleShape)
                             )
-                    )
+                        }
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Decryption phase messages
+            // Uncomplicate the status message with warm & friendly security greetings
             val statusMsg = when {
-                percent < 30 -> "TURNING SAFE DIAL..."
-                percent < 60 -> "DISENGAGING DEADBOLTS..."
-                percent < 90 -> "RELEASE BAR ACTIVATED..."
-                else -> "SAFE OPENED"
+                percent < 30 -> "HELLO! PREPARING VAULT..."
+                percent < 60 -> "UNLOCKING SECURE SPACE..."
+                percent < 90 -> "VERIFYING IDENTITY..."
+                else -> "WELCOME HOME"
             }
 
             Text(
                 text = statusMsg,
                 style = TextStyle(
-                    fontSize = 12.sp,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    fontSize = 13.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.SansSerif,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp,
-                    color = Color(0xFFCBD5E1)
+                    color = Color.White
                 )
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Sleek flat white progress bar
+            // Premium matching progress bar
             Row(
                 modifier = Modifier
-                    .width(160.dp)
-                    .height(3.dp)
-                    .background(Color.White.copy(alpha = 0.15f)),
+                    .width(180.dp)
+                    .height(4.dp)
+                    .background(Color.White.copy(alpha = 0.12f), shape = RoundedCornerShape(2.dp)),
                 horizontalArrangement = Arrangement.Start
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .fillMaxWidth(p)
-                        .background(Color.White)
+                        .background(
+                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                colors = listOf(themePurple, Color.White)
+                            ),
+                            shape = RoundedCornerShape(2.dp)
+                        )
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             Text(
                 text = "SECRET VAULT",
                 style = TextStyle(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 8.sp,
-                    color = Color.White.copy(alpha = 0.9f)
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 10.sp,
+                    color = Color.White.copy(alpha = 0.95f),
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = themePurple.copy(alpha = 0.8f),
+                        blurRadius = 12f
+                    )
                 )
             )
         }
