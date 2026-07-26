@@ -11421,7 +11421,7 @@ fun PrivateBrowserSection(
                     }
                 } else {
                     IconButton(
-                        onClick = { goBackOrExit() },
+                        onClick = { onExit() },
                         modifier = Modifier.size(34.dp)
                     ) {
                         Icon(Icons.Default.ArrowBack, "Back", tint = Color.White, modifier = Modifier.size(20.dp))
@@ -13256,33 +13256,6 @@ fun StorageScreenSection(
             .fillMaxSize()
             .background(Color(0xFF090D1A))
     ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
-            }
-            Column(modifier = Modifier.padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "VAULT DEFENSE",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = ThemePurple.copy(alpha = 0.8f),
-                    letterSpacing = 1.8.sp
-                )
-                Text(
-                    text = "Storage",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-        }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()

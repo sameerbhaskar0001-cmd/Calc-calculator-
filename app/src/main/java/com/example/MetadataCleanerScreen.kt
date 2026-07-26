@@ -751,17 +751,25 @@ fun MetadataCleanerScreen(
                                     onClick = { selectedUri = null },
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f)),
                                     shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(44.dp)
                                         .testTag("success_dismiss_button")
                                 ) {
-                                    Text("Clean Another", color = Color.White, fontSize = 13.sp)
+                                    Text(
+                                        text = "New Photo", 
+                                        color = Color.White, 
+                                        fontSize = 13.sp,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    )
                                 }
                                 Button(
                                     onClick = onBack,
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF81C784)),
                                     shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(44.dp)
