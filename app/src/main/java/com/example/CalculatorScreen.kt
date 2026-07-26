@@ -5164,6 +5164,7 @@ fun VaultTabUnlockedContent(
                     }
 
                     // --- Google OAuth Login WebView Dialog ---
+
                     if (showGoogleLoginDialog) {
                         androidx.compose.ui.window.Dialog(
                             onDismissRequest = { showGoogleLoginDialog = false },

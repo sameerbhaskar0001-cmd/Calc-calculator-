@@ -191,9 +191,13 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    private var isAuthenticating = false
     fun handleGoogleDriveAuthCode(code: String, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+        if (isAuthenticating) return
+        isAuthenticating = true
         viewModelScope.launch {
-            val success = googleDriveManager.handleAuthCode(code)
+            val (success, errorMsg) = googleDriveManager.handleAuthCode(code)
+            isAuthenticating = false
             if (success) {
                 _googleDriveEmail.value = googleDriveManager.userEmail
                 _googleDriveName.value = googleDriveManager.userName
@@ -201,7 +205,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 fetchCloudBackupInfo()
                 onSuccess()
             } else {
-                onFailure("Failed to authenticate with Google Drive.")
+                onFailure(errorMsg.takeIf { it.isNotEmpty() } ?: "Failed to authenticate with Google Drive.")
             }
         }
     }

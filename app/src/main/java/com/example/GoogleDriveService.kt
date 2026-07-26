@@ -79,13 +79,11 @@ class GoogleDriveManager(private val context: Context) {
 
     // Default Client Credentials for general convenience.
     // Users can also customize these inside the advanced settings menu.
-    var clientId: String
-        get() = prefs.getString("client_id", BuildConfig.GOOGLE_OAUTH_CLIENT_ID) ?: ""
-        set(value) = prefs.edit().putString("client_id", value).apply()
-
-    var clientSecret: String
-        get() = prefs.getString("client_secret", BuildConfig.GOOGLE_OAUTH_CLIENT_SECRET) ?: ""
-        set(value) = prefs.edit().putString("client_secret", value).apply()
+    val clientId: String
+        get() = BuildConfig.GOOGLE_OAUTH_CLIENT_ID
+        
+    val clientSecret: String
+        get() = BuildConfig.GOOGLE_OAUTH_CLIENT_SECRET
 
     var accessToken: String?
         get() = prefs.getString("access_token", null)
@@ -135,11 +133,18 @@ class GoogleDriveManager(private val context: Context) {
                 "&prompt=consent"
     }
 
-    suspend fun handleAuthCode(code: String): Boolean {
+    suspend fun handleAuthCode(code: String): Pair<Boolean, String> {
         try {
             val redirectUri = "http://localhost/callback"
             val response = oauthApi.exchangeCode(code, clientId, clientSecret, redirectUri)
-            val json = JSONObject(response.string())
+            val responseString = response.string()
+            val json = JSONObject(responseString)
+            
+            if (json.has("error")) {
+                val errorMsg = json.optString("error_description", json.optString("error"))
+                Log.e(TAG, "OAuth exchange error: $errorMsg")
+                return Pair(false, "OAuth Error: $errorMsg")
+            }
             
             val access = json.optString("access_token")
             val refresh = json.optString("refresh_token")
@@ -150,12 +155,13 @@ class GoogleDriveManager(private val context: Context) {
                     refreshToken = refresh
                 }
                 fetchUserInfo()
-                return true
+                return Pair(true, "")
             }
+            return Pair(false, "No access token received.")
         } catch (e: Exception) {
             Log.e(TAG, "OAuth exchange failed", e)
+            return Pair(false, e.localizedMessage ?: "Unknown network error")
         }
-        return false
     }
 
     suspend fun refreshAccessToken(): Boolean {
