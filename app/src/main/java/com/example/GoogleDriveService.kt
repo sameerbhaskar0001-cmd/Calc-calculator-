@@ -80,11 +80,11 @@ class GoogleDriveManager(private val context: Context) {
     // Default Client Credentials for general convenience.
     // Users can also customize these inside the advanced settings menu.
     var clientId: String
-        get() = prefs.getString("client_id", "1041132611681-p8mndr45vfq96t2e48gsqhphu0u145ve.apps.googleusercontent.com") ?: ""
+        get() = prefs.getString("client_id", "202988558545-dmcsd7tl198ds1n0079caqu24s271vgd.apps.googleusercontent.com") ?: ""
         set(value) = prefs.edit().putString("client_id", value).apply()
 
     var clientSecret: String
-        get() = prefs.getString("client_secret", "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") ?: ""
+        get() = prefs.getString("client_secret", "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") ?: ""
         set(value) = prefs.edit().putString("client_secret", value).apply()
 
     var accessToken: String?

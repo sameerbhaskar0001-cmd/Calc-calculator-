@@ -31,6 +31,7 @@
             android:enabled="true"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:label="@string/app_name"
             android:targetActivity=".MainAppActivity">
             <intent-filter>
@@ -45,6 +46,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_calc_classic"
+            android:roundIcon="@mipmap/ic_launcher_calc_classic"
             android:label="Classic Calc"
             android:targetActivity=".MainAppActivity">
             <intent-filter>
@@ -59,6 +61,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_calc_retro"
+            android:roundIcon="@mipmap/ic_launcher_calc_retro"
             android:label="Retro Calc"
             android:targetActivity=".MainAppActivity">
             <intent-filter>
@@ -73,6 +76,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_calc_neon"
+            android:roundIcon="@mipmap/ic_launcher_calc_neon"
             android:label="Neon Calc"
             android:targetActivity=".MainAppActivity">
             <intent-filter>
@@ -87,6 +91,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_notes"
+            android:roundIcon="@mipmap/ic_launcher_notes"
             android:label="Notes"
             android:targetActivity=".MainAppActivity">
             <intent-filter>
@@ -101,6 +106,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_compass"
+            android:roundIcon="@mipmap/ic_launcher_compass"
             android:label="Compass"
             android:targetActivity=".MainAppActivity">
             <intent-filter>
@@ -115,6 +121,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_voice"
+            android:roundIcon="@mipmap/ic_launcher_voice"
             android:label="Recorder"
             android:targetActivity=".MainAppActivity">
             <intent-filter>
@@ -129,6 +136,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_sudoku"
+            android:roundIcon="@mipmap/ic_launcher_sudoku"
             android:label="Sudoku"
             android:targetActivity=".MainAppActivity">
             <intent-filter>
@@ -143,6 +151,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_weather"
+            android:roundIcon="@mipmap/ic_launcher_weather"
             android:label="Weather"
             android:targetActivity=".MainAppActivity">
             <intent-filter>

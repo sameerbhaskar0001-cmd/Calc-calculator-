@@ -37,7 +37,11 @@ class MainAppActivity : FragmentActivity() {
 
         lifecycleScope.launch {
           viewModel?.preventScreenshots?.collectLatest { prevent ->
-            // WindowManager.LayoutParams.FLAG_SECURE is omitted in preview environment to prevent blacking out the web streaming emulator
+            if (prevent) {
+              window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            } else {
+              window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            }
           }
         }
 
@@ -74,9 +78,15 @@ class MainAppActivity : FragmentActivity() {
 
   override fun onStop() {
     super.onStop()
+    val isStealth = viewModel?.stealthMode?.value == true
     if (!isChangingConfigurations && viewModel?.isPickingFile != true) {
       try {
-          viewModel?.lockVault()
+          if (viewModel?.lockOnBackground?.value == true) {
+              viewModel?.lockVault()
+          }
+          if (isStealth) {
+              finishAndRemoveTask()
+          }
       } catch (e: Exception) {
           e.printStackTrace()
       }

@@ -248,7 +248,14 @@ fun MetadataCleanerScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Icon(Icons.Default.Photo, contentDescription = null, tint = Color.White)
-                                    Text("Select Photo from Gallery", color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        text = "Select Photo", 
+                                        color = Color.White, 
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    )
                                 }
                             }
                         }
@@ -690,6 +697,52 @@ fun MetadataCleanerScreen(
                                 )
                             }
 
+                            Button(
+                                onClick = { 
+                                    // Export to gallery
+                                    val resolver = context.contentResolver
+                                    val values = android.content.ContentValues().apply {
+                                        put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "cleaned_${System.currentTimeMillis()}.jpg")
+                                        put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                            put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
+                                        }
+                                    }
+                                    val collection = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                        android.provider.MediaStore.Images.Media.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                                    } else {
+                                        android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                                    }
+                                    val itemUri = resolver.insert(collection, values)
+                                    if (itemUri != null) {
+                                        try {
+                                            resolver.openOutputStream(itemUri)?.use { out ->
+                                                cleanedFile?.inputStream()?.use { input ->
+                                                    input.copyTo(out)
+                                                }
+                                            }
+                                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                                values.clear()
+                                                values.put(android.provider.MediaStore.Images.Media.IS_PENDING, 0)
+                                                resolver.update(itemUri, values, null, null)
+                                            }
+                                            android.widget.Toast.makeText(context, "Saved to Gallery", android.widget.Toast.LENGTH_SHORT).show()
+                                        } catch (e: Exception) {
+                                            android.widget.Toast.makeText(context, "Failed to save", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp)
+                            ) {
+                                Icon(Icons.Default.Download, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Export to Gallery", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                            
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -703,7 +756,7 @@ fun MetadataCleanerScreen(
                                         .height(44.dp)
                                         .testTag("success_dismiss_button")
                                 ) {
-                                    Text("Clean Another", color = Color.White)
+                                    Text("Clean Another", color = Color.White, fontSize = 13.sp)
                                 }
                                 Button(
                                     onClick = onBack,
@@ -713,7 +766,7 @@ fun MetadataCleanerScreen(
                                         .weight(1f)
                                         .height(44.dp)
                                 ) {
-                                    Text("Done", color = Color(0xFF132F23), fontWeight = FontWeight.Bold)
+                                    Text("Done", color = Color(0xFF132F23), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
                             }
                         }

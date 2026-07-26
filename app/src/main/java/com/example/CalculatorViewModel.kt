@@ -174,11 +174,15 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _cloudBackupInfo = MutableStateFlow<BackupMetadata?>(null)
     val cloudBackupInfo: StateFlow<BackupMetadata?> = _cloudBackupInfo.asStateFlow()
 
+    private val _recoveryCode = MutableStateFlow(prefs.getString("recovery_code", "") ?: "")
+    val recoveryCode: StateFlow<String> = _recoveryCode.asStateFlow()
+
     init {
         applyTimezone(_preferredTimezone.value)
         if (googleDriveManager.isConnected) {
             fetchCloudBackupInfo()
         }
+        generateRecoveryCodeIfNeeded()
     }
 
     fun fetchCloudBackupInfo() {
@@ -1031,6 +1035,22 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _biometricEnabled = MutableStateFlow(prefs.getBoolean("biometric_enabled", false))
     val biometricEnabled: StateFlow<Boolean> = _biometricEnabled.asStateFlow()
 
+    private val _biometricMode = MutableStateFlow(prefs.getString("biometric_mode", "hidden") ?: "hidden")
+    val biometricMode: StateFlow<String> = _biometricMode.asStateFlow()
+
+    private val _securityQuestion = MutableStateFlow(prefs.getString("security_question", "") ?: "")
+    val securityQuestion: StateFlow<String> = _securityQuestion.asStateFlow()
+
+    private val _securityAnswer = MutableStateFlow(prefs.getString("security_answer", "") ?: "")
+    val securityAnswer: StateFlow<String> = _securityAnswer.asStateFlow()
+
+    private val _showRecoveryTrigger = MutableStateFlow(false)
+    val showRecoveryTrigger: StateFlow<Boolean> = _showRecoveryTrigger.asStateFlow()
+
+    fun setShowRecoveryTrigger(show: Boolean) {
+        _showRecoveryTrigger.value = show
+    }
+
     private val _panicEnabled = MutableStateFlow(prefs.getBoolean("panic_enabled", false))
     val panicEnabled: StateFlow<Boolean> = _panicEnabled.asStateFlow()
 
@@ -1420,7 +1440,12 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 }
             }
             "=" -> {
-                if (tryUnlockVault(currentExpr)) {
+                if (currentExpr == "999999") {
+                    _showRecoveryTrigger.value = true
+                    _expression.value = ""
+                    _calcResult.value = ""
+                    _isEvaluated.value = false
+                } else if (tryUnlockVault(currentExpr)) {
                     _expression.value = ""
                     _calcResult.value = ""
                     _isEvaluated.value = false
@@ -2922,6 +2947,55 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun setBiometricMode(mode: String) {
+        prefs.edit().putString("biometric_mode", mode).apply()
+        _biometricMode.value = mode
+    }
+
+    fun setSecurityQuestionAndAnswer(question: String, answer: String) {
+        val trimmedAnswer = answer.trim().lowercase()
+        prefs.edit()
+            .putString("security_question", question)
+            .putString("security_answer", trimmedAnswer)
+            .apply()
+        _securityQuestion.value = question
+        _securityAnswer.value = trimmedAnswer
+    }
+
+    fun generateRecoveryCodeIfNeeded(): String {
+        val existing = _recoveryCode.value
+        if (existing.isNotEmpty()) return existing
+        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        val code = (1..4).map {
+            (1..4).map { chars[(0 until chars.length).random()] }.joinToString("")
+        }.joinToString("-")
+        prefs.edit().putString("recovery_code", code).apply()
+        _recoveryCode.value = code
+        return code
+    }
+
+    fun exportRecoveryKeyFile(onSuccess: (String) -> Unit, onFailure: (String) -> Unit) {
+        try {
+            val code = generateRecoveryCodeIfNeeded()
+            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadsDir.exists()) {
+                downloadsDir.mkdirs()
+            }
+            val destFile = java.io.File(downloadsDir, "calculator_vault_recovery_key.txt")
+            destFile.writeText(
+                "--- CALCULATOR VAULT MASTER RECOVERY KEY ---\n" +
+                "Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}\n" +
+                "Recovery Key: $code\n\n" +
+                "Keep this file safe. It can be used to unlock your private vault if you forget your access PIN.\n" +
+                "To recover: Type 999999 and press '=' on the calculator, or long press the 'Calculator' header title, then choose option 4 and load this key.\n"
+            )
+            onSuccess("Recovery Key saved to Downloads as '${destFile.name}'")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            onFailure("Failed to export key: ${e.localizedMessage ?: e.toString()}")
+        }
+    }
+
     fun setPanicEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("panic_enabled", enabled).apply()
         _panicEnabled.value = enabled
@@ -3051,6 +3125,42 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     fun setClipboardProtection(enabled: Boolean) {
         prefs.edit().putBoolean("clipboard_protection", enabled).apply()
         _clipboardProtection.value = enabled
+    }
+
+    fun copyToClipboard(context: Context, label: String, text: String, isSensitive: Boolean = true) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = android.content.ClipData.newPlainText(label, text)
+        if (isSensitive) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                clip.description.extras = android.os.PersistableBundle().apply {
+                    putBoolean("android.content.ClipDescription.EXTRA_IS_SENSITIVE", true)
+                }
+            }
+        }
+        clipboard.setPrimaryClip(clip)
+
+        if (_clipboardProtection.value) {
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(30000)
+                try {
+                    val currentClip = clipboard.primaryClip
+                    if (currentClip != null && currentClip.itemCount > 0) {
+                        val currentText = currentClip.getItemAt(0).text?.toString()
+                        if (currentText == text) {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                                clipboard.clearPrimaryClip()
+                            } else {
+                                val emptyClip = android.content.ClipData.newPlainText("", "")
+                                clipboard.setPrimaryClip(emptyClip)
+                            }
+                            android.widget.Toast.makeText(context, "Clipboard cleared for security!", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     fun setStealthMode(enabled: Boolean) {

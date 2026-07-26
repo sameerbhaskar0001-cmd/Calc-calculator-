@@ -576,7 +576,7 @@ fun VaultContentScreen(
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 40.dp)
                 ) {
-                    val contentColor = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White
+                    val contentColor = if (ThemePurple.red > 0.95f && ThemePurple.green > 0.95f && ThemePurple.blue > 0.95f) BrandBg else Color.White
                     Button(
                         onClick = onAddClick,
                         modifier = Modifier.height(64.dp).shadow(24.dp, RoundedCornerShape(32.dp), ambientColor = ThemePurple, spotColor = ThemePurple),

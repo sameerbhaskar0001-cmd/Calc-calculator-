@@ -250,8 +250,10 @@ fun evaluateStrength(
 
 @Composable
 fun PasswordGeneratorScreen(
+    viewModel: CalculatorViewModel,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val themeColors = LocalAppThemeColors.current
     val ThemePurple = themeColors.themePurple
     val TextMedium = themeColors.textMedium
@@ -268,7 +270,6 @@ fun PasswordGeneratorScreen(
     var generatedPassword by remember { mutableStateOf("") }
     var showCopiedToast by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
     LaunchedEffect(passwordLength, includeUppercase, includeLowercase, includeNumbers, includeSymbols, excludeSimilar, selectedMode) {
         val isValid = includeUppercase || includeLowercase || includeNumbers || includeSymbols
         if (isValid) {
@@ -567,7 +568,7 @@ fun PasswordGeneratorScreen(
                             if (generatedPassword.isNotEmpty()) {
                                 IconButton(
                                     onClick = {
-                                        clipboardManager.setText(AnnotatedString(generatedPassword))
+                                        viewModel.copyToClipboard(context, "Generated Password", generatedPassword)
                                         showCopiedToast = true
                                     },
                                     modifier = Modifier.size(48.dp)

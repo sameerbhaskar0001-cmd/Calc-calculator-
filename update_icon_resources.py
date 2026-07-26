@@ -1,70 +1,80 @@
 import os
 import subprocess
 
-# 1. Ensure drawable dir exists
+# Paths to output drawable directory
 drawable_dir = "app/src/main/res/drawable"
 os.makedirs(drawable_dir, exist_ok=True)
 
-# 2. Source images:
-# - icon_background.jpg (or bg image) -> app/src/main/res/drawable/icon_background.png
-# - icon_foreground.jpg (or ic_launcher_foreground.png) -> app/src/main/res/drawable/icon_foreground.png
+print("1. Preparing and cleaning SVG assets to prevent rendering bugs...")
+# Read raw icon_foreground.svg and strip filters that cause standard SVG renderers to output empty canvases
+if os.path.exists("icon_foreground.svg"):
+    with open("icon_foreground.svg", "r") as f:
+        svg_content = f.read()
+    
+    # Strip drop shadow filter calls
+    clean_svg = svg_content.replace('filter="url(#shadow)"', '').replace('filter="url(#keyShadow)"', '')
+    
+    with open("temp_foreground_clean.svg", "w") as f:
+        f.write(clean_svg)
+    print("✓ Created clean temporary SVG vector: temp_foreground_clean.svg")
+else:
+    raise FileNotFoundError("Missing icon_foreground.svg in workspace root!")
 
-# Convert icon_background.jpg to 512x512 PNG in drawable
+print("2. Rendering cleaned SVGs to high-resolution transparent PNG drawables...")
+# Compile clean SVG foreground to 512x512 transparent PNG
 subprocess.run([
-    "ffmpeg", "-y",
-    "-i", "icon_background.jpg",
-    "-vf", "scale=512:512",
-    os.path.join(drawable_dir, "icon_background.png")
+    "rsvg-convert", "-w", "512", "-h", "512",
+    "temp_foreground_clean.svg",
+    "-o", os.path.join(drawable_dir, "icon_foreground.png")
 ], check=True)
 
-# Convert ic_launcher_foreground.png / icon_foreground.jpg to 1024x1024 PNG in drawable
-# (using ic_launcher_foreground.png as it is the 2048x2048 RGBA original)
-# We use ImageMagick's convert to dynamically detect and remove the white/off-white background
-# via floodfill starting from the top-left corner, ensuring perfect transparency.
-src_fg = "ic_launcher_foreground.png" if os.path.exists("ic_launcher_foreground.png") else "icon_foreground.jpg"
+# Also create ic_launcher_foreground.png
 subprocess.run([
-    "convert", src_fg,
-    "-resize", "1024x1024!",
-    "-alpha", "set",
-    "-bordercolor", "white",
-    "-border", "1x1",
-    "-fuzz", "12%",
-    "-fill", "none",
-    "-draw", "matte 0,0 floodfill",
-    "-shave", "1x1",
-    os.path.join(drawable_dir, "icon_foreground.png")
+    "rsvg-convert", "-w", "512", "-h", "512",
+    "temp_foreground_clean.svg",
+    "-o", os.path.join(drawable_dir, "ic_launcher_foreground.png")
 ], check=True)
 
-print("Created drawable/icon_background.png and drawable/icon_foreground.png")
-
-# 3. Create composite 512x512 PNGs for raster mipmaps:
-# Scale foreground artwork to 312x312 (approx 61% of 512px canvas, matching 66dp/108dp safe zone)
+# Compile background SVG to 512x512 PNG
 subprocess.run([
-    "ffmpeg", "-y",
-    "-i", os.path.join(drawable_dir, "icon_background.png"),
-    "-i", os.path.join(drawable_dir, "icon_foreground.png"),
-    "-filter_complex", "[1:v]scale=312:312[fg];[0:v][fg]overlay=100:100",
+    "rsvg-convert", "-w", "512", "-h", "512",
+    "icon_background.svg",
+    "-o", os.path.join(drawable_dir, "icon_background.png")
+], check=True)
+
+# Also create ic_launcher_background.png
+subprocess.run([
+    "rsvg-convert", "-w", "512", "-h", "512",
+    "icon_background.svg",
+    "-o", os.path.join(drawable_dir, "ic_launcher_background.png")
+], check=True)
+
+print("✓ Successfully generated all high-resolution PNG drawables with alpha transparency!")
+
+print("3. Compositing adaptive launcher icon within the 66dp (61%) safe zone...")
+# Center and scale foreground (312x312 px inside 512x512 px canvas) on top of the background
+subprocess.run([
+    "convert",
+    os.path.join(drawable_dir, "icon_background.png"),
+    "(", os.path.join(drawable_dir, "icon_foreground.png"), "-resize", "312x312!", ")",
+    "-gravity", "center",
+    "-composite",
     "master_composite_512.png"
 ], check=True)
 
-# Round composite with circle mask
-circle_mask_svg = '''<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="256" cy="256" r="256" fill="#FFFFFF"/>
-</svg>'''
-with open("circle_mask.svg", "w") as f:
-    f.write(circle_mask_svg)
-
-subprocess.run(["ffmpeg", "-y", "-i", "circle_mask.svg", "circle_mask.png"], check=True)
-
+# Apply a perfect anti-aliased circular mask to generate the round composite version
 subprocess.run([
-    "ffmpeg", "-y",
-    "-i", "master_composite_512.png",
-    "-i", "circle_mask.png",
-    "-filter_complex", "[0:v][1:v]alphamerge",
+    "convert", "master_composite_512.png",
+    "(", "-size", "512x512", "xc:none", "-fill", "white", "-draw", "circle 256,256 256,0", ")",
+    "-alpha", "off",
+    "-compose", "CopyOpacity",
+    "-composite",
     "master_composite_round_512.png"
 ], check=True)
 
-# 4. Generate all mipmap densities
+print("✓ Generated master composites (square & round)!")
+
+print("4. Downsampling and exporting legacy PNG assets for all density folders...")
 densities = {
     "mipmap-mdpi": 48,
     "mipmap-hdpi": 72,
@@ -77,10 +87,24 @@ for folder, px in densities.items():
     dir_path = os.path.join("app/src/main/res", folder)
     os.makedirs(dir_path, exist_ok=True)
     
-    out_ic = os.path.join(dir_path, "ic_launcher.png")
-    subprocess.run(["ffmpeg", "-y", "-i", "master_composite_512.png", "-vf", f"scale={px}:{px}", out_ic], check=True)
+    # Export square legacy launcher icon
+    subprocess.run([
+        "convert", "master_composite_512.png",
+        "-resize", f"{px}x{px}!",
+        os.path.join(dir_path, "ic_launcher.png")
+    ], check=True)
     
-    out_ic_round = os.path.join(dir_path, "ic_launcher_round.png")
-    subprocess.run(["ffmpeg", "-y", "-i", "master_composite_round_512.png", "-vf", f"scale={px}:{px}", out_ic_round], check=True)
+    # Export round legacy launcher icon
+    subprocess.run([
+        "convert", "master_composite_round_512.png",
+        "-resize", f"{px}x{px}!",
+        os.path.join(dir_path, "ic_launcher_round.png")
+    ], check=True)
 
-print("Updated all raster mipmap density PNG files!")
+print("✓ Mipmap densities updated!")
+
+# Clean up temporary SVG file
+if os.path.exists("temp_foreground_clean.svg"):
+    os.remove("temp_foreground_clean.svg")
+
+print("★ Success! Every single launcher icon in the app has been successfully rebuilt from source!")

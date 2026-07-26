@@ -41,6 +41,12 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.QuestionAnswer
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Home
@@ -341,6 +347,15 @@ private val ThemeContainerBorder: Color @Composable get() = LocalAppThemeColors.
 private val KeypadBg: Color @Composable get() = LocalAppThemeColors.current.keypadBg
 private val DigitBg: Color @Composable get() = LocalAppThemeColors.current.digitBg
 private val IsWhiteTheme: Boolean @Composable get() = ThemePurple.red > 0.9f && ThemePurple.green > 0.9f && ThemePurple.blue > 0.9f
+private val IsLightColor: Boolean @Composable get() = (ThemePurple.red * 0.299f + ThemePurple.green * 0.587f + ThemePurple.blue * 0.114f) > 0.6f
+
+@Composable
+private fun dynamicSwitchColors() = androidx.compose.material3.SwitchDefaults.colors(
+    checkedThumbColor = if (IsLightColor) Color(0xFF1B2031) else Color.White,
+    checkedTrackColor = ThemePurple,
+    uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
+    uncheckedTrackColor = Color.White.copy(alpha = 0.12f)
+)
 
 fun rememberBackStack(initial: String): androidx.compose.runtime.MutableState<String> {
     return object : androidx.compose.runtime.MutableState<String> {
@@ -367,6 +382,7 @@ enum class ActiveTab {
     CALCULATOR,
     VAULT
 }
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun CalculatorScreen(
     viewModel: CalculatorViewModel = viewModel(),
@@ -374,6 +390,9 @@ fun CalculatorScreen(
 ) {
     var activeTab by remember { mutableStateOf(ActiveTab.CALCULATOR) }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showLocalRecoveryDialog by remember { mutableStateOf(false) }
+    val showRecoveryTrigger by viewModel.showRecoveryTrigger.collectAsStateWithLifecycle()
+    val showRecoveryDialog = showLocalRecoveryDialog || showRecoveryTrigger
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val view = androidx.compose.ui.platform.LocalView.current
@@ -507,6 +526,31 @@ fun CalculatorScreen(
             activeTab = ActiveTab.CALCULATOR
         }
     }
+    
+    fun triggerBiometricUnlock() {
+        val activity = context as? androidx.fragment.app.FragmentActivity
+        val isBiometricEnabled = viewModel.biometricEnabled.value
+        if (activity != null && isBiometricEnabled) {
+            val executor = androidx.core.content.ContextCompat.getMainExecutor(activity)
+            val biometricPrompt = androidx.biometric.BiometricPrompt(
+                activity,
+                executor,
+                object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+                        super.onAuthenticationSucceeded(result)
+                        viewModel.unlockVault(isDecoy = false)
+                        android.widget.Toast.makeText(context, "Vault Unlocked via Biometrics!", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+            val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Unlock Vault")
+                .setSubtitle("Authenticate using fingerprint or face recognition")
+                .setNegativeButtonText("Cancel")
+                .build()
+            biometricPrompt.authenticate(promptInfo)
+        }
+    }
     Surface(
         modifier = modifier
             .fillMaxSize()
@@ -582,7 +626,14 @@ fun CalculatorScreen(
                                 text = "Calculator",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = TextDark,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.combinedClickable(
+                                    onClick = {},
+                                    onLongClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        showLocalRecoveryDialog = true
+                                    }
+                                )
                             )
                         }
                     Box {
@@ -670,7 +721,10 @@ fun CalculatorScreen(
                             .fillMaxSize()
                             .padding(horizontal = 24.dp)
                         ) {
-                            CalculatorTabContent(viewModel = viewModel)
+                            CalculatorTabContent(
+                                viewModel = viewModel,
+                                onTriggerBiometric = { triggerBiometricUnlock() }
+                            )
                         }
                     }
                 }
@@ -766,6 +820,222 @@ fun CalculatorScreen(
             }
         )
     }
+
+    // Secure PIN Recovery Dialog
+    if (showRecoveryDialog) {
+        val securityQuestion by viewModel.securityQuestion.collectAsStateWithLifecycle()
+        val securityAnswer by viewModel.securityAnswer.collectAsStateWithLifecycle()
+        val recoveryCode by viewModel.recoveryCode.collectAsStateWithLifecycle()
+        
+        var selectedRecoveryOption by remember { mutableStateOf(0) } // 0 = Question, 1 = Recovery Code
+        var answerInput by remember { mutableStateOf("") }
+        var codeInput by remember { mutableStateOf("") }
+        var newPinInput by remember { mutableStateOf("") }
+        var isRecoverySuccessful by remember { mutableStateOf(false) }
+
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {
+                showLocalRecoveryDialog = false
+                viewModel.setShowRecoveryTrigger(false)
+            },
+            containerColor = Color(0xFF1B2031),
+            shape = RoundedCornerShape(24.dp),
+            title = {
+                Text(
+                    text = "Reset Vault PIN",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+            },
+            confirmButton = {
+                if (isRecoverySuccessful) {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            if (newPinInput.length >= 4) {
+                                viewModel.setVaultPin(newPinInput)
+                                showLocalRecoveryDialog = false
+                                viewModel.setShowRecoveryTrigger(false)
+                                android.widget.Toast.makeText(context, "PIN successfully reset!", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                android.widget.Toast.makeText(context, "PIN must be at least 4 digits.", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    ) {
+                        Text("Reset PIN", color = ThemePurple, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            if (selectedRecoveryOption == 0) {
+                                val trimmedInput = answerInput.trim().lowercase()
+                                if (securityAnswer.isNotEmpty() && trimmedInput == securityAnswer) {
+                                    isRecoverySuccessful = true
+                                    android.widget.Toast.makeText(context, "Authentication successful! Enter your new PIN.", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    android.widget.Toast.makeText(context, "Incorrect answer. Please try again.", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                val trimmedInput = codeInput.trim().uppercase()
+                                val trimmedCode = recoveryCode.trim().uppercase()
+                                if (recoveryCode.isNotEmpty() && (trimmedInput == trimmedCode || trimmedInput.replace("-", "") == trimmedCode.replace("-", ""))) {
+                                    isRecoverySuccessful = true
+                                    android.widget.Toast.makeText(context, "Authentication successful! Enter your new PIN.", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    android.widget.Toast.makeText(context, "Incorrect recovery key. Please try again.", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    ) {
+                        Text("Verify", color = ThemePurple, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        showLocalRecoveryDialog = false
+                        viewModel.setShowRecoveryTrigger(false)
+                    }
+                ) {
+                    Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (!isRecoverySuccessful) {
+                        Text(
+                            text = "Choose a recovery option to unlock your vault and set a new PIN.",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                        
+                        // Option tabs
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.05f))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (selectedRecoveryOption == 0) ThemePurple.copy(alpha = 0.2f) else Color.Transparent)
+                                    .clickable { selectedRecoveryOption = 0 }
+                                    .padding(vertical = 10.dp),
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Security Q",
+                                    color = if (selectedRecoveryOption == 0) ThemePurple else Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (selectedRecoveryOption == 1) ThemePurple.copy(alpha = 0.2f) else Color.Transparent)
+                                    .clickable { selectedRecoveryOption = 1 }
+                                    .padding(vertical = 10.dp),
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Master Key",
+                                    color = if (selectedRecoveryOption == 1) ThemePurple else Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        
+                        if (selectedRecoveryOption == 0) {
+                            // Question recovery
+                            if (securityQuestion.isEmpty()) {
+                                Text(
+                                    text = "⚠️ You have not set up a security question yet. Please set it up in Vault Settings under Authentication.",
+                                    color = Color(0xFFFF9100),
+                                    fontSize = 12.sp
+                                )
+                            } else {
+                                Text(
+                                    text = "Question: $securityQuestion",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 13.sp
+                                )
+                                androidx.compose.material3.OutlinedTextField(
+                                    value = answerInput,
+                                    onValueChange = { answerInput = it },
+                                    placeholder = { Text("Answer", color = Color.White.copy(alpha = 0.4f)) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().testTag("recovery_answer_input"),
+                                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedContainerColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedBorderColor = ThemePurple,
+                                        unfocusedBorderColor = Color.White.copy(alpha = 0.25f)
+                                    )
+                                )
+                            }
+                        } else {
+                            // Recovery code recovery
+                            Text(
+                                text = "Enter your 16-character Master Recovery Code to unlock.",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp
+                            )
+                            androidx.compose.material3.OutlinedTextField(
+                                value = codeInput,
+                                onValueChange = { codeInput = it },
+                                placeholder = { Text("e.g. XXXX-XXXX-XXXX-XXXX", color = Color.White.copy(alpha = 0.4f)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth().testTag("recovery_code_input"),
+                                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedBorderColor = ThemePurple,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.25f)
+                                )
+                            )
+                        }
+                    } else {
+                        // Recover success: let them write new PIN
+                        Text(
+                            text = "Choose your new vault access PIN. Minimum 4 digits.",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                        androidx.compose.material3.OutlinedTextField(
+                            value = newPinInput,
+                            onValueChange = { if (it.all { c -> c.isDigit() }) newPinInput = it },
+                            placeholder = { Text("Enter New Access PIN", color = Color.White.copy(alpha = 0.4f)) },
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                            ),
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth().testTag("new_pin_input"),
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedBorderColor = ThemePurple,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.25f)
+                            )
+                        )
+                    }
+                }
+            }
+        )
+    }
 }
 @Composable
 fun BottomNavItem(
@@ -806,7 +1076,8 @@ fun BottomNavItem(
 // ==========================================
 @Composable
 fun CalculatorTabContent(
-    viewModel: CalculatorViewModel
+    viewModel: CalculatorViewModel,
+    onTriggerBiometric: () -> Unit
 ) {
     val expression by viewModel.expression.collectAsStateWithLifecycle()
     val calcResult by viewModel.calcResult.collectAsStateWithLifecycle()
@@ -814,6 +1085,8 @@ fun CalculatorTabContent(
     val rate by viewModel.exchangeRate.collectAsStateWithLifecycle()
     val sourceCurrency by viewModel.sourceCurrency.collectAsStateWithLifecycle()
     val targetCurrency by viewModel.targetCurrency.collectAsStateWithLifecycle()
+    val biometricEnabled by viewModel.biometricEnabled.collectAsStateWithLifecycle()
+    val biometricMode by viewModel.biometricMode.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
     // Determine numerical value for live split calculation
     val numericResult = calcResult.toDoubleOrNull() ?: expression.toDoubleOrNull() ?: 0.0
@@ -882,7 +1155,17 @@ fun CalculatorTabContent(
             }
             // Main output
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onDoubleTap = {
+                                if (biometricEnabled) {
+                                    onTriggerBiometric()
+                                }
+                            }
+                        )
+                    },
                 horizontalArrangement = Arrangement.End
             ) {
                 Text(
@@ -960,7 +1243,7 @@ fun CalculatorTabContent(
                             Icon(
                                 imageVector = Icons.Default.CurrencyExchange,
                                 contentDescription = "Exchange Indicator",
-                                tint = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White,
+                                tint = if (ThemePurple.red > 0.95f && ThemePurple.green > 0.95f && ThemePurple.blue > 0.95f) BrandBg else Color.White,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -1003,6 +1286,11 @@ fun CalculatorTabContent(
                                 viewModel.triggerKeypressEffects(context)
                                 viewModel.onCalcKeyPress(char)
                             },
+                            onLongClick = if (isEquals && biometricEnabled) {
+                                {
+                                    onTriggerBiometric()
+                                }
+                            } else null,
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("key_$char")
@@ -1022,7 +1310,8 @@ fun GlassCalculatorKey(
     isUtility: Boolean = false,
     isEquals: Boolean = false,
     themePurple: Color,
-    themeLightPurple: Color
+    themeLightPurple: Color,
+    onLongClick: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
     val view = androidx.compose.ui.platform.LocalView.current
@@ -1096,6 +1385,7 @@ fun GlassCalculatorKey(
                 }
                 onClick()
             },
+            onLongClick = onLongClick,
             interactionSource = interactionSource,
             shape = CircleShape
         ) {
@@ -1625,11 +1915,8 @@ fun VaultTabLockedContent(
             biometricPrompt.authenticate(promptInfo)
         }
     }
-    if (!vaultUnlocked && biometricEnabled) {
-        LaunchedEffect(Unit) {
-            triggerBiometric()
-        }
-    }
+    // No automatic biometric prompt on startup to avoid disclosing vault app.
+    // Biometric is only triggered manually (e.g. by long pressing the equals key).
         // Vault Lock Screen
         Box(
             modifier = Modifier
@@ -1854,7 +2141,6 @@ fun VaultTabUnlockedContent(
     val googleDriveName by viewModel.googleDriveName.collectAsStateWithLifecycle()
     val cloudBackupInfo by viewModel.cloudBackupInfo.collectAsStateWithLifecycle()
     var showGoogleLoginDialog by remember { mutableStateOf(false) }
-    var showAdvancedCredentials by remember { mutableStateOf(false) }
 
     // --- Modern Backup & Restore State & Launchers ---
     var isBackupRestoreProcessing by remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -4698,6 +4984,8 @@ fun VaultTabUnlockedContent(
                                     Spacer(modifier = Modifier.height(24.dp))
                                 }
 
+
+
                             } else {
                                 // --- LOCAL OFFLINE BACKUP TAB ---
                                 Spacer(modifier = Modifier.height(16.dp))
@@ -5160,7 +5448,15 @@ fun VaultTabUnlockedContent(
                 "Authentication" -> {
                     var showAppLockDialog by remember { mutableStateOf(false) }
                     var appLockMethod by remember { mutableStateOf("PIN Only") }
+                    var isRecoveryInstructionEnglish by remember { mutableStateOf(false) }
                     val biometricEnabledState by viewModel.biometricEnabled.collectAsStateWithLifecycle()
+                    val biometricModeState by viewModel.biometricMode.collectAsStateWithLifecycle()
+                    val securityQuestionState by viewModel.securityQuestion.collectAsStateWithLifecycle()
+                    val securityAnswerState by viewModel.securityAnswer.collectAsStateWithLifecycle()
+                    val recoveryCodeState by viewModel.recoveryCode.collectAsStateWithLifecycle()
+
+                    var tempQuestion by remember(securityQuestionState) { mutableStateOf(securityQuestionState) }
+                    var tempAnswer by remember(securityAnswerState) { mutableStateOf(securityAnswerState) }
 
                     Column(
                         modifier = Modifier
@@ -5302,6 +5598,15 @@ fun VaultTabUnlockedContent(
                                             color = Color.White.copy(alpha = 0.5f),
                                             lineHeight = 14.sp
                                         )
+                                        if (biometricEnabledState) {
+                                            Text(
+                                                text = "🔑 Tip: Long-press the '=' button on the calculator screen to trigger biometric unlock.",
+                                                fontSize = 11.sp,
+                                                color = Color(0xFF00E676),
+                                                lineHeight = 14.sp,
+                                                modifier = Modifier.padding(top = 4.dp)
+                                            )
+                                        }
                                     }
                                 }
                                 androidx.compose.material3.Switch(
@@ -5309,12 +5614,7 @@ fun VaultTabUnlockedContent(
                                     onCheckedChange = { enabled ->
                                         viewModel.setBiometricEnabled(enabled)
                                     },
-                                    colors = androidx.compose.material3.SwitchDefaults.colors(
-                                        checkedThumbColor = Color.White,
-                                        checkedTrackColor = if (IsWhiteTheme) Color(0xFF635BFF) else ThemePurple,
-                                        uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                                        uncheckedTrackColor = Color.White.copy(alpha = 0.12f)
-                                    )
+                                    colors = dynamicSwitchColors()
                                 )
                             }
                         }
@@ -5381,6 +5681,370 @@ fun VaultTabUnlockedContent(
                                     tint = Color.White.copy(alpha = 0.3f),
                                     modifier = Modifier.size(18.dp)
                                 )
+                            }
+                        }
+
+                        // PIN Recovery Options Section
+                        Text(
+                            text = "PIN RECOVERY & SECURITY BACKUPS",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextMedium,
+                            modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)
+                        )
+                        
+                        // Instructional Attention-grabbing Alert
+                        UnifiedGlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            bgColor = Color(0xFFFF3D00).copy(alpha = 0.08f),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = "Crucial",
+                                    tint = Color(0xFFFF3D00),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Configure Recovery Settings (Recommended)",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = "Enabling recovery triggers is critical. If you ever forget your vault access PIN, these parameters act as the only bypass to recover access to your private files safely.",
+                                        fontSize = 11.sp,
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        // How to Trigger Recovery Instruction
+                        UnifiedGlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            bgColor = Color(0xFF00E676).copy(alpha = 0.08f),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Icon(
+                                    imageVector = androidx.compose.material.icons.Icons.Default.Info,
+                                    contentDescription = "Instruction",
+                                    tint = Color(0xFF00E676),
+                                    modifier = Modifier.size(24.dp).padding(top = 2.dp)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = if (isRecoveryInstructionEnglish) "💡 How to use recovery?" else "💡 Recovery bypass kaise use karein?",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        
+                                        Row(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color.White.copy(alpha = 0.08f))
+                                                .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(if (!isRecoveryInstructionEnglish) Color(0xFF00E676).copy(alpha = 0.25f) else Color.Transparent)
+                                                    .clickable { isRecoveryInstructionEnglish = false }
+                                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text("HI", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (!isRecoveryInstructionEnglish) Color(0xFF00E676) else Color.White.copy(alpha = 0.6f))
+                                            }
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(if (isRecoveryInstructionEnglish) Color(0xFF00E676).copy(alpha = 0.25f) else Color.Transparent)
+                                                    .clickable { isRecoveryInstructionEnglish = true }
+                                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text("EN", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isRecoveryInstructionEnglish) Color(0xFF00E676) else Color.White.copy(alpha = 0.6f))
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = if (isRecoveryInstructionEnglish) {
+                                            "If you ever forget your PIN, simply long-press (press and hold for 2-3 seconds) the 'Calculator' title text on the top-left bar of the main Calculator screen. This will trigger the bypass window where you can enter your Security Answer or Master Recovery Code to reset your PIN safely."
+                                        } else {
+                                            "Agar aap kabhi apna PIN bhul jate hain, toh main Calculator screen ke top-left bar par likhe 'Calculator' title text ko 2-3 seconds ke liye long-press (dabaye rakhein) karein. Isse bypass window open ho jayega jahan aap apna Security Answer ya Master Recovery Code enter karke naya PIN set kar sakte hain."
+                                        },
+                                        fontSize = 11.sp,
+                                        color = Color.White.copy(alpha = 0.85f),
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        // Security Question and Answer
+                        UnifiedGlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            bgColor = Color(0xFF1B2031).copy(alpha = 0.95f),
+                            elevation = 2.dp
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFF2979FF).copy(alpha = 0.12f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.QuestionAnswer,
+                                            contentDescription = null,
+                                            tint = Color(0xFF2979FF),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "Security Question & Answer",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = "Recover by answering a pre-set secret question.",
+                                            fontSize = 11.sp,
+                                            color = Color.White.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                }
+                                
+                                androidx.compose.material3.OutlinedTextField(
+                                    value = tempQuestion,
+                                    onValueChange = { tempQuestion = it },
+                                    label = { Text("Secret Question", color = Color.White.copy(alpha = 0.6f)) },
+                                    placeholder = { Text("e.g. What was your first pet's name?", color = Color.White.copy(alpha = 0.3f)) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().testTag("security_question_input"),
+                                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedContainerColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedLabelColor = ThemePurple,
+                                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                                        focusedBorderColor = ThemePurple,
+                                        unfocusedBorderColor = Color.White.copy(alpha = 0.25f),
+                                        cursorColor = ThemePurple
+                                    )
+                                )
+                                
+                                androidx.compose.material3.OutlinedTextField(
+                                    value = tempAnswer,
+                                    onValueChange = { tempAnswer = it },
+                                    label = { Text("Your Secret Answer", color = Color.White.copy(alpha = 0.6f)) },
+                                    placeholder = { Text("Case-insensitive, kept strictly private", color = Color.White.copy(alpha = 0.3f)) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().testTag("security_answer_input"),
+                                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedContainerColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedLabelColor = ThemePurple,
+                                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                                        focusedBorderColor = ThemePurple,
+                                        unfocusedBorderColor = Color.White.copy(alpha = 0.25f),
+                                        cursorColor = ThemePurple
+                                    )
+                                )
+                                
+                                androidx.compose.material3.Button(
+                                    onClick = {
+                                        if (tempQuestion.isNotBlank() && tempAnswer.isNotBlank()) {
+                                            viewModel.setSecurityQuestionAndAnswer(tempQuestion, tempAnswer)
+                                            android.widget.Toast.makeText(context, "Security Question saved successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            android.widget.Toast.makeText(context, "Please fill out both question and answer.", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier.align(Alignment.End).testTag("save_security_question_button"),
+                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                        containerColor = ThemePurple,
+                                        contentColor = if (ThemePurple.red > 0.95f && ThemePurple.green > 0.95f && ThemePurple.blue > 0.95f) BrandBg else Color.White
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Save Question")
+                                }
+                            }
+                        }
+
+                        // Master Recovery Key / File Backup
+                        UnifiedGlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            bgColor = Color(0xFF1B2031).copy(alpha = 0.95f),
+                            elevation = 2.dp
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFF00E676).copy(alpha = 0.12f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Key,
+                                            contentDescription = null,
+                                            tint = Color(0xFF00E676),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "Master Recovery Code & File Backup",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = "A secure cryptographic recovery code and file backup.",
+                                            fontSize = 11.sp,
+                                            color = Color.White.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                }
+                                
+                                Text(
+                                    text = "Your Master Recovery Code:",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White.copy(alpha = 0.7f)
+                                )
+                                
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color.Black.copy(alpha = 0.35f))
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = recoveryCodeState.ifEmpty { "Generating..." },
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF00E676),
+                                        letterSpacing = 1.2.sp
+                                    )
+                                    
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.copyToClipboard(context, "Recovery Code", recoveryCodeState)
+                                            android.widget.Toast.makeText(context, "Recovery code copied to clipboard!", android.widget.Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ContentCopy,
+                                            contentDescription = "Copy Recovery Code",
+                                            tint = Color.White.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    androidx.compose.material3.OutlinedButton(
+                                        onClick = {
+                                            viewModel.exportRecoveryKeyFile(
+                                                onSuccess = { msg ->
+                                                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                                                },
+                                                onFailure = { err ->
+                                                    android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show()
+                                                }
+                                            )
+                                        },
+                                        modifier = Modifier.weight(1f).testTag("export_recovery_file_button"),
+                                        shape = RoundedCornerShape(12.dp),
+                                        border = BorderStroke(1.dp, ThemePurple),
+                                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                            contentColor = ThemePurple
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Save,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Save Backup File", fontSize = 11.sp)
+                                    }
+                                    
+                                    androidx.compose.material3.Button(
+                                        onClick = {
+                                            // Trigger copy
+                                            viewModel.copyToClipboard(context, "Recovery Code", recoveryCodeState)
+                                            android.widget.Toast.makeText(context, "Recovery code copied!", android.widget.Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                            containerColor = ThemePurple,
+                                            contentColor = if (ThemePurple.red > 0.95f && ThemePurple.green > 0.95f && ThemePurple.blue > 0.95f) BrandBg else Color.White
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ContentCopy,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Copy Code Only", fontSize = 11.sp)
+                                    }
+                                }
                             }
                         }
 
@@ -5663,12 +6327,7 @@ fun VaultTabUnlockedContent(
                                         viewModel.triggerKeypressEffects(context)
                                         viewModel.setLockOnBackground(enabled)
                                     },
-                                    colors = androidx.compose.material3.SwitchDefaults.colors(
-                                        checkedThumbColor = Color.White,
-                                        checkedTrackColor = if (IsWhiteTheme) Color(0xFF635BFF) else ThemePurple,
-                                        uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                                        uncheckedTrackColor = Color.White.copy(alpha = 0.12f)
-                                    )
+                                    colors = dynamicSwitchColors()
                                 )
                             }
                         }
@@ -5727,12 +6386,7 @@ fun VaultTabUnlockedContent(
                                         viewModel.triggerKeypressEffects(context)
                                         viewModel.setHideNotifications(enabled)
                                     },
-                                    colors = androidx.compose.material3.SwitchDefaults.colors(
-                                        checkedThumbColor = Color.White,
-                                        checkedTrackColor = if (IsWhiteTheme) Color(0xFF635BFF) else ThemePurple,
-                                        uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                                        uncheckedTrackColor = Color.White.copy(alpha = 0.12f)
-                                    )
+                                    colors = dynamicSwitchColors()
                                 )
                             }
                         }
@@ -5791,12 +6445,7 @@ fun VaultTabUnlockedContent(
                                         viewModel.triggerKeypressEffects(context)
                                         viewModel.setPreventScreenshots(enabled)
                                     },
-                                    colors = androidx.compose.material3.SwitchDefaults.colors(
-                                        checkedThumbColor = Color.White,
-                                        checkedTrackColor = if (IsWhiteTheme) Color(0xFF635BFF) else ThemePurple,
-                                        uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                                        uncheckedTrackColor = Color.White.copy(alpha = 0.12f)
-                                    )
+                                    colors = dynamicSwitchColors()
                                 )
                             }
                         }
@@ -5855,12 +6504,7 @@ fun VaultTabUnlockedContent(
                                         viewModel.triggerKeypressEffects(context)
                                         viewModel.setClipboardProtection(enabled)
                                     },
-                                    colors = androidx.compose.material3.SwitchDefaults.colors(
-                                        checkedThumbColor = Color.White,
-                                        checkedTrackColor = if (IsWhiteTheme) Color(0xFF635BFF) else ThemePurple,
-                                        uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                                        uncheckedTrackColor = Color.White.copy(alpha = 0.12f)
-                                    )
+                                    colors = dynamicSwitchColors()
                                 )
                             }
                         }
@@ -5919,12 +6563,7 @@ fun VaultTabUnlockedContent(
                                         viewModel.triggerKeypressEffects(context)
                                         viewModel.setStealthMode(enabled)
                                     },
-                                    colors = androidx.compose.material3.SwitchDefaults.colors(
-                                        checkedThumbColor = Color.White,
-                                        checkedTrackColor = if (IsWhiteTheme) Color(0xFF635BFF) else ThemePurple,
-                                        uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                                        uncheckedTrackColor = Color.White.copy(alpha = 0.12f)
-                                    )
+                                    colors = dynamicSwitchColors()
                                 )
                             }
                         }
@@ -6134,10 +6773,7 @@ fun VaultTabUnlockedContent(
                                         viewModel.triggerKeypressEffects(context)
                                         viewModel.setPanicEnabled(it)
                                     },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = Color.White,
-                                        checkedTrackColor = ThemePurple
-                                    )
+                                    colors = dynamicSwitchColors()
                                 )
                             }
                         }
@@ -6337,6 +6973,7 @@ fun VaultTabUnlockedContent(
                 }
                 "Password_Generator" -> {
                     PasswordGeneratorScreen(
+                        viewModel = viewModel,
                         onBack = { activeSection = "__BACK__" }
                     )
                 }
@@ -8176,7 +8813,7 @@ fun VaultTabUnlockedContent(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
                     ) {
-                        Text("Create", color = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White)
+                        Text("Create", color = if (ThemePurple.red > 0.95f && ThemePurple.green > 0.95f && ThemePurple.blue > 0.95f) BrandBg else Color.White)
                     }
                 },
                 dismissButton = {
@@ -8860,7 +9497,7 @@ fun VaultTabUnlockedContent(
                                         ) {
                                             Text(
                                                 "Save & Close",
-                                                color = if (ThemePurple == Color(0xFFFFFFFF)) BrandBg else Color.White,
+                                                color = if (ThemePurple.red > 0.95f && ThemePurple.green > 0.95f && ThemePurple.blue > 0.95f) BrandBg else Color.White,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 13.sp
                                             )
@@ -9318,10 +9955,7 @@ fun VaultTabUnlockedContent(
                                 viewModel.triggerKeypressEffects(context)
                                 viewModel.setBiometricEnabled(it)
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = if (IsWhiteTheme) Color(0xFF635BFF) else ThemePurple
-                            )
+                            colors = dynamicSwitchColors()
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
@@ -9356,10 +9990,7 @@ fun VaultTabUnlockedContent(
                                 viewModel.triggerKeypressEffects(context)
                                 viewModel.setPanicEnabled(it)
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = if (IsWhiteTheme) Color(0xFF635BFF) else ThemePurple
-                            )
+                            colors = dynamicSwitchColors()
                         )
                     }
                     if (panicEnabled) {
@@ -9676,15 +10307,6 @@ data class TabState(
 
 class ChromeContextWrapper(base: android.content.Context) : android.content.ContextWrapper(base) {
     override fun getPackageName(): String {
-        val stack = Thread.currentThread().stackTrace
-        for (element in stack) {
-            val className = element.className
-            if (className.contains("webkit", ignoreCase = true) || 
-                className.contains("WebView", ignoreCase = true) ||
-                className.contains("Chromium", ignoreCase = true)) {
-                return "com.android.chrome"
-            }
-        }
         return baseContext.packageName
     }
     override fun getApplicationContext(): android.content.Context {
@@ -10200,6 +10822,14 @@ fun clearAllBrowsingData(
         deleteCacheContents(context.codeCacheDir)
     } catch (e: Exception) {}
 }
+data class PendingDownloadData(
+    val url: String,
+    val userAgent: String,
+    val contentDisposition: String,
+    val mimeType: String,
+    val contentLength: Long
+)
+
 @Composable
 fun PrivateBrowserSection(
     modifier: Modifier = Modifier,
@@ -10234,6 +10864,7 @@ fun PrivateBrowserSection(
 
     var showSearchEngineDialog by remember { mutableStateOf(false) }
     var activePopupWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
+    var pendingDownload by remember { mutableStateOf<PendingDownloadData?>(null) }
 
     // Restore WebViews for existing tabs
     androidx.compose.runtime.LaunchedEffect(tabs.toList()) {
@@ -10246,7 +10877,7 @@ fun PrivateBrowserSection(
                     savePasswords = savePasswords,
                     isDesktopMode = tab.isDesktopMode,
                     onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-                        viewModel.startVaultDownload(context, downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                        pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
                     },
                     onCreatePopup = { activePopupWebView = it }
                 ) { transform ->
@@ -10276,7 +10907,7 @@ fun PrivateBrowserSection(
             initialUrl = url,
             savePasswords = savePasswords,
             onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-                viewModel.startVaultDownload(context, downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
             },
             onCreatePopup = { activePopupWebView = it }
         ) { transform ->
@@ -10344,6 +10975,92 @@ fun PrivateBrowserSection(
     }
 
 
+    pendingDownload?.let { download ->
+        val guessedFilename = android.webkit.URLUtil.guessFileName(download.url, download.contentDisposition, download.mimeType) ?: "file"
+        val sizeText = if (download.contentLength > 0) viewModel.formatFileSize(download.contentLength) else "Unknown Size"
+        
+        AlertDialog(
+            onDismissRequest = { pendingDownload = null },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CloudDownload,
+                        contentDescription = null,
+                        tint = ThemePurple,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text("Confirm Download", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "Do you want to download this file directly to your secure Vault?",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 14.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Text("File details:", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF141724), shape = RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Text("Name: ", fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp)
+                            Text(guessedFilename, color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        }
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Text("Size: ", fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp)
+                            Text(sizeText, color = Color.White, fontSize = 13.sp)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Text("Type: ", fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp)
+                            Text(download.mimeType, color = Color.White, fontSize = 13.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.startVaultDownload(
+                            context,
+                            download.url,
+                            download.userAgent,
+                            download.contentDisposition,
+                            download.mimeType,
+                            download.contentLength
+                        )
+                        pendingDownload = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
+                ) {
+                    Text("Download", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDownload = null }) {
+                    Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                }
+            },
+            containerColor = Color(0xFF1E2235),
+            titleContentColor = Color.White,
+            textContentColor = Color.White
+        )
+    }
+
     if (showDownloads) {
         DownloadsScreen(
             viewModel = viewModel,
@@ -10357,8 +11074,6 @@ fun PrivateBrowserSection(
             modifier = modifier
                 .fillMaxSize()
                 .background(Color(0xFF0A0C16))
-                .statusBarsPadding()
-                .navigationBarsPadding()
         ) {
             Row(
                 modifier = Modifier
@@ -10503,8 +11218,6 @@ fun PrivateBrowserSection(
             modifier = modifier
                 .fillMaxSize()
                 .background(Color(0xFF0A0C16))
-                .statusBarsPadding()
-                .navigationBarsPadding()
         ) {
             Row(
                 modifier = Modifier
@@ -10556,8 +11269,6 @@ fun PrivateBrowserSection(
             modifier = modifier
                 .fillMaxSize()
                 .background(Color(0xFF0A0C16))
-                .statusBarsPadding()
-                .navigationBarsPadding()
         ) {
             Row(
                 modifier = Modifier
@@ -10610,7 +11321,7 @@ fun PrivateBrowserSection(
         return
     }
 
-    Box(modifier = modifier.fillMaxSize().background(Color(0xFF0A0C16)).navigationBarsPadding()) {
+    Box(modifier = modifier.fillMaxSize().background(Color(0xFF0A0C16))) {
         Column(modifier = Modifier.fillMaxSize()) {
             val isHome = activeTab?.url == "home" || activeTab?.url == "about:blank" || activeTab?.url?.isEmpty() == true
             
@@ -10618,7 +11329,6 @@ fun PrivateBrowserSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF161B2B))
-                    .statusBarsPadding()
                     .padding(horizontal = 6.dp, vertical = 2.dp)
                     .drawBehind {
                         drawLine(
@@ -11292,7 +12002,6 @@ fun PrivateBrowserSection(
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.85f))
                     .clickable { showTabSwitcher = false }
-                    .navigationBarsPadding()
             ) {
                 Card(
                     modifier = Modifier
@@ -11707,6 +12416,7 @@ fun StorageCategoryItem(color: Color, label: String, sizeStr: String, count: Int
         }
     }
 }
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun UnifiedGlassCard(
     modifier: Modifier = Modifier,
@@ -11715,6 +12425,7 @@ fun UnifiedGlassCard(
     elevation: androidx.compose.ui.unit.Dp = 4.dp,
     glowAlpha: Float = 0f,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     interactionSource: androidx.compose.foundation.interaction.MutableInteractionSource = remember { MutableInteractionSource() },
     content: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit
 ) {
@@ -11782,13 +12493,14 @@ fun UnifiedGlassCard(
                 shape = shape
             )
             .then(
-                if (onClick != null) Modifier.clickable(
+                if (onClick != null || onLongClick != null) Modifier.combinedClickable(
                     interactionSource = interactionSource,
                     indication = androidx.compose.material3.ripple(
                         bounded = true,
                         color = ThemePurple.copy(alpha = 0.3f)
                     ),
-                    onClick = onClick
+                    onClick = onClick ?: {},
+                    onLongClick = onLongClick
                 ) else Modifier
             ),
         contentAlignment = Alignment.Center,
@@ -12722,13 +13434,11 @@ fun DownloadsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0A0C16))
-            .navigationBarsPadding()
     ) {
         // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
                 .padding(top = 16.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -13479,9 +14189,9 @@ fun AppDisguiseIconPreview(id: String, modifier: Modifier = Modifier) {
     val roundedShape = RoundedCornerShape(12.dp)
     val drawableIds = when (id) {
         "LauncherCalculator" -> Pair(R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground)
-        "LauncherCalcClassic" -> Pair(R.drawable.ic_launcher_background, R.drawable.ic_launcher_calc_classic_foreground)
-        "LauncherCalcRetro" -> Pair(R.drawable.ic_launcher_background, R.drawable.ic_launcher_calc_retro_foreground)
-        "LauncherCalcNeon" -> Pair(R.drawable.ic_launcher_background, R.drawable.ic_launcher_calc_neon_foreground)
+        "LauncherCalcClassic" -> Pair(R.drawable.ic_launcher_classic_background, R.drawable.ic_launcher_calc_classic_foreground)
+        "LauncherCalcRetro" -> Pair(R.drawable.ic_launcher_retro_background, R.drawable.ic_launcher_calc_retro_foreground)
+        "LauncherCalcNeon" -> Pair(R.drawable.ic_launcher_neon_background, R.drawable.ic_launcher_calc_neon_foreground)
         "LauncherNotes" -> Pair(R.drawable.ic_launcher_notes_background, R.drawable.ic_launcher_notes_foreground)
         "LauncherCompass" -> Pair(R.drawable.ic_launcher_compass_background, R.drawable.ic_launcher_compass_foreground)
         "LauncherVoice" -> Pair(R.drawable.ic_launcher_voice_background, R.drawable.ic_launcher_voice_foreground)

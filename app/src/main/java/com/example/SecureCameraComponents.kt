@@ -1089,7 +1089,7 @@ fun SecureScannerView(
                                     if (passwordVal.isNotEmpty() && passwordVal != "None") {
                                         Button(
                                             onClick = {
-                                                clipboardManager.setText(AnnotatedString(passwordVal))
+                                                viewModel.copyToClipboard(context, "WiFi Password", passwordVal)
                                                 Toast.makeText(context, "Password copied!", Toast.LENGTH_SHORT).show()
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = ThemePurple.copy(alpha = 0.15f)),
@@ -1115,7 +1115,7 @@ fun SecureScannerView(
                         ) {
                             Button(
                                 onClick = {
-                                    clipboardManager.setText(AnnotatedString(item.rawValue))
+                                    viewModel.copyToClipboard(context, "Raw Scanner Data", item.rawValue)
                                     Toast.makeText(context, "Copied raw scanner content!", Toast.LENGTH_SHORT).show()
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.08f)),
