@@ -24,12 +24,43 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import android.view.WindowManager
+import android.util.Log
 
 class MainAppActivity : FragmentActivity() {
   private var viewModel: CalculatorViewModel? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    Log.d("StartupAuthCheck", "Application starting up. Verifying Google OAuth Configuration...")
+    val oAuthClientId = com.example.BuildConfig.GOOGLE_OAUTH_CLIENT_ID
+    when {
+        oAuthClientId.isEmpty() -> {
+            Log.e("StartupAuthCheck", "GOOGLE_OAUTH_CLIENT_ID is empty!")
+        }
+        oAuthClientId == "ADD_YOUR_CLIENT_ID_HERE" -> {
+            Log.e("StartupAuthCheck", "GOOGLE_OAUTH_CLIENT_ID is set to the default placeholder: 'ADD_YOUR_CLIENT_ID_HERE'")
+        }
+        else -> {
+            val length = oAuthClientId.length
+            val isWebClient = oAuthClientId.endsWith(".apps.googleusercontent.com")
+            val firstPart = if (oAuthClientId.contains("-")) oAuthClientId.split("-").firstOrNull() ?: "" else ""
+            Log.i("StartupAuthCheck", "GOOGLE_OAUTH_CLIENT_ID is successfully loaded at runtime.")
+            Log.i("StartupAuthCheck", "Length: $length characters.")
+            Log.i("StartupAuthCheck", "Is valid Web Client ID format (.apps.googleusercontent.com suffix): $isWebClient")
+            if (firstPart.isNotEmpty()) {
+                Log.i("StartupAuthCheck", "Project Number Prefix: $firstPart")
+            }
+            // For diagnostic verification without exposing the entire secret middle part in one continuous string,
+            // we show the prefix and suffix cleanly so the user can easily verify they matching console.
+            val masked = if (oAuthClientId.length > 35) {
+                "${oAuthClientId.take(15)}...${oAuthClientId.takeLast(30)}"
+            } else {
+                oAuthClientId
+            }
+            Log.i("StartupAuthCheck", "Masked client ID: $masked")
+        }
+    }
+
     enableEdgeToEdge()
 
     try {

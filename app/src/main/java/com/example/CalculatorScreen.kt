@@ -2149,23 +2149,19 @@ fun VaultTabUnlockedContent(
     val googleDriveAuthLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            val data = result.data
-            if (data != null) {
-                viewModel.handleGoogleDriveAuthResultIntent(
-                    data = data,
-                    onSuccess = {
-                        android.widget.Toast.makeText(context, "Google Drive connected successfully!", android.widget.Toast.LENGTH_SHORT).show()
-                    },
-                    onFailure = { error ->
-                        android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
-                    }
-                )
-            } else {
-                android.widget.Toast.makeText(context, "Connection failed: No response data.", android.widget.Toast.LENGTH_LONG).show()
-            }
+        val data = result.data
+        if (data != null) {
+            viewModel.handleGoogleDriveAuthResultIntent(
+                data = data,
+                onSuccess = {
+                    android.widget.Toast.makeText(context, "Google Drive connected successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                },
+                onFailure = { error ->
+                    android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
+                }
+            )
         } else {
-            android.widget.Toast.makeText(context, "Sign in cancelled or failed.", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, "Connection failed. Result Code: ${result.resultCode}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 

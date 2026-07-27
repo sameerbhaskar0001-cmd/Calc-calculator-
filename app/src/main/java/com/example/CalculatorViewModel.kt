@@ -3,6 +3,7 @@ package com.example
 import android.app.Activity
 import android.app.PendingIntent
 import android.content.Intent
+import android.util.Log
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.common.api.Scope
@@ -210,18 +211,28 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     Scope("https://www.googleapis.com/auth/userinfo.email"),
                     Scope("https://www.googleapis.com/auth/userinfo.profile")
                 )
-                val authorizationRequest = AuthorizationRequest.builder()
+                
+                val webClientId = BuildConfig.GOOGLE_OAUTH_CLIENT_ID
+                Log.d("GoogleDriveAuth", "Initiating startGoogleDriveConnection with serverClientId: $webClientId")
+                
+                val authRequestBuilder = AuthorizationRequest.builder()
                     .setRequestedScopes(requestedScopes)
-                    .build()
-
+                
+                if (webClientId.isNotEmpty() && webClientId != "ADD_YOUR_CLIENT_ID_HERE") {
+                    authRequestBuilder.requestOfflineAccess(webClientId)
+                } else {
+                    Log.w("GoogleDriveAuth", "GOOGLE_OAUTH_CLIENT_ID is not configured in .env / BuildConfig. Using scopes only.")
+                }
+                
+                val authorizationRequest = authRequestBuilder.build()
                 val client = Identity.getAuthorizationClient(activity)
+                
                 client.authorize(authorizationRequest)
                     .addOnSuccessListener { result ->
                         if (result.hasResolution()) {
                             result.pendingIntent?.let { onLaunchIntent(it) }
                                 ?: onFailure("Failed to retrieve connection resolution intent.")
                         } else {
-                            // Already authorized, process directly
                             viewModelScope.launch {
                                 try {
                                     val token = result.accessToken
@@ -236,15 +247,34 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                                         onFailure("No access token found in response.")
                                     }
                                 } catch (e: Exception) {
+                                    val apiEx = e as? com.google.android.gms.common.api.ApiException
+                                    val statusCode = apiEx?.statusCode
+                                    val statusMessage = apiEx?.localizedMessage ?: e.message
+                                    Log.e("GoogleDriveAuth", "Direct auth success processing failed. Code: $statusCode, Message: $statusMessage")
                                     onFailure(e.localizedMessage ?: "Failed to process authorization.")
                                 }
                             }
                         }
                     }
                     .addOnFailureListener { exception ->
-                        onFailure(exception.localizedMessage ?: "Failed to initiate Google Drive connection.")
+                        val apiEx = exception as? com.google.android.gms.common.api.ApiException
+                        val statusCode = apiEx?.statusCode
+                        val statusMessage = apiEx?.localizedMessage ?: exception.message
+                        val stackTrace = android.util.Log.getStackTraceString(exception)
+                        Log.e("GoogleDriveAuth", "Failed to initiate Google Drive connection. Code: $statusCode, Message: $statusMessage\n$stackTrace")
+                        
+                        val errorDetails = if (apiEx != null) {
+                            "Google Play Services Error: Code $statusCode - $statusMessage"
+                        } else {
+                            exception.localizedMessage ?: "Failed to initiate Google Drive connection."
+                        }
+                        onFailure(errorDetails)
                     }
             } catch (e: Exception) {
+                val apiEx = e as? com.google.android.gms.common.api.ApiException
+                val statusCode = apiEx?.statusCode
+                val statusMessage = apiEx?.localizedMessage ?: e.message
+                Log.e("GoogleDriveAuth", "Exception in startGoogleDriveConnection. Code: $statusCode, Message: $statusMessage", e)
                 onFailure(e.localizedMessage ?: "Unknown error starting Google Drive connection.")
             }
         }
@@ -271,7 +301,18 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     onFailure("No access token found in response.")
                 }
             } catch (e: Exception) {
-                onFailure(e.localizedMessage ?: "Failed to parse Google Drive connection result.")
+                val apiEx = e as? com.google.android.gms.common.api.ApiException
+                val statusCode = apiEx?.statusCode
+                val statusMessage = apiEx?.localizedMessage ?: e.message
+                val stackTrace = android.util.Log.getStackTraceString(e)
+                Log.e("GoogleDriveAuth", "Failed to parse Google Drive connection result. Code: $statusCode, Message: $statusMessage\n$stackTrace")
+                
+                val errorDetails = if (apiEx != null) {
+                    "Google Play Services Error: Code $statusCode - $statusMessage"
+                } else {
+                    e.localizedMessage ?: "Failed to parse Google Drive connection result."
+                }
+                onFailure(errorDetails)
             }
         }
     }

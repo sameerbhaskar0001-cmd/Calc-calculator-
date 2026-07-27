@@ -125,9 +125,15 @@ class GoogleDriveManager(val context: Context) {
                 Scope("https://www.googleapis.com/auth/userinfo.email"),
                 Scope("https://www.googleapis.com/auth/userinfo.profile")
             )
-            val authorizationRequest = AuthorizationRequest.builder()
+            val webClientId = com.example.BuildConfig.GOOGLE_OAUTH_CLIENT_ID
+            val authRequestBuilder = AuthorizationRequest.builder()
                 .setRequestedScopes(requestedScopes)
-                .build()
+            
+            if (webClientId.isNotEmpty() && webClientId != "ADD_YOUR_CLIENT_ID_HERE") {
+                authRequestBuilder.requestOfflineAccess(webClientId)
+            }
+            
+            val authorizationRequest = authRequestBuilder.build()
 
             val result = Identity.getAuthorizationClient(context)
                 .authorize(authorizationRequest)
@@ -139,7 +145,10 @@ class GoogleDriveManager(val context: Context) {
                 return token
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to get fresh access token silently", e)
+            val apiEx = e as? com.google.android.gms.common.api.ApiException
+            val statusCode = apiEx?.statusCode
+            val statusMessage = apiEx?.localizedMessage ?: e.message
+            Log.e(TAG, "Failed to get fresh access token silently. Code: $statusCode, Message: $statusMessage", e)
         }
         return accessToken ?: throw Exception("Not connected to Google Drive")
     }
