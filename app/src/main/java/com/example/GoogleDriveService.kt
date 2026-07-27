@@ -125,13 +125,8 @@ class GoogleDriveManager(val context: Context) {
                 Scope("https://www.googleapis.com/auth/userinfo.email"),
                 Scope("https://www.googleapis.com/auth/userinfo.profile")
             )
-            val webClientId = com.example.BuildConfig.GOOGLE_OAUTH_CLIENT_ID
             val authRequestBuilder = AuthorizationRequest.builder()
                 .setRequestedScopes(requestedScopes)
-            
-            if (webClientId.isNotEmpty() && webClientId != "ADD_YOUR_CLIENT_ID_HERE") {
-                authRequestBuilder.requestOfflineAccess(webClientId)
-            }
             
             val authorizationRequest = authRequestBuilder.build()
 

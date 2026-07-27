@@ -212,17 +212,8 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     Scope("https://www.googleapis.com/auth/userinfo.profile")
                 )
                 
-                val webClientId = BuildConfig.GOOGLE_OAUTH_CLIENT_ID
-                Log.d("GoogleDriveAuth", "Initiating startGoogleDriveConnection with serverClientId: $webClientId")
-                
                 val authRequestBuilder = AuthorizationRequest.builder()
                     .setRequestedScopes(requestedScopes)
-                
-                if (webClientId.isNotEmpty() && webClientId != "ADD_YOUR_CLIENT_ID_HERE") {
-                    authRequestBuilder.requestOfflineAccess(webClientId)
-                } else {
-                    Log.w("GoogleDriveAuth", "GOOGLE_OAUTH_CLIENT_ID is not configured in .env / BuildConfig. Using scopes only.")
-                }
                 
                 val authorizationRequest = authRequestBuilder.build()
                 val client = Identity.getAuthorizationClient(activity)
