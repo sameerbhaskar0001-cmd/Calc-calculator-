@@ -2,10 +2,16 @@ package com.example
 
 import android.content.Context
 import android.util.Log
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.common.api.Scope
+import com.google.android.gms.tasks.Task
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.ResponseBody
@@ -13,29 +19,17 @@ import org.json.JSONObject
 import retrofit2.Retrofit
 import retrofit2.http.*
 import java.io.File
-import java.io.InputStream
-import java.net.URLDecoder
 import java.util.concurrent.TimeUnit
 
-interface GoogleOAuthApi {
-    @FormUrlEncoded
-    @POST("token")
-    suspend fun exchangeCode(
-        @Field("code") code: String,
-        @Field("client_id") clientId: String,
-        @Field("client_secret") clientSecret: String,
-        @Field("redirect_uri") redirectUri: String,
-        @Field("grant_type") grantType: String = "authorization_code"
-    ): ResponseBody
-
-    @FormUrlEncoded
-    @POST("token")
-    suspend fun refreshToken(
-        @Field("refresh_token") refreshToken: String,
-        @Field("client_id") clientId: String,
-        @Field("client_secret") clientSecret: String,
-        @Field("grant_type") grantType: String = "refresh_token"
-    ): ResponseBody
+// Helper extension to await standard GMS Task in coroutines
+suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { continuation ->
+    addOnCompleteListener { task ->
+        if (task.isSuccessful) {
+            continuation.resume(task.result)
+        } else {
+            continuation.resumeWithException(task.exception ?: RuntimeException("Task failed"))
+        }
+    }
 }
 
 interface GoogleDriveApi {
@@ -73,39 +67,13 @@ interface GoogleDriveApi {
     ): ResponseBody
 }
 
-class GoogleDriveManager(private val context: Context) {
+class GoogleDriveManager(val context: Context) {
     private val TAG = "GoogleDriveManager"
     private val prefs = context.getSharedPreferences("google_drive_prefs", Context.MODE_PRIVATE)
-
-    // Default Client Credentials for general convenience.
-    // Users can also customize these inside the advanced settings menu.
-    var customClientId: String?
-        get() = prefs.getString("custom_client_id", null)
-        set(value) = prefs.edit().putString("custom_client_id", value).apply()
-
-    var customClientSecret: String?
-        get() = prefs.getString("custom_client_secret", null)
-        set(value) = prefs.edit().putString("custom_client_secret", value).apply()
-
-    val clientId: String
-        get() {
-            val custom = prefs.getString("custom_client_id", null)
-            return if (!custom.isNullOrBlank() && custom != "ADD_YOUR_CLIENT_ID_HERE") custom else BuildConfig.GOOGLE_OAUTH_CLIENT_ID
-        }
-        
-    val clientSecret: String
-        get() {
-            val custom = prefs.getString("custom_client_secret", null)
-            return if (!custom.isNullOrBlank() && custom != "ADD_YOUR_CLIENT_SECRET_HERE") custom else BuildConfig.GOOGLE_OAUTH_CLIENT_SECRET
-        }
 
     var accessToken: String?
         get() = prefs.getString("access_token", null)
         set(value) = prefs.edit().putString("access_token", value).apply()
-
-    var refreshToken: String?
-        get() = prefs.getString("refresh_token", null)
-        set(value) = prefs.edit().putString("refresh_token", value).apply()
 
     var userEmail: String?
         get() = prefs.getString("user_email", null)
@@ -116,18 +84,12 @@ class GoogleDriveManager(private val context: Context) {
         set(value) = prefs.edit().putString("user_name", value).apply()
 
     val isConnected: Boolean
-        get() = accessToken != null || refreshToken != null
+        get() = accessToken != null
 
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
-
-    private val oauthApi = Retrofit.Builder()
-        .baseUrl("https://oauth2.googleapis.com/")
-        .client(okHttpClient)
-        .build()
-        .create(GoogleOAuthApi::class.java)
 
     private val driveApi = Retrofit.Builder()
         .baseUrl("https://www.googleapis.com/drive/v3/")
@@ -135,66 +97,12 @@ class GoogleDriveManager(private val context: Context) {
         .build()
         .create(GoogleDriveApi::class.java)
 
-    fun getAuthUrl(): String {
-        val redirectUri = "http://localhost/callback"
-        val scope = "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
-        return "https://accounts.google.com/o/oauth2/v2/auth" +
-                "?client_id=$clientId" +
-                "&redirect_uri=$redirectUri" +
-                "&response_type=code" +
-                "&scope=${java.net.URLEncoder.encode(scope, "UTF-8")}" +
-                "&access_type=offline" +
-                "&prompt=consent"
+    suspend fun updateUserInfoAfterAuth(token: String) {
+        accessToken = token
+        fetchUserInfo()
     }
 
-    suspend fun handleAuthCode(code: String): Pair<Boolean, String> {
-        try {
-            val redirectUri = "http://localhost/callback"
-            val response = oauthApi.exchangeCode(code, clientId, clientSecret, redirectUri)
-            val responseString = response.string()
-            val json = JSONObject(responseString)
-            
-            if (json.has("error")) {
-                val errorMsg = json.optString("error_description", json.optString("error"))
-                Log.e(TAG, "OAuth exchange error: $errorMsg")
-                return Pair(false, "OAuth Error: $errorMsg")
-            }
-            
-            val access = json.optString("access_token")
-            val refresh = json.optString("refresh_token")
-            
-            if (access.isNotEmpty()) {
-                accessToken = access
-                if (refresh.isNotEmpty()) {
-                    refreshToken = refresh
-                }
-                fetchUserInfo()
-                return Pair(true, "")
-            }
-            return Pair(false, "No access token received.")
-        } catch (e: Exception) {
-            Log.e(TAG, "OAuth exchange failed", e)
-            return Pair(false, e.localizedMessage ?: "Unknown network error")
-        }
-    }
-
-    suspend fun refreshAccessToken(): Boolean {
-        val refresh = refreshToken ?: return false
-        try {
-            val response = oauthApi.refreshToken(refresh, clientId, clientSecret)
-            val json = JSONObject(response.string())
-            val access = json.optString("access_token")
-            if (access.isNotEmpty()) {
-                accessToken = access
-                return true
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Access token refresh failed", e)
-        }
-        return false
-    }
-
-    private suspend fun fetchUserInfo() {
+    suspend fun fetchUserInfo() {
         val token = accessToken ?: return
         try {
             val response = driveApi.getUserInfo("Bearer $token")
@@ -210,19 +118,35 @@ class GoogleDriveManager(private val context: Context) {
         prefs.edit().clear().apply()
     }
 
-    private suspend fun <T> runWithRetry(block: suspend (String) -> T): T {
-        var token = accessToken ?: throw Exception("Not connected to Google Drive")
+    suspend fun getFreshAccessToken(): String {
         try {
-            return block("Bearer $token")
-        } catch (e: Exception) {
-            Log.d(TAG, "API call failed, attempting token refresh", e)
-            if (refreshAccessToken()) {
-                token = accessToken ?: throw Exception("Not connected to Google Drive")
-                return block("Bearer $token")
-            } else {
-                throw e
+            val requestedScopes = listOf(
+                Scope("https://www.googleapis.com/auth/drive.file"),
+                Scope("https://www.googleapis.com/auth/userinfo.email"),
+                Scope("https://www.googleapis.com/auth/userinfo.profile")
+            )
+            val authorizationRequest = AuthorizationRequest.builder()
+                .setRequestedScopes(requestedScopes)
+                .build()
+
+            val result = Identity.getAuthorizationClient(context)
+                .authorize(authorizationRequest)
+                .await()
+
+            val token = result.accessToken
+            if (!token.isNullOrEmpty()) {
+                accessToken = token
+                return token
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get fresh access token silently", e)
         }
+        return accessToken ?: throw Exception("Not connected to Google Drive")
+    }
+
+    private suspend fun <T> runWithRetry(block: suspend (String) -> T): T {
+        val token = getFreshAccessToken()
+        return block("Bearer $token")
     }
 
     suspend fun uploadBackup(backupFile: File): Boolean {

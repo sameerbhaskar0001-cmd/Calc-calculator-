@@ -2140,13 +2140,34 @@ fun VaultTabUnlockedContent(
     val googleDriveEmail by viewModel.googleDriveEmail.collectAsStateWithLifecycle()
     val googleDriveName by viewModel.googleDriveName.collectAsStateWithLifecycle()
     val cloudBackupInfo by viewModel.cloudBackupInfo.collectAsStateWithLifecycle()
-    var showGoogleLoginDialog by remember { mutableStateOf(false) }
-    var showCredentialsDialog by remember { mutableStateOf(false) }
 
     // --- Modern Backup & Restore State & Launchers ---
     var isBackupRestoreProcessing by remember { androidx.compose.runtime.mutableStateOf(false) }
     val backupRestoreScope = androidx.compose.runtime.rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    val googleDriveAuthLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val data = result.data
+            if (data != null) {
+                viewModel.handleGoogleDriveAuthResultIntent(
+                    data = data,
+                    onSuccess = {
+                        android.widget.Toast.makeText(context, "Google Drive connected successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    onFailure = { error ->
+                        android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
+                    }
+                )
+            } else {
+                android.widget.Toast.makeText(context, "Connection failed: No response data.", android.widget.Toast.LENGTH_LONG).show()
+            }
+        } else {
+            android.widget.Toast.makeText(context, "Sign in cancelled or failed.", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val exportBackupLauncher = rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/zip")
@@ -4962,37 +4983,31 @@ fun VaultTabUnlockedContent(
                                         Text("Disconnect Account", color = Color.Red.copy(alpha = 0.8f), fontSize = 14.sp)
                                     }
 
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    TextButton(
-                                        onClick = { showCredentialsDialog = true }
-                                    ) {
-                                        Text("OAuth API Credentials Settings", color = ThemePurple, fontSize = 13.sp)
-                                    }
-
                                 } else {
                                     // Not Connected State
                                     Button(
-                                        onClick = { showGoogleLoginDialog = true },
+                                        onClick = {
+                                            viewModel.startGoogleDriveConnection(
+                                                activity = context as android.app.Activity,
+                                                onLaunchIntent = { pendingIntent ->
+                                                    googleDriveAuthLauncher.launch(
+                                                        androidx.activity.result.IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                                                    )
+                                                },
+                                                onSuccess = {
+                                                    android.widget.Toast.makeText(context, "Google Drive connected successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                                                },
+                                                onFailure = { error ->
+                                                    android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
+                                                }
+                                            )
+                                        },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
                                         shape = RoundedCornerShape(12.dp),
                                         modifier = Modifier.fillMaxWidth(0.9f).height(52.dp).testTag("gdrive_connect_button")
                                     ) {
                                         Icon(Icons.Default.CloudQueue, contentDescription = null, tint = Color.White, modifier = Modifier.padding(end = 8.dp))
                                         Text("Connect Google Drive", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                    }
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    OutlinedButton(
-                                        onClick = { showCredentialsDialog = true },
-                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                                        modifier = Modifier.fillMaxWidth(0.9f).height(44.dp).testTag("gdrive_credentials_button")
-                                    ) {
-                                        Icon(Icons.Default.Settings, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.padding(end = 8.dp))
-                                        Text("OAuth API Credentials Settings", color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp)
                                     }
 
                                     Spacer(modifier = Modifier.height(24.dp))
@@ -5172,232 +5187,6 @@ fun VaultTabUnlockedContent(
                                             )
                                         }
                                     }
-                                }
-                            }
-                        }
-                    }
-
-                    // --- Google OAuth Credentials Dialog ---
-                    if (showCredentialsDialog) {
-                        var tempClientId by remember { mutableStateOf(viewModel.googleDriveManager.customClientId ?: "") }
-                        var tempClientSecret by remember { mutableStateOf(viewModel.googleDriveManager.customClientSecret ?: "") }
-                        
-                        androidx.compose.ui.window.Dialog(
-                            onDismissRequest = { showCredentialsDialog = false }
-                        ) {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2235)),
-                                shape = RoundedCornerShape(16.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp)
-                                    .testTag("gdrive_credentials_dialog")
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(20.dp),
-                                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "OAuth API Credentials",
-                                            color = Color.White,
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        IconButton(onClick = { showCredentialsDialog = false }) {
-                                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-                                        }
-                                    }
-                                    
-                                    Text(
-                                        text = "In your compiled test APKs, Google Drive backup requires your own OAuth 2.0 Credentials with your key's SHA-1 signature registered in Google Cloud Console.",
-                                        color = TextMedium,
-                                        fontSize = 12.sp,
-                                        lineHeight = 16.sp
-                                    )
-
-                                    // Client ID Field
-                                    OutlinedTextField(
-                                        value = tempClientId,
-                                        onValueChange = { tempClientId = it },
-                                        label = { Text("Google Client ID", color = TextMedium) },
-                                        placeholder = { Text(viewModel.googleDriveManager.clientId, color = TextMedium.copy(alpha = 0.5f)) },
-                                        singleLine = false,
-                                        maxLines = 4,
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White,
-                                            focusedBorderColor = ThemePurple,
-                                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
-                                        ),
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-
-                                    // Client Secret Field
-                                    OutlinedTextField(
-                                        value = tempClientSecret,
-                                        onValueChange = { tempClientSecret = it },
-                                        label = { Text("Google Client Secret", color = TextMedium) },
-                                        placeholder = { Text(viewModel.googleDriveManager.clientSecret, color = TextMedium.copy(alpha = 0.5f)) },
-                                        singleLine = true,
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White,
-                                            focusedBorderColor = ThemePurple,
-                                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
-                                        ),
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        // Reset/Clear button
-                                        OutlinedButton(
-                                            onClick = {
-                                                viewModel.googleDriveManager.customClientId = null
-                                                viewModel.googleDriveManager.customClientSecret = null
-                                                tempClientId = ""
-                                                tempClientSecret = ""
-                                                android.widget.Toast.makeText(context, "Reset to default app credentials", android.widget.Toast.LENGTH_SHORT).show()
-                                            },
-                                            border = BorderStroke(1.dp, Color.Red.copy(alpha = 0.4f)),
-                                            shape = RoundedCornerShape(8.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Text("Reset", fontSize = 13.sp)
-                                        }
-
-                                        // Save Button
-                                        Button(
-                                            onClick = {
-                                                viewModel.googleDriveManager.customClientId = tempClientId.trim().takeIf { it.isNotEmpty() }
-                                                viewModel.googleDriveManager.customClientSecret = tempClientSecret.trim().takeIf { it.isNotEmpty() }
-                                                showCredentialsDialog = false
-                                                android.widget.Toast.makeText(context, "Credentials saved!", android.widget.Toast.LENGTH_SHORT).show()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
-                                            shape = RoundedCornerShape(8.dp),
-                                            modifier = Modifier.weight(1.2f)
-                                        ) {
-                                            Text("Save API Keys", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // --- Google OAuth Login WebView Dialog ---
-
-                    if (showGoogleLoginDialog) {
-                        androidx.compose.ui.window.Dialog(
-                            onDismissRequest = { showGoogleLoginDialog = false },
-                            properties = androidx.compose.ui.window.DialogProperties(
-                                usePlatformDefaultWidth = false
-                            )
-                        ) {
-                            Surface(
-                                modifier = Modifier.fillMaxSize(),
-                                color = Color.Black
-                            ) {
-                                Column(modifier = Modifier.fillMaxSize()) {
-                                    // Header
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(56.dp)
-                                            .background(Color(0xFF1E2235))
-                                            .padding(horizontal = 16.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            IconButton(onClick = { showGoogleLoginDialog = false }) {
-                                                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-                                            }
-                                            Text(
-                                                text = "Google Drive Connection",
-                                                color = Color.White,
-                                                fontSize = 16.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(start = 12.dp)
-                                            )
-                                        }
-                                    }
-
-                                    // WebView block
-                                    androidx.compose.ui.viewinterop.AndroidView(
-                                        factory = { ctx ->
-                                            android.webkit.WebView(ctx).apply {
-                                                settings.javaScriptEnabled = true
-                                                settings.domStorageEnabled = true
-                                                settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-                                                webViewClient = object : android.webkit.WebViewClient() {
-                                                    override fun shouldOverrideUrlLoading(
-                                                        view: android.webkit.WebView?,
-                                                        request: android.webkit.WebResourceRequest?
-                                                    ): Boolean {
-                                                        val url = request?.url?.toString() ?: return false
-                                                        if (url.startsWith("http://localhost/callback")) {
-                                                            val uri = android.net.Uri.parse(url)
-                                                            val code = uri.getQueryParameter("code")
-                                                            if (code != null) {
-                                                                viewModel.handleGoogleDriveAuthCode(
-                                                                    code = code,
-                                                                    onSuccess = {
-                                                                        showGoogleLoginDialog = false
-                                                                        android.widget.Toast.makeText(ctx, "Google Drive connected successfully!", android.widget.Toast.LENGTH_SHORT).show()
-                                                                    },
-                                                                    onFailure = { error ->
-                                                                        showGoogleLoginDialog = false
-                                                                        android.widget.Toast.makeText(ctx, error, android.widget.Toast.LENGTH_LONG).show()
-                                                                    }
-                                                                )
-                                                                return true
-                                                            }
-                                                        }
-                                                        return false
-                                                    }
-
-                                                    override fun onPageStarted(
-                                                        view: android.webkit.WebView?,
-                                                        url: String?,
-                                                        favicon: android.graphics.Bitmap?
-                                                    ) {
-                                                        super.onPageStarted(view, url, favicon)
-                                                        if (url != null && url.startsWith("http://localhost/callback")) {
-                                                            val uri = android.net.Uri.parse(url)
-                                                            val code = uri.getQueryParameter("code")
-                                                            if (code != null) {
-                                                                viewModel.handleGoogleDriveAuthCode(
-                                                                    code = code,
-                                                                    onSuccess = {
-                                                                        showGoogleLoginDialog = false
-                                                                        android.widget.Toast.makeText(ctx, "Google Drive connected successfully!", android.widget.Toast.LENGTH_SHORT).show()
-                                                                    },
-                                                                    onFailure = { error ->
-                                                                        showGoogleLoginDialog = false
-                                                                        android.widget.Toast.makeText(ctx, error, android.widget.Toast.LENGTH_LONG).show()
-                                                                    }
-                                                                )
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                                loadUrl(viewModel.googleDriveManager.getAuthUrl())
-                                            }
-                                        },
-                                        modifier = Modifier.weight(1f)
-                                    )
                                 }
                             }
                         }

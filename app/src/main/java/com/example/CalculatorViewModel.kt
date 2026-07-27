@@ -1,5 +1,11 @@
 package com.example
 
+import android.app.Activity
+import android.app.PendingIntent
+import android.content.Intent
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.common.api.Scope
 import android.app.Application
 import android.content.ComponentName
 import android.content.Context
@@ -191,21 +197,81 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    private var isAuthenticating = false
-    fun handleGoogleDriveAuthCode(code: String, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
-        if (isAuthenticating) return
-        isAuthenticating = true
+    fun startGoogleDriveConnection(
+        activity: Activity,
+        onLaunchIntent: (PendingIntent) -> Unit,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
         viewModelScope.launch {
-            val (success, errorMsg) = googleDriveManager.handleAuthCode(code)
-            isAuthenticating = false
-            if (success) {
-                _googleDriveEmail.value = googleDriveManager.userEmail
-                _googleDriveName.value = googleDriveManager.userName
-                _googleDriveConnected.value = true
-                fetchCloudBackupInfo()
-                onSuccess()
-            } else {
-                onFailure(errorMsg.takeIf { it.isNotEmpty() } ?: "Failed to authenticate with Google Drive.")
+            try {
+                val requestedScopes = listOf(
+                    Scope("https://www.googleapis.com/auth/drive.file"),
+                    Scope("https://www.googleapis.com/auth/userinfo.email"),
+                    Scope("https://www.googleapis.com/auth/userinfo.profile")
+                )
+                val authorizationRequest = AuthorizationRequest.builder()
+                    .setRequestedScopes(requestedScopes)
+                    .build()
+
+                val client = Identity.getAuthorizationClient(activity)
+                client.authorize(authorizationRequest)
+                    .addOnSuccessListener { result ->
+                        if (result.hasResolution()) {
+                            result.pendingIntent?.let { onLaunchIntent(it) }
+                                ?: onFailure("Failed to retrieve connection resolution intent.")
+                        } else {
+                            // Already authorized, process directly
+                            viewModelScope.launch {
+                                try {
+                                    val token = result.accessToken
+                                    if (!token.isNullOrEmpty()) {
+                                        googleDriveManager.updateUserInfoAfterAuth(token)
+                                        _googleDriveEmail.value = googleDriveManager.userEmail
+                                        _googleDriveName.value = googleDriveManager.userName
+                                        _googleDriveConnected.value = true
+                                        fetchCloudBackupInfo()
+                                        onSuccess()
+                                    } else {
+                                        onFailure("No access token found in response.")
+                                    }
+                                } catch (e: Exception) {
+                                    onFailure(e.localizedMessage ?: "Failed to process authorization.")
+                                }
+                            }
+                        }
+                    }
+                    .addOnFailureListener { exception ->
+                        onFailure(exception.localizedMessage ?: "Failed to initiate Google Drive connection.")
+                    }
+            } catch (e: Exception) {
+                onFailure(e.localizedMessage ?: "Unknown error starting Google Drive connection.")
+            }
+        }
+    }
+
+    fun handleGoogleDriveAuthResultIntent(
+        data: Intent,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val client = Identity.getAuthorizationClient(googleDriveManager.context)
+                val result = client.getAuthorizationResultFromIntent(data)
+                val token = result.accessToken
+                if (!token.isNullOrEmpty()) {
+                    googleDriveManager.updateUserInfoAfterAuth(token)
+                    _googleDriveEmail.value = googleDriveManager.userEmail
+                    _googleDriveName.value = googleDriveManager.userName
+                    _googleDriveConnected.value = true
+                    fetchCloudBackupInfo()
+                    onSuccess()
+                } else {
+                    onFailure("No access token found in response.")
+                }
+            } catch (e: Exception) {
+                onFailure(e.localizedMessage ?: "Failed to parse Google Drive connection result.")
             }
         }
     }
