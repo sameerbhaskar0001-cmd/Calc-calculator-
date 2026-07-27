@@ -3040,40 +3040,19 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun setActiveAppIcon(context: android.content.Context, iconId: String) {
-        prefs.edit().putString("active_app_icon", iconId).apply()
-        _activeAppIcon.value = iconId
+        prefs.edit().putString("active_app_icon", "LauncherCalculator").apply()
+        _activeAppIcon.value = "LauncherCalculator"
 
         try {
             val packageManager = context.packageManager
             val packageName = context.packageName
 
-            val componentMapping = mapOf(
-                "LauncherCalculator" to "com.example.LauncherDefault",
-                "LauncherCalcClassic" to "com.example.LauncherCalcClassic",
-                "LauncherCalcRetro" to "com.example.LauncherCalcRetro",
-                "LauncherCalcNeon" to "com.example.LauncherCalcNeon",
-                "LauncherNotes" to "com.example.LauncherNotes",
-                "LauncherCompass" to "com.example.LauncherCompass",
-                "LauncherVoice" to "com.example.LauncherVoice",
-                "LauncherSudoku" to "com.example.LauncherSudoku",
-                "LauncherWeather" to "com.example.LauncherWeather"
+            val componentName = android.content.ComponentName(packageName, "com.example.LauncherDefault")
+            packageManager.setComponentEnabledSetting(
+                componentName,
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                android.content.pm.PackageManager.DONT_KILL_APP
             )
-
-            val activeComponentClass = componentMapping[iconId] ?: "com.example.LauncherDefault"
-
-            componentMapping.values.forEach { componentClass ->
-                val state = if (componentClass == activeComponentClass) {
-                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                } else {
-                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                }
-                val componentName = android.content.ComponentName(packageName, componentClass)
-                packageManager.setComponentEnabledSetting(
-                    componentName,
-                    state,
-                    android.content.pm.PackageManager.DONT_KILL_APP
-                )
-            }
         } catch (e: Exception) {
             e.printStackTrace()
         }

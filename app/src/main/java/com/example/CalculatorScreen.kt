@@ -4645,15 +4645,7 @@ fun VaultTabUnlockedContent(
 
                         // List of available disguise options
                         val disguiseList = listOf(
-                            Triple("LauncherCalculator", "Calculator", "Default dynamic vault launcher"),
-                            Triple("LauncherCalcClassic", "Classic Calc", "Standard slate-gray calculator"),
-                            Triple("LauncherCalcRetro", "Retro Calc", "Vintage mechanical style"),
-                            Triple("LauncherCalcNeon", "Neon Calc", "Bright neon calculator highlights"),
-                            Triple("LauncherNotes", "Notes", "Camouflage note editor look"),
-                            Triple("LauncherCompass", "Compass", "Stealth orientation utility theme"),
-                            Triple("LauncherVoice", "Recorder", "Disguised sound logger overlay"),
-                            Triple("LauncherSudoku", "Sudoku", "Classic puzzle game camo theme"),
-                            Triple("LauncherWeather", "Weather", "Disguised dynamic weather report")
+                            Triple("LauncherCalculator", "Calculator", "Premium luxury vault launcher")
                         )
 
                         Text(
@@ -14304,14 +14296,6 @@ fun AppDisguiseIconPreview(id: String, modifier: Modifier = Modifier) {
     val roundedShape = RoundedCornerShape(12.dp)
     val drawableIds = when (id) {
         "LauncherCalculator" -> Pair(R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground)
-        "LauncherCalcClassic" -> Pair(R.drawable.ic_launcher_classic_background, R.drawable.ic_launcher_calc_classic_foreground)
-        "LauncherCalcRetro" -> Pair(R.drawable.ic_launcher_retro_background, R.drawable.ic_launcher_calc_retro_foreground)
-        "LauncherCalcNeon" -> Pair(R.drawable.ic_launcher_neon_background, R.drawable.ic_launcher_calc_neon_foreground)
-        "LauncherNotes" -> Pair(R.drawable.ic_launcher_notes_background, R.drawable.ic_launcher_notes_foreground)
-        "LauncherCompass" -> Pair(R.drawable.ic_launcher_compass_background, R.drawable.ic_launcher_compass_foreground)
-        "LauncherVoice" -> Pair(R.drawable.ic_launcher_voice_background, R.drawable.ic_launcher_voice_foreground)
-        "LauncherSudoku" -> Pair(R.drawable.ic_launcher_sudoku_background, R.drawable.ic_launcher_sudoku_foreground)
-        "LauncherWeather" -> Pair(R.drawable.ic_launcher_weather_background, R.drawable.ic_launcher_weather_foreground)
         else -> Pair(R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground)
     }
 
