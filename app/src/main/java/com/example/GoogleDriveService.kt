@@ -79,11 +79,25 @@ class GoogleDriveManager(private val context: Context) {
 
     // Default Client Credentials for general convenience.
     // Users can also customize these inside the advanced settings menu.
+    var customClientId: String?
+        get() = prefs.getString("custom_client_id", null)
+        set(value) = prefs.edit().putString("custom_client_id", value).apply()
+
+    var customClientSecret: String?
+        get() = prefs.getString("custom_client_secret", null)
+        set(value) = prefs.edit().putString("custom_client_secret", value).apply()
+
     val clientId: String
-        get() = BuildConfig.GOOGLE_OAUTH_CLIENT_ID
+        get() {
+            val custom = prefs.getString("custom_client_id", null)
+            return if (!custom.isNullOrBlank() && custom != "ADD_YOUR_CLIENT_ID_HERE") custom else BuildConfig.GOOGLE_OAUTH_CLIENT_ID
+        }
         
     val clientSecret: String
-        get() = BuildConfig.GOOGLE_OAUTH_CLIENT_SECRET
+        get() {
+            val custom = prefs.getString("custom_client_secret", null)
+            return if (!custom.isNullOrBlank() && custom != "ADD_YOUR_CLIENT_SECRET_HERE") custom else BuildConfig.GOOGLE_OAUTH_CLIENT_SECRET
+        }
 
     var accessToken: String?
         get() = prefs.getString("access_token", null)

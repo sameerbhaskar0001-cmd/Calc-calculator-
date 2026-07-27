@@ -2141,6 +2141,7 @@ fun VaultTabUnlockedContent(
     val googleDriveName by viewModel.googleDriveName.collectAsStateWithLifecycle()
     val cloudBackupInfo by viewModel.cloudBackupInfo.collectAsStateWithLifecycle()
     var showGoogleLoginDialog by remember { mutableStateOf(false) }
+    var showCredentialsDialog by remember { mutableStateOf(false) }
 
     // --- Modern Backup & Restore State & Launchers ---
     var isBackupRestoreProcessing by remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -4969,6 +4970,14 @@ fun VaultTabUnlockedContent(
                                         Text("Disconnect Account", color = Color.Red.copy(alpha = 0.8f), fontSize = 14.sp)
                                     }
 
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    TextButton(
+                                        onClick = { showCredentialsDialog = true }
+                                    ) {
+                                        Text("OAuth API Credentials Settings", color = ThemePurple, fontSize = 13.sp)
+                                    }
+
                                 } else {
                                     // Not Connected State
                                     Button(
@@ -4979,6 +4988,19 @@ fun VaultTabUnlockedContent(
                                     ) {
                                         Icon(Icons.Default.CloudQueue, contentDescription = null, tint = Color.White, modifier = Modifier.padding(end = 8.dp))
                                         Text("Connect Google Drive", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    OutlinedButton(
+                                        onClick = { showCredentialsDialog = true },
+                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                                        modifier = Modifier.fillMaxWidth(0.9f).height(44.dp).testTag("gdrive_credentials_button")
+                                    ) {
+                                        Icon(Icons.Default.Settings, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.padding(end = 8.dp))
+                                        Text("OAuth API Credentials Settings", color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp)
                                     }
 
                                     Spacer(modifier = Modifier.height(24.dp))
@@ -5156,6 +5178,125 @@ fun VaultTabUnlockedContent(
                                                 fontSize = 12.sp,
                                                 lineHeight = 18.sp
                                             )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // --- Google OAuth Credentials Dialog ---
+                    if (showCredentialsDialog) {
+                        var tempClientId by remember { mutableStateOf(viewModel.googleDriveManager.customClientId ?: "") }
+                        var tempClientSecret by remember { mutableStateOf(viewModel.googleDriveManager.customClientSecret ?: "") }
+                        
+                        androidx.compose.ui.window.Dialog(
+                            onDismissRequest = { showCredentialsDialog = false }
+                        ) {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2235)),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                                    .testTag("gdrive_credentials_dialog")
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "OAuth API Credentials",
+                                            color = Color.White,
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        IconButton(onClick = { showCredentialsDialog = false }) {
+                                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                                        }
+                                    }
+                                    
+                                    Text(
+                                        text = "In your compiled test APKs, Google Drive backup requires your own OAuth 2.0 Credentials with your key's SHA-1 signature registered in Google Cloud Console.",
+                                        color = TextMedium,
+                                        fontSize = 12.sp,
+                                        lineHeight = 16.sp
+                                    )
+
+                                    // Client ID Field
+                                    OutlinedTextField(
+                                        value = tempClientId,
+                                        onValueChange = { tempClientId = it },
+                                        label = { Text("Google Client ID", color = TextMedium) },
+                                        placeholder = { Text(viewModel.googleDriveManager.clientId, color = TextMedium.copy(alpha = 0.5f)) },
+                                        singleLine = false,
+                                        maxLines = 4,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White,
+                                            focusedBorderColor = ThemePurple,
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    // Client Secret Field
+                                    OutlinedTextField(
+                                        value = tempClientSecret,
+                                        onValueChange = { tempClientSecret = it },
+                                        label = { Text("Google Client Secret", color = TextMedium) },
+                                        placeholder = { Text(viewModel.googleDriveManager.clientSecret, color = TextMedium.copy(alpha = 0.5f)) },
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White,
+                                            focusedBorderColor = ThemePurple,
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        // Reset/Clear button
+                                        OutlinedButton(
+                                            onClick = {
+                                                viewModel.googleDriveManager.customClientId = null
+                                                viewModel.googleDriveManager.customClientSecret = null
+                                                tempClientId = ""
+                                                tempClientSecret = ""
+                                                android.widget.Toast.makeText(context, "Reset to default app credentials", android.widget.Toast.LENGTH_SHORT).show()
+                                            },
+                                            border = BorderStroke(1.dp, Color.Red.copy(alpha = 0.4f)),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text("Reset", fontSize = 13.sp)
+                                        }
+
+                                        // Save Button
+                                        Button(
+                                            onClick = {
+                                                viewModel.googleDriveManager.customClientId = tempClientId.trim().takeIf { it.isNotEmpty() }
+                                                viewModel.googleDriveManager.customClientSecret = tempClientSecret.trim().takeIf { it.isNotEmpty() }
+                                                showCredentialsDialog = false
+                                                android.widget.Toast.makeText(context, "Credentials saved!", android.widget.Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.weight(1.2f)
+                                        ) {
+                                            Text("Save API Keys", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
