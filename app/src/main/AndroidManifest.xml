@@ -24,7 +24,8 @@
         <activity
             android:name=".MainAppActivity"
             android:exported="true"
-            android:theme="@style/Theme.MyApplication" />
+            android:theme="@style/Theme.MyApplication"
+            android:configChanges="orientation|screenSize|keyboard|keyboardHidden|screenLayout|smallestScreenSize|uiMode|density|layoutDirection|locale" />
 
         <!-- 1. Default Calculator Alias -->
         <activity-alias

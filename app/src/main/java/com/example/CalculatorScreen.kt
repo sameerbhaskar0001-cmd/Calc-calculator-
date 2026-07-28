@@ -2504,6 +2504,7 @@ fun VaultTabUnlockedContent(
             activeSection = "Home"
         }
         var selectedFileForDetails by remember { mutableStateOf<String?>(null) }
+        var secureShareFileSerialized by remember { mutableStateOf<String?>(null) }
         var activeDocumentToView by remember { mutableStateOf<String?>(null) }
         var textFileContentToRead by remember { mutableStateOf<Pair<String, String>?>(null) } // Pair(Name, Content)
         var selectedMediaFolder by remember { mutableStateOf("All") }
@@ -2551,6 +2552,7 @@ fun VaultTabUnlockedContent(
                 }
                 activeDocumentToView != null -> activeDocumentToView = null
                 selectedFileForDetails != null -> selectedFileForDetails = null
+                secureShareFileSerialized != null -> secureShareFileSerialized = null
                 textFileContentToRead != null -> textFileContentToRead = null
                 activeSection != "Home" -> activeSection = "__BACK__"
                 else -> {
@@ -3527,18 +3529,10 @@ fun VaultTabUnlockedContent(
                             }
                         },
                         onItemClick = { item, index, allFiltered -> 
-                            val isMedia = item.type in listOf("image", "video") || item.rawString.lowercase().endsWith(".jpg") || item.rawString.lowercase().endsWith(".png") || item.rawString.lowercase().endsWith(".mp4") || item.rawString.lowercase().endsWith(".jpeg") || item.rawString.lowercase().endsWith(".webp")
-                            if (isMedia) {
-                                activeViewerFiles = allFiltered.map { it.rawString }
-                                activeViewerIndex = index
-                            } else if (item.type == "note") {
+                            if (item.type == "note") {
                                 viewNoteToShow = item.rawString
-                            } else if (item.type == "document") {
-                                viewModel.recordOpenedItem(item.id, "file", item.title, item.rawString)
-                                activeDocumentToView = item.rawString
                             } else {
-                                viewModel.recordOpenedItem(item.id, "file", item.title, item.rawString)
-                                selectedFileForDetails = item.rawString
+                                secureShareFileSerialized = item.rawString
                             }
                         },
                         onCreateFolder = { viewModel.addFolder(it) },
@@ -5837,6 +5831,7 @@ fun VaultTabUnlockedContent(
                     val hideNotifications by viewModel.hideNotifications.collectAsStateWithLifecycle()
                     val clipboardProtection by viewModel.clipboardProtection.collectAsStateWithLifecycle()
                     val stealthMode by viewModel.stealthMode.collectAsStateWithLifecycle()
+                    val secureShareBranding by viewModel.secureShareBranding.collectAsStateWithLifecycle()
                     
                     val autoLockDurationVal by viewModel.autoLockDuration.collectAsStateWithLifecycle()
                     val preventScreenshotsVal by viewModel.preventScreenshots.collectAsStateWithLifecycle()
@@ -6274,6 +6269,65 @@ fun VaultTabUnlockedContent(
                                     onCheckedChange = { enabled ->
                                         viewModel.triggerKeypressEffects(context)
                                         viewModel.setStealthMode(enabled)
+                                    },
+                                    colors = dynamicSwitchColors()
+                                )
+                            }
+                        }
+
+                        // 7. Secure Share Branding
+                        UnifiedGlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            bgColor = Color(0xFF1B2031).copy(alpha = 0.95f),
+                            elevation = 2.dp
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color(0xFF3B82F6).copy(alpha = 0.12f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Security,
+                                            contentDescription = "Secure Share Branding",
+                                            tint = Color(0xFF3B82F6),
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "Secure Share Branding",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = "Add a subtle Secret Vault watermark when sharing supported images.",
+                                            fontSize = 11.sp,
+                                            color = Color.White.copy(alpha = 0.5f),
+                                            lineHeight = 14.sp
+                                        )
+                                    }
+                                }
+                                androidx.compose.material3.Switch(
+                                    checked = secureShareBranding,
+                                    onCheckedChange = { enabled ->
+                                        viewModel.triggerKeypressEffects(context)
+                                        viewModel.setSecureShareBranding(enabled)
                                     },
                                     colors = dynamicSwitchColors()
                                 )
@@ -9443,6 +9497,295 @@ fun VaultTabUnlockedContent(
                 }
             }
         }
+
+        // Premium Secure Share Bottom Sheet
+        @OptIn(ExperimentalMaterial3Api::class)
+        if (secureShareFileSerialized != null) {
+            val fileStr = secureShareFileSerialized!!
+            val parts = fileStr.split("|||")
+            if (parts.size >= 5) {
+                val originalName = parts[2]
+                val mimeType = parts[3]
+                val path = parts[4]
+                val sizeStr = if (parts.size >= 6) parts[5] else "Unknown Size"
+                
+                var isSharingInProgress by remember { mutableStateOf(false) }
+                var isUnhidingInProgress by remember { mutableStateOf(false) }
+                var showPermanentDeleteConfirm by remember { mutableStateOf(false) }
+
+                ModalBottomSheet(
+                    onDismissRequest = { 
+                        if (!isSharingInProgress && !isUnhidingInProgress) {
+                            secureShareFileSerialized = null 
+                        }
+                    },
+                    containerColor = Color(0xFF161B2B),
+                    dragHandle = { BottomSheetDefaults.DragHandle(color = Color.White.copy(alpha=0.3f)) }
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .padding(bottom = 40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        // Title / Header
+                        Text(
+                            text = "Secure Share Options",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.align(Alignment.Start)
+                        )
+
+                        // File Preview / Info Card
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 180.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2436))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                // Dynamic File Type Preview Icon or Mini-Image
+                                Box(
+                                    modifier = Modifier
+                                        .size(72.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color.White.copy(alpha = 0.05f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (mimeType.startsWith("image/")) {
+                                        coil.compose.AsyncImage(
+                                            model = java.io.File(path),
+                                            contentDescription = originalName,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = when {
+                                                mimeType.startsWith("video/") -> Icons.Default.PlayArrow
+                                                mimeType.startsWith("audio/") -> Icons.Default.MusicNote
+                                                else -> Icons.Default.Description
+                                            },
+                                            contentDescription = null,
+                                            tint = ThemePurple,
+                                            modifier = Modifier.size(36.dp)
+                                        )
+                                    }
+                                }
+
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = cleanDisplayName(originalName),
+                                        color = Color.White,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "$sizeStr • $mimeType",
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        // Options / Actions list
+                        if (isSharingInProgress || isUnhidingInProgress) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                CircularProgressIndicator(color = ThemePurple)
+                                Text(
+                                    text = if (isSharingInProgress) "Preparing secure temporary share..." else "Unhiding file...",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 14.sp
+                                )
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // 1. Share Securely
+                                Surface(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        isSharingInProgress = true
+                                        viewModel.shareVaultFile(
+                                            context = context,
+                                            fileSerialized = fileStr,
+                                            onSuccess = {
+                                                isSharingInProgress = false
+                                                secureShareFileSerialized = null
+                                            },
+                                            onFailure = { error ->
+                                                isSharingInProgress = false
+                                                android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
+                                            }
+                                        )
+                                    },
+                                    color = ThemePurple.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(ThemePurple.copy(alpha = 0.2f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.Send, contentDescription = "Share", tint = ThemePurple)
+                                        }
+                                        Column {
+                                            Text("Share File Securely", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                            Text("Share safely without permanently unhiding", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+
+                                // 2. Unhide (Restore)
+                                Surface(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        isUnhidingInProgress = true
+                                        viewModel.unhideVaultFile(
+                                            context = context,
+                                            fileSerialized = fileStr,
+                                            onSuccess = { msg ->
+                                                isUnhidingInProgress = false
+                                                secureShareFileSerialized = null
+                                                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                                            },
+                                            onFailure = { err ->
+                                                isUnhidingInProgress = false
+                                                android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show()
+                                            }
+                                        )
+                                    },
+                                    color = Color(0xFF10B981).copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF10B981).copy(alpha = 0.2f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.LockOpen, contentDescription = "Unhide", tint = Color(0xFF10B981))
+                                        }
+                                        Column {
+                                            Text("Unhide & Restore", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                            Text("Restore file back to original device folders", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+
+                                // 3. Delete Permanently
+                                Surface(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
+                                        showPermanentDeleteConfirm = true
+                                    },
+                                    color = Color(0xFFEF4444).copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFFEF4444).copy(alpha = 0.2f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFEF4444))
+                                        }
+                                        Column {
+                                            Text("Delete Forever", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                            Text("Permanently delete file from vault and disk", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (showPermanentDeleteConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showPermanentDeleteConfirm = false },
+                        containerColor = Color(0xFF1B2031),
+                        titleContentColor = Color.White,
+                        textContentColor = Color.White.copy(alpha = 0.8f),
+                        shape = RoundedCornerShape(24.dp),
+                        title = {
+                            Text("Permanently Delete File?", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
+                        },
+                        text = {
+                            Text("Are you sure you want to permanently delete \"${cleanDisplayName(originalName)}\"? This action is irreversible and cannot be undone.", fontSize = 14.sp)
+                        },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    viewModel.triggerKeypressEffects(context)
+                                    showPermanentDeleteConfirm = false
+                                    val success = viewModel.permanentlyDeleteVaultFile(fileStr)
+                                    if (success) {
+                                        secureShareFileSerialized = null
+                                        android.widget.Toast.makeText(context, "File deleted permanently.", android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        android.widget.Toast.makeText(context, "Failed to delete file.", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            ) {
+                                Text("Delete Forever", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showPermanentDeleteConfirm = false }) {
+                                Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                            }
+                        }
+                    )
+                }
+            }
+        }
         if (showAddNoteDialog) {
         AlertDialog(
             onDismissRequest = { showAddNoteDialog = false },
@@ -10027,6 +10370,39 @@ class ChromeContextWrapper(base: android.content.Context) : android.content.Cont
     }
 }
 
+fun setSystemBarsVisibility(activity: android.app.Activity?, visible: Boolean) {
+    if (activity == null) return
+    val window = activity.window ?: return
+    val decorView = window.decorView
+    try {
+        val controller = androidx.core.view.WindowCompat.getInsetsController(window, decorView)
+        if (visible) {
+            controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    } catch (e: Throwable) {
+        @Suppress("DEPRECATION")
+        if (visible) {
+            decorView.systemUiVisibility = (
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            )
+        } else {
+            decorView.systemUiVisibility = (
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
+                android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            )
+        }
+    }
+}
+
 fun createPrivateWebView(
     ctx: android.content.Context,
     tabId: String,
@@ -10212,8 +10588,7 @@ fun createPrivateWebView(
                 if (handleCustomUri(url, view)) return true
                 val lowerUrl = url.lowercase()
                 if (lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://")) {
-                    view?.loadUrl(url)
-                    return true
+                    return false
                 }
                 return false
             }
@@ -10224,8 +10599,7 @@ fun createPrivateWebView(
                 if (handleCustomUri(url, view)) return true
                 val lowerUrl = url.lowercase()
                 if (lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://")) {
-                    view?.loadUrl(url)
-                    return true
+                    return false
                 }
                 return false
             }
@@ -10326,8 +10700,7 @@ fun createPrivateWebView(
                             if (handleCustomUri(url, newView)) return true
                             val lowerUrl = url.lowercase()
                             if (lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://")) {
-                                newView?.loadUrl(url)
-                                return true
+                                return false
                             }
                             return false
                         }
@@ -10338,8 +10711,7 @@ fun createPrivateWebView(
                             if (handleCustomUri(url, newView)) return true
                             val lowerUrl = url.lowercase()
                             if (lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://")) {
-                                newView?.loadUrl(url)
-                                return true
+                                return false
                             }
                             return false
                         }
@@ -10512,13 +10884,19 @@ fun PrivateBrowserSection(
                         activeCustomView = view
                         activeCustomViewCallback = callback
                         val activity = context as? android.app.Activity
-                        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        setSystemBarsVisibility(activity, false)
                     },
                     onHideCustomView = {
+                        val viewToRemove = activeCustomView
+                        if (viewToRemove != null) {
+                            try { (viewToRemove.parent as? android.view.ViewGroup)?.removeView(viewToRemove) } catch(e: Exception) {}
+                        }
                         activeCustomView = null
                         activeCustomViewCallback = null
                         val activity = context as? android.app.Activity
                         activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        setSystemBarsVisibility(activity, true)
                     }
                 ) { transform ->
                     val index = tabs.indexOfFirst { it.id == tab.id }
@@ -10554,13 +10932,19 @@ fun PrivateBrowserSection(
                 activeCustomView = view
                 activeCustomViewCallback = callback
                 val activity = context as? android.app.Activity
-                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                setSystemBarsVisibility(activity, false)
             },
             onHideCustomView = {
+                val viewToRemove = activeCustomView
+                if (viewToRemove != null) {
+                    try { (viewToRemove.parent as? android.view.ViewGroup)?.removeView(viewToRemove) } catch(e: Exception) {}
+                }
                 activeCustomView = null
                 activeCustomViewCallback = null
                 val activity = context as? android.app.Activity
                 activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                setSystemBarsVisibility(activity, true)
             }
         ) { transform ->
             val index = tabs.indexOfFirst { it.id == tabId }
@@ -10699,7 +11083,7 @@ fun PrivateBrowserSection(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = ThemePurple)
                 ) {
-                    Text("Download", color = Color.White)
+                    Text("Download", color = if (IsWhiteTheme) Color(0xFF1E2235) else Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -10711,6 +11095,38 @@ fun PrivateBrowserSection(
             titleContentColor = Color.White,
             textContentColor = Color.White
         )
+    }
+
+    if (activeCustomView != null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.activity.compose.BackHandler(enabled = true) {
+                try {
+                    activeCustomViewCallback?.onCustomViewHidden()
+                } catch (e: Exception) {}
+                val viewToRemove = activeCustomView
+                if (viewToRemove != null) {
+                    try { (viewToRemove.parent as? android.view.ViewGroup)?.removeView(viewToRemove) } catch(e: Exception) {}
+                }
+                activeCustomView = null
+                activeCustomViewCallback = null
+                val activity = context as? android.app.Activity
+                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                setSystemBarsVisibility(activity, true)
+            }
+            AndroidView(
+                factory = { _ ->
+                    (activeCustomView!!.parent as? android.view.ViewGroup)?.removeView(activeCustomView)
+                    activeCustomView!!
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        return
     }
 
     if (showDownloads) {
@@ -10981,7 +11397,7 @@ fun PrivateBrowserSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF161B2B))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
                     .drawBehind {
                         drawLine(
                             color = Color.White.copy(alpha = 0.08f),
@@ -11563,7 +11979,7 @@ fun PrivateBrowserSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF0F1015))
-                    .padding(horizontal = 16.dp, vertical = 1.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
                     .drawBehind {
                         drawLine(
                             color = Color.White.copy(alpha = 0.08f),
@@ -11842,44 +12258,7 @@ fun PrivateBrowserSection(
         }
     }
 
-    if (activeCustomView != null) {
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = {
-                activeCustomViewCallback?.onCustomViewHidden()
-                activeCustomView = null
-                activeCustomViewCallback = null
-                val activity = context as? android.app.Activity
-                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            },
-            properties = androidx.compose.ui.window.DialogProperties(
-                usePlatformDefaultWidth = false,
-                dismissOnBackPress = true,
-                dismissOnClickOutside = false
-            )
-        ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = Color.Black
-            ) {
-                androidx.activity.compose.BackHandler(enabled = true) {
-                    activeCustomViewCallback?.onCustomViewHidden()
-                    activeCustomView = null
-                    activeCustomViewCallback = null
-                    val activity = context as? android.app.Activity
-                    activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                }
-                Box(modifier = Modifier.fillMaxSize()) {
-                    AndroidView(
-                        factory = { _ ->
-                            (activeCustomView!!.parent as? android.view.ViewGroup)?.removeView(activeCustomView)
-                            activeCustomView!!
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-        }
-    }
+    // Fullscreen video overlay is handled at the beginning of rendering
 }
 
 @Composable

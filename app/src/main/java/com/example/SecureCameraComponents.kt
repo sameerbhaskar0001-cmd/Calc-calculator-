@@ -59,6 +59,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.alpha
+import androidx.exifinterface.media.ExifInterface
+
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 
@@ -89,6 +96,40 @@ data class LastMediaInfo(
     val raw: String
 )
 
+private fun sanitizeExifMetadata(filePath: String) {
+    try {
+        val exifInterface = ExifInterface(filePath)
+        val privacyTags = listOf(
+            ExifInterface.TAG_GPS_LATITUDE,
+            ExifInterface.TAG_GPS_LONGITUDE,
+            ExifInterface.TAG_GPS_LATITUDE_REF,
+            ExifInterface.TAG_GPS_LONGITUDE_REF,
+            ExifInterface.TAG_GPS_ALTITUDE,
+            ExifInterface.TAG_GPS_ALTITUDE_REF,
+            ExifInterface.TAG_GPS_TIMESTAMP,
+            ExifInterface.TAG_GPS_DATESTAMP,
+            ExifInterface.TAG_GPS_PROCESSING_METHOD,
+            ExifInterface.TAG_MAKE,
+            ExifInterface.TAG_MODEL,
+            ExifInterface.TAG_SOFTWARE,
+            ExifInterface.TAG_ARTIST,
+            ExifInterface.TAG_USER_COMMENT,
+            ExifInterface.TAG_COPYRIGHT,
+            ExifInterface.TAG_CAMERA_OWNER_NAME,
+            ExifInterface.TAG_BODY_SERIAL_NUMBER,
+            ExifInterface.TAG_LENS_SERIAL_NUMBER,
+            ExifInterface.TAG_LENS_MAKE,
+            ExifInterface.TAG_LENS_MODEL
+        )
+        for (tag in privacyTags) {
+            exifInterface.setAttribute(tag, null)
+        }
+        exifInterface.saveAttributes()
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
 @Composable
 fun SecureCameraView(
     viewModel: CalculatorViewModel,
@@ -105,6 +146,24 @@ fun SecureCameraView(
     var isRecording by remember { mutableStateOf(false) }
     var activeRecording by remember { mutableStateOf<Recording?>(null) }
     var showPermissionError by remember { mutableStateOf(false) }
+
+    // Grid, Timer, and Animation States
+    var showGrid by remember { mutableStateOf(false) }
+    var timerMode by remember { mutableStateOf(0) } // 0 = Off, 3s, 5s, 10s
+    var timerCountdown by remember { mutableStateOf(0) }
+    var isTimerRunning by remember { mutableStateOf(false) }
+
+    // Zoom States
+    var minZoomRatio by remember { mutableStateOf(1f) }
+    var maxZoomRatio by remember { mutableStateOf(8f) }
+    var currentZoomRatio by remember { mutableStateOf(1f) }
+    var savedZoomRatio by remember { mutableStateOf(1f) }
+
+    // Interactive UI States
+    var showShutterFlash by remember { mutableStateOf(false) }
+    var focusPoint by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
+    var showFocusRing by remember { mutableStateOf(false) }
+    var focusRingAnimTrigger by remember { mutableStateOf(false) }
 
     val vaultFiles by viewModel.vaultFiles.collectAsStateWithLifecycle()
     
@@ -146,13 +205,34 @@ fun SecureCameraView(
         )
     }
 
-    DisposableEffect(cameraProviderFuture) {
+    // Set camera active state in view model
+    LaunchedEffect(Unit) {
+        viewModel.isCameraActive.value = true
+    }
+    DisposableEffect(Unit) {
         onDispose {
+            viewModel.isCameraActive.value = false
             try {
                 cameraProviderFuture?.get()?.unbindAll()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    // Keep track of zoom ratio from CameraX zoomState LiveData
+    DisposableEffect(camera) {
+        val liveData = camera?.cameraInfo?.zoomState
+        val observer = androidx.lifecycle.Observer<androidx.camera.core.ZoomState> { state ->
+            if (state != null) {
+                currentZoomRatio = state.zoomRatio
+                minZoomRatio = state.minZoomRatio
+                maxZoomRatio = state.maxZoomRatio
+            }
+        }
+        liveData?.observeForever(observer)
+        onDispose {
+            liveData?.removeObserver(observer)
         }
     }
 
@@ -190,20 +270,28 @@ fun SecureCameraView(
 
         try {
             cameraProvider.unbindAll()
-            camera = cameraProvider.bindToLifecycle(
+            val newCamera = cameraProvider.bindToLifecycle(
                 lifecycleOwner,
                 cameraSelector,
                 preview,
                 if (isVideoMode) vidCap else imgCap
             )
+            camera = newCamera
             
+            // Restore saved zoom level safely on flip/rebinding
+            val targetZ = savedZoomRatio.coerceIn(
+                newCamera.cameraInfo.zoomState.value?.minZoomRatio ?: 1f,
+                newCamera.cameraInfo.zoomState.value?.maxZoomRatio ?: 8f
+            )
+            newCamera.cameraControl.setZoomRatio(targetZ)
+
             // Set initial flash and torch state
             imgCap.flashMode = when (flashMode) {
                 "ON" -> ImageCapture.FLASH_MODE_ON
                 "OFF" -> ImageCapture.FLASH_MODE_OFF
                 else -> ImageCapture.FLASH_MODE_AUTO
             }
-            camera?.cameraControl?.enableTorch(isVideoMode && flashMode == "ON")
+            newCamera.cameraControl.enableTorch(isVideoMode && flashMode == "ON")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -245,6 +333,176 @@ fun SecureCameraView(
         }
     }
 
+    // Capture & Shutter Action Helper
+    val performCapture = {
+        if (isVideoMode) {
+            // Toggle Video Recording
+            if (isRecording) {
+                activeRecording?.stop()
+                activeRecording = null
+                isRecording = false
+            } else {
+                val vidCap = videoCapture
+                if (vidCap is VideoCapture<*>) {
+                    val id = System.currentTimeMillis().toString()
+                    val vaultDir = File(context.filesDir, "vault_files")
+                    if (!vaultDir.exists()) vaultDir.mkdirs()
+                    val destFile = File(vaultDir, "$id.mp4")
+
+                    val outputOpts = FileOutputOptions.Builder(destFile).build()
+                    
+                    try {
+                        val recording = vidCap.output
+                            .prepareRecording(context, outputOpts)
+                            .apply {
+                                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                    withAudioEnabled()
+                                }
+                            }
+                            .start(ContextCompat.getMainExecutor(context)) { recordEvent ->
+                                when (recordEvent) {
+                                    is VideoRecordEvent.Start -> {
+                                        isRecording = true
+                                    }
+                                    is VideoRecordEvent.Finalize -> {
+                                        isRecording = false
+                                        if (!recordEvent.hasError()) {
+                                            viewModel.registerDirectVaultFile(
+                                                context,
+                                                destFile,
+                                                "Video_$id.mp4",
+                                                "video/mp4"
+                                            )
+                                            Toast.makeText(context, "Video secured directly in Vault!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Failed to capture video", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                            }
+                        activeRecording = recording
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Video recording error", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        } else {
+            // Capture Photo
+            val imgCap = imageCapture
+            if (imgCap != null) {
+                val id = System.currentTimeMillis().toString()
+                val vaultDir = File(context.filesDir, "vault_files")
+                if (!vaultDir.exists()) vaultDir.mkdirs()
+                val destFile = File(vaultDir, "$id.jpg")
+
+                val outputOpts = ImageCapture.OutputFileOptions.Builder(destFile).build()
+                
+                // Show screen-flash capture animation
+                showShutterFlash = true
+                
+                imgCap.takePicture(
+                    outputOpts,
+                    ContextCompat.getMainExecutor(context),
+                    object : ImageCapture.OnImageSavedCallback {
+                        override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                            // Strip metadata automatically before saving
+                            sanitizeExifMetadata(destFile.absolutePath)
+                            
+                            viewModel.registerDirectVaultFile(
+                                context,
+                                destFile,
+                                "Photo_$id.jpg",
+                                "image/jpeg"
+                            )
+                            Toast.makeText(context, "Photo secured directly in Vault (Metadata Stripped)!", Toast.LENGTH_SHORT).show()
+                        }
+
+                        override fun onError(exception: ImageCaptureException) {
+                            Toast.makeText(context, "Capture failed: ${exception.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    val triggerShutter = {
+        if (timerMode > 0) {
+            if (isTimerRunning) {
+                // Cancel current timer countdown
+                isTimerRunning = false
+            } else {
+                scope.launch {
+                    isTimerRunning = true
+                    timerCountdown = timerMode
+                    while (timerCountdown > 0 && isTimerRunning) {
+                        try {
+                            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                            if (audioManager.ringerMode == android.media.AudioManager.RINGER_MODE_NORMAL) {
+                                val toneG = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 100)
+                                toneG.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 150)
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                        kotlinx.coroutines.delay(1000)
+                        timerCountdown--
+                    }
+                    if (isTimerRunning) {
+                        isTimerRunning = false
+                        performCapture()
+                    }
+                }
+            }
+        } else {
+            performCapture()
+        }
+    }
+
+    // Intercept hardware volume shutter via viewmodel event flow
+    LaunchedEffect(Unit) {
+        viewModel.cameraTriggerFlow.collect {
+            // Prevent accidental volume-key stopping during recording
+            if (isVideoMode) {
+                if (!isRecording) {
+                    triggerShutter()
+                }
+            } else {
+                triggerShutter()
+            }
+        }
+    }
+
+    // Focus fade-out and trigger observer
+    LaunchedEffect(focusRingAnimTrigger) {
+        if (focusPoint != null) {
+            showFocusRing = true
+            kotlinx.coroutines.delay(1000)
+            showFocusRing = false
+        }
+    }
+
+    // Shutter flash animation progress
+    val shutterFlashAlpha by animateFloatAsState(
+        targetValue = if (showShutterFlash) 0.7f else 0f,
+        animationSpec = tween(durationMillis = 150, easing = LinearEasing),
+        finishedListener = {
+            if (showShutterFlash) {
+                showShutterFlash = false
+            }
+        }
+    )
+
+    // Focus ring bounce and scale animations
+    val focusRingScale by animateFloatAsState(
+        targetValue = if (showFocusRing) 1f else 1.6f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+    )
+    val focusRingAlpha by animateFloatAsState(
+        targetValue = if (showFocusRing) 1f else 0f,
+        animationSpec = tween(durationMillis = 800)
+    )
+
     if (showPermissionError) {
         AlertDialog(
             onDismissRequest = onDismiss,
@@ -277,7 +535,7 @@ fun SecureCameraView(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Real-time Camera Preview View
+        // Real-time Camera Preview View with Tap-to-Focus, Zoom Gestures, and Double Tap Zoom Toggle
         AndroidView(
             factory = { ctx ->
                 PreviewView(ctx).apply {
@@ -285,11 +543,78 @@ fun SecureCameraView(
                     previewViewRef = this
                 }
             },
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            val targetZoom = if (currentZoomRatio > 1.5f) 1f else 2f
+                            camera?.cameraControl?.setZoomRatio(targetZoom)
+                            savedZoomRatio = targetZoom
+                        },
+                        onTap = { offset ->
+                            focusPoint = offset
+                            focusRingAnimTrigger = !focusRingAnimTrigger
+                            
+                            val factory = previewViewRef?.meteringPointFactory
+                            if (factory != null) {
+                                val point = factory.createPoint(offset.x, offset.y)
+                                val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
+                                    .setAutoCancelDuration(3, java.util.concurrent.TimeUnit.SECONDS)
+                                    .build()
+                                camera?.cameraControl?.startFocusAndMetering(action)
+                            }
+                        }
+                    )
+                }
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, _, zoom, _ ->
+                        if (zoom != 1f) {
+                            val newZoom = (currentZoomRatio * zoom).coerceIn(minZoomRatio, maxZoomRatio)
+                            camera?.cameraControl?.setZoomRatio(newZoom)
+                            savedZoomRatio = newZoom
+                        }
+                    }
+                },
             update = {}
         )
 
-        // Top Control Overlay
+        // Composition Grid (Rule of Thirds Canvas Overlay)
+        if (showGrid) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
+                val gridColor = Color.White.copy(alpha = 0.35f)
+                val strokeWidth = 1.dp.toPx()
+
+                // Vertical grid lines
+                drawLine(color = gridColor, start = Offset(w / 3f, 0f), end = Offset(w / 3f, h), strokeWidth = strokeWidth)
+                drawLine(color = gridColor, start = Offset(w * 2f / 3f, 0f), end = Offset(w * 2f / 3f, h), strokeWidth = strokeWidth)
+
+                // Horizontal grid lines
+                drawLine(color = gridColor, start = Offset(0f, h / 3f), end = Offset(w, h / 3f), strokeWidth = strokeWidth)
+                drawLine(color = gridColor, start = Offset(0f, h * 2f / 3f), end = Offset(w, h * 2f / 3f), strokeWidth = strokeWidth)
+            }
+        }
+
+        // Tap-to-Focus Animated Ring Indicator
+        if (showFocusRing && focusPoint != null) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .offset {
+                        androidx.compose.ui.unit.IntOffset(
+                            (focusPoint!!.x - 32.dp.toPx()).toInt(),
+                            (focusPoint!!.y - 32.dp.toPx()).toInt()
+                        )
+                    }
+                    .scale(focusRingScale)
+                    .alpha(focusRingAlpha)
+                    .border(1.5.dp, Color.Yellow, CircleShape)
+            )
+        }
+
+        // Top Control Overlay Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -298,6 +623,7 @@ fun SecureCameraView(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Exit Button
             IconButton(
                 onClick = onDismiss,
                 modifier = Modifier
@@ -307,32 +633,162 @@ fun SecureCameraView(
                 Icon(Icons.Default.Close, contentDescription = "Exit Camera", tint = Color.White)
             }
 
-            // Flash Toggle Button
-            IconButton(
-                onClick = {
-                    flashMode = when (flashMode) {
-                        "AUTO" -> "ON"
-                        "ON" -> "OFF"
-                        else -> "AUTO"
-                    }
-                },
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+            // Top Quick settings buttons (Grid, Self-Timer, Flash Mode)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = when (flashMode) {
-                        "ON" -> Icons.Default.FlashOn
-                        "OFF" -> Icons.Default.FlashOff
-                        else -> Icons.Default.FlashAuto
+                // Grid toggle button
+                IconButton(
+                    onClick = { showGrid = !showGrid },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (showGrid) Icons.Default.GridOn else Icons.Default.GridOff,
+                        contentDescription = "Grid Toggle",
+                        tint = if (showGrid) Color.Yellow else Color.White
+                    )
+                }
+
+                // Self Timer toggle button
+                IconButton(
+                    onClick = {
+                        timerMode = when (timerMode) {
+                            0 -> 3
+                            3 -> 5
+                            5 -> 10
+                            else -> 0
+                        }
                     },
-                    contentDescription = "Flash Mode",
-                    tint = if (flashMode == "OFF") Color.LightGray else Color.Yellow
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Timer,
+                            contentDescription = "Self Timer Mode",
+                            tint = if (timerMode > 0) Color.Yellow else Color.White
+                        )
+                        if (timerMode > 0) {
+                            Text(
+                                text = "${timerMode}s",
+                                color = Color.Black,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .background(Color.Yellow, CircleShape)
+                                    .padding(horizontal = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Flash Toggle Button
+                IconButton(
+                    onClick = {
+                        flashMode = when (flashMode) {
+                            "AUTO" -> "ON"
+                            "ON" -> "OFF"
+                            else -> "AUTO"
+                        }
+                    },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = when (flashMode) {
+                            "ON" -> Icons.Default.FlashOn
+                            "OFF" -> Icons.Default.FlashOff
+                            else -> Icons.Default.FlashAuto
+                        },
+                        contentDescription = "Flash Mode",
+                        tint = if (flashMode == "OFF") Color.LightGray else Color.Yellow
+                    )
+                }
+            }
+        }
+
+        // Active countdown overlay
+        if (isTimerRunning && timerCountdown > 0) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.35f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "$timerCountdown",
+                    color = Color.Yellow,
+                    fontSize = 120.sp,
+                    fontWeight = FontWeight.Bold,
+                    style = androidx.compose.ui.text.TextStyle(
+                        shadow = androidx.compose.ui.graphics.Shadow(
+                            color = Color.Black,
+                            blurRadius = 15f
+                        )
+                    )
                 )
             }
         }
 
-        // Timer badge for active video recording
+        // Floating Zoom Level Controls (Quick Presets: 1x, 2x, 5x + precise live ratio display)
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 128.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Zoom Ratio floating text
+            Text(
+                text = String.format(Locale.US, "%.1fx", currentZoomRatio),
+                color = Color.Yellow,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+
+            // Zoom Presets Quick Pills
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                listOf(1f, 2f, 5f).forEach { targetZoom ->
+                    val isSelected = kotlin.math.abs(currentZoomRatio - targetZoom) < 0.15f
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(if (isSelected) ThemePurple else Color.DarkGray.copy(alpha = 0.5f))
+                            .clickable {
+                                val target = targetZoom.coerceIn(minZoomRatio, maxZoomRatio)
+                                camera?.cameraControl?.setZoomRatio(target)
+                                savedZoomRatio = target
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${targetZoom.toInt()}x",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Active video recording time badge
         if (isRecording) {
             var recordSeconds by remember { mutableStateOf(0) }
             LaunchedEffect(isRecording) {
@@ -350,7 +806,7 @@ fun SecureCameraView(
                     .align(Alignment.TopCenter)
                     .statusBarsPadding()
                     .padding(top = 20.dp)
-                    .background(Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp))
+                    .background(Color.Red.copy(alpha = 0.85f), RoundedCornerShape(12.dp))
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Box(
@@ -367,7 +823,16 @@ fun SecureCameraView(
             }
         }
 
-        // Bottom Dashboard
+        // Shutter flash visual overlay animation
+        if (shutterFlashAlpha > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.White.copy(alpha = shutterFlashAlpha))
+            )
+        }
+
+        // Bottom Dashboard Panel (Gallery preview, Shutter trigger button, Flip Camera)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -377,7 +842,7 @@ fun SecureCameraView(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Sliding Mode Selection Tabs (PHOTO vs VIDEO)
+            // Sliding Mode Tabs (PHOTO vs VIDEO)
             Row(
                 modifier = Modifier
                     .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(20.dp))
@@ -407,7 +872,7 @@ fun SecureCameraView(
                 }
             }
 
-            // Controls Row (Gallery Preview, Shutter Button, Switcher Button)
+            // Bottom Core controls
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -415,7 +880,7 @@ fun SecureCameraView(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left: Gallery Thumbnail (Last captured photo/video)
+                // Left: Vault Gallery Preview Circle
                 Box(
                     modifier = Modifier
                         .size(56.dp)
@@ -439,7 +904,9 @@ fun SecureCameraView(
                                 .crossfade(true)
                                 .build(),
                             contentDescription = "Last captured item",
-                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
                         if (lastCapturedFile.isVideo) {
@@ -451,14 +918,13 @@ fun SecureCameraView(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = "Video",
+                                    contentDescription = "Video Thumbnail icon",
                                     tint = Color.White,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
                     } else {
-                        // Default placeholder icon
                         Icon(
                             imageVector = Icons.Default.PhotoLibrary,
                             contentDescription = "Gallery Empty",
@@ -468,7 +934,7 @@ fun SecureCameraView(
                     }
                 }
 
-                // Center: Capture Shutter trigger button
+                // Center: Capture Shutter button (respects self timer countdown)
                 Box(
                     modifier = Modifier
                         .size(80.dp)
@@ -483,92 +949,17 @@ fun SecureCameraView(
                             .clip(CircleShape)
                             .background(if (isVideoMode) Color.Red else Color.White)
                             .clickable {
-                                if (isVideoMode) {
-                                    // Toggle Video Recording
-                                    if (isRecording) {
-                                        activeRecording?.stop()
-                                        activeRecording = null
-                                        isRecording = false
-                                    } else {
-                                        val vidCap = videoCapture ?: return@clickable
-                                        val id = System.currentTimeMillis().toString()
-                                        val vaultDir = File(context.filesDir, "vault_files")
-                                        if (!vaultDir.exists()) vaultDir.mkdirs()
-                                        val destFile = File(vaultDir, "$id.mp4")
-
-                                        val outputOpts = FileOutputOptions.Builder(destFile).build()
-                                        
-                                        try {
-                                            val recording = vidCap.output
-                                                .prepareRecording(context, outputOpts)
-                                                .apply {
-                                                    if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                                                        withAudioEnabled()
-                                                    }
-                                                }
-                                                .start(ContextCompat.getMainExecutor(context)) { recordEvent ->
-                                                    when (recordEvent) {
-                                                        is VideoRecordEvent.Start -> {
-                                                            isRecording = true
-                                                        }
-                                                        is VideoRecordEvent.Finalize -> {
-                                                            isRecording = false
-                                                            if (!recordEvent.hasError()) {
-                                                                viewModel.registerDirectVaultFile(
-                                                                    context,
-                                                                    destFile,
-                                                                    "Video_$id.mp4",
-                                                                    "video/mp4"
-                                                                )
-                                                                Toast.makeText(context, "Video secured directly in Vault!", Toast.LENGTH_SHORT).show()
-                                                            } else {
-                                                                Toast.makeText(context, "Failed to capture video", Toast.LENGTH_SHORT).show()
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            activeRecording = recording
-                                        } catch (e: Exception) {
-                                            Toast.makeText(context, "Video recording error", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                } else {
-                                    // Capture Photo
-                                    val imgCap = imageCapture ?: return@clickable
-                                    val id = System.currentTimeMillis().toString()
-                                    val vaultDir = File(context.filesDir, "vault_files")
-                                    if (!vaultDir.exists()) vaultDir.mkdirs()
-                                    val destFile = File(vaultDir, "$id.jpg")
-
-                                    val outputOpts = ImageCapture.OutputFileOptions.Builder(destFile).build()
-                                    
-                                    imgCap.takePicture(
-                                        outputOpts,
-                                        ContextCompat.getMainExecutor(context),
-                                        object : ImageCapture.OnImageSavedCallback {
-                                            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                                                viewModel.registerDirectVaultFile(
-                                                    context,
-                                                    destFile,
-                                                    "Photo_$id.jpg",
-                                                    "image/jpeg"
-                                                )
-                                                Toast.makeText(context, "Photo secured directly in Vault!", Toast.LENGTH_SHORT).show()
-                                            }
-
-                                            override fun onError(exception: ImageCaptureException) {
-                                                Toast.makeText(context, "Capture failed: ${exception.message}", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    )
-                                }
+                                triggerShutter()
                             }
                     )
                 }
 
-                // Right: Front/Back Switcher Button
+                // Right: Flip Front/Back Camera
                 IconButton(
-                    onClick = { isFrontCamera = !isFrontCamera },
+                    onClick = {
+                        savedZoomRatio = currentZoomRatio
+                        isFrontCamera = !isFrontCamera
+                    },
                     modifier = Modifier
                         .size(56.dp)
                         .background(Color.White.copy(alpha = 0.1f), CircleShape)

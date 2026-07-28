@@ -31,6 +31,7 @@ class MainAppActivity : FragmentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    Log.d("ActivityLifecycle", "onCreate called. savedInstanceState is null: ${savedInstanceState == null}")
     Log.d("StartupAuthCheck", "Application starting up. Verifying Google OAuth Configuration...")
     val oAuthClientId = com.example.BuildConfig.GOOGLE_OAUTH_CLIENT_ID
     when {
@@ -107,6 +108,16 @@ class MainAppActivity : FragmentActivity() {
     }
   }
 
+  override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+      if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) {
+          if (viewModel?.isCameraActive?.value == true) {
+              viewModel?.cameraTriggerFlow?.tryEmit(Unit)
+              return true
+          }
+      }
+      return super.onKeyDown(keyCode, event)
+  }
+
   override fun onStop() {
     super.onStop()
     val isStealth = viewModel?.stealthMode?.value == true
@@ -122,5 +133,15 @@ class MainAppActivity : FragmentActivity() {
           e.printStackTrace()
       }
     }
+  }
+
+  override fun onDestroy() {
+    Log.d("ActivityLifecycle", "onDestroy called - isChangingConfigurations: $isChangingConfigurations, isFinishing: $isFinishing")
+    super.onDestroy()
+  }
+
+  override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+    super.onConfigurationChanged(newConfig)
+    Log.d("ActivityLifecycle", "onConfigurationChanged called - orientation: ${newConfig.orientation}")
   }
 }

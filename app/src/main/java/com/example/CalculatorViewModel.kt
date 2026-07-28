@@ -63,6 +63,9 @@ data class BrowserBookmark(val title: String, val url: String)
 data class BrowserHistory(val title: String, val url: String, val timestamp: Long)
 
 class CalculatorViewModel(application: Application) : AndroidViewModel(application) {
+    val isCameraActive = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val cameraTriggerFlow = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
     val browserTabs = androidx.compose.runtime.mutableStateListOf<com.example.TabState>()
     var activeTabId by androidx.compose.runtime.mutableStateOf<String?>(null)
 
@@ -190,6 +193,20 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             fetchCloudBackupInfo()
         }
         generateRecoveryCodeIfNeeded()
+
+        // Cleanup secure sharing temporary files from previous sessions
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val tempDir = File(application.cacheDir, "shared_temp")
+                if (tempDir.exists() && tempDir.isDirectory) {
+                    tempDir.listFiles()?.forEach { file ->
+                        file.delete()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun fetchCloudBackupInfo() {
@@ -1188,6 +1205,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _stealthMode = MutableStateFlow(prefs.getBoolean("stealth_mode", false))
     val stealthMode: StateFlow<Boolean> = _stealthMode.asStateFlow()
+
+    private val _secureShareBranding = MutableStateFlow(prefs.getBoolean("secure_share_branding", false))
+    val secureShareBranding: StateFlow<Boolean> = _secureShareBranding.asStateFlow()
 
     private val _pendingDeleteSender = MutableStateFlow<android.content.IntentSender?>(null)
     val pendingDeleteSender: StateFlow<android.content.IntentSender?> = _pendingDeleteSender.asStateFlow()
@@ -2863,6 +2883,201 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun permanentlyDeleteVaultFile(fileSerialized: String): Boolean {
+        return try {
+            val isDecoy = _decoyActive.value
+            val filesKey = if (isDecoy) "decoy_files" else "vault_files"
+
+            // Remove from main vault
+            val updatedFiles = _vaultFiles.value - fileSerialized
+            _vaultFiles.value = updatedFiles
+            prefs.edit().putStringSet(filesKey, updatedFiles.toSet()).apply()
+
+            // Delete physical file
+            val parts = fileSerialized.split("|||")
+            if (parts.size >= 5) {
+                val absolutePath = parts[4]
+                val file = java.io.File(absolutePath)
+                if (file.exists()) {
+                    file.delete()
+                }
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    fun shareVaultFile(
+        context: Context,
+        fileSerialized: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val parts = fileSerialized.split("|||")
+                if (parts.size < 5) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onFailure("Invalid file information") }
+                    return@launch
+                }
+                val originalName = parts[2]
+                val mimeType = parts[3]
+                val absolutePath = parts[4]
+                val file = java.io.File(absolutePath)
+                if (!file.exists()) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onFailure("Source file does not exist") }
+                    return@launch
+                }
+
+                val tempDir = java.io.File(context.cacheDir, "shared_temp")
+                if (!tempDir.exists()) {
+                    tempDir.mkdirs()
+                }
+                
+                val tempFile = java.io.File(tempDir, "shared_${System.currentTimeMillis()}_$originalName")
+                val applyBranding = _secureShareBranding.value && mimeType.startsWith("image/")
+                
+                if (applyBranding) {
+                    val options = android.graphics.BitmapFactory.Options().apply {
+                        inMutable = true
+                    }
+                    var bitmap = android.graphics.BitmapFactory.decodeFile(absolutePath, options)
+                    if (bitmap == null) {
+                        file.inputStream().use { input ->
+                            java.io.FileOutputStream(tempFile).use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                    } else {
+                        var rotationDegrees = 0
+                        try {
+                            val exif = androidx.exifinterface.media.ExifInterface(absolutePath)
+                            val orientation = exif.getAttributeInt(
+                                androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,
+                                androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL
+                            )
+                            rotationDegrees = when (orientation) {
+                                androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90
+                                androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180
+                                androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270
+                                else -> 0
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+
+                        if (rotationDegrees != 0) {
+                            val matrix = android.graphics.Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+                            val rotatedBitmap = android.graphics.Bitmap.createBitmap(
+                                bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+                            )
+                            if (rotatedBitmap != bitmap) {
+                                bitmap.recycle()
+                                bitmap = rotatedBitmap
+                            }
+                        }
+
+                        val canvas = android.graphics.Canvas(bitmap)
+                        val paint = android.graphics.Paint().apply {
+                            color = android.graphics.Color.WHITE
+                            isAntiAlias = true
+                            typeface = android.graphics.Typeface.create(android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.BOLD)
+                        }
+
+                        val baseDimension = minOf(bitmap.width, bitmap.height)
+                        val fontSize1 = (baseDimension * 0.035f).coerceIn(12f, 44f)
+                        val fontSize2 = (baseDimension * 0.028f).coerceIn(10f, 36f)
+                        val margin = (baseDimension * 0.04f).coerceIn(12f, 48f)
+
+                        paint.textSize = fontSize1
+                        val text1 = "🔒 SECRET VAULT"
+                        val text1Width = paint.measureText(text1)
+
+                        paint.textSize = fontSize2
+                        val text2 = "Secure Share"
+                        val text2Width = paint.measureText(text2)
+
+                        val maxTextWidth = maxOf(text1Width, text2Width)
+                        val startX = bitmap.width - maxTextWidth - margin
+                        
+                        val lineSpacing = fontSize2 * 0.3f
+                        val y2 = bitmap.height - margin
+                        val y1 = y2 - fontSize2 - lineSpacing
+
+                        paint.textSize = fontSize1
+                        paint.alpha = (255 * 0.12f).toInt()
+                        canvas.drawText(text1, startX + (maxTextWidth - text1Width), y1, paint)
+
+                        paint.textSize = fontSize2
+                        paint.alpha = (255 * 0.12f).toInt()
+                        canvas.drawText(text2, startX + (maxTextWidth - text2Width), y2, paint)
+
+                        java.io.FileOutputStream(tempFile).use { out ->
+                            val format = if (mimeType.endsWith("png")) {
+                                android.graphics.Bitmap.CompressFormat.PNG
+                            } else {
+                                android.graphics.Bitmap.CompressFormat.JPEG
+                            }
+                            bitmap.compress(format, 90, out)
+                        }
+                        bitmap.recycle()
+                    }
+                } else {
+                    file.inputStream().use { input ->
+                        java.io.FileOutputStream(tempFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+
+                val shareUri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",
+                    tempFile
+                )
+
+                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = mimeType
+                    putExtra(android.content.Intent.EXTRA_STREAM, shareUri)
+                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+
+                val chooserIntent = android.content.Intent.createChooser(shareIntent, "Secure Share File")
+                chooserIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                val resInfoList = context.packageManager.queryIntentActivities(chooserIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+                for (resolveInfo in resInfoList) {
+                    val packageName = resolveInfo.activityInfo.packageName
+                    context.grantUriPermission(packageName, shareUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+
+                context.startActivity(chooserIntent)
+
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    onSuccess()
+                }
+
+                viewModelScope.launch {
+                    kotlinx.coroutines.delay(300_000) // 5 minutes
+                    try {
+                        if (tempFile.exists()) {
+                            tempFile.delete()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    onFailure(e.message ?: "Failed to share file")
+                }
+            }
+        }
+    }
+
     @android.annotation.SuppressLint("NewApi")
     fun unhideVaultFile(
         context: Context,
@@ -3247,6 +3462,11 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     fun setStealthMode(enabled: Boolean) {
         prefs.edit().putBoolean("stealth_mode", enabled).apply()
         _stealthMode.value = enabled
+    }
+
+    fun setSecureShareBranding(enabled: Boolean) {
+        prefs.edit().putBoolean("secure_share_branding", enabled).apply()
+        _secureShareBranding.value = enabled
     }
 
     fun setOwnerName(name: String) {
