@@ -4660,144 +4660,62 @@ fun VaultTabUnlockedContent(
                             }
                         }
 
-                        // List of available disguise options
-                        val disguiseList = listOf(
-                            Triple("LauncherCalculator", "Calculator", "Premium luxury vault launcher")
-                        )
-
+                        // Single active disguise selector layout
                         Text(
-                            text = "AVAILABLE DISGUISES",
+                            text = "ACTIVE DISGUISE",
                             color = TextMedium,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
                         )
 
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            val rows = disguiseList.chunked(3)
-                            rows.forEach { rowItems ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    rowItems.forEach { (id, name, desc) ->
-                                        val isSelected = activeAppIcon == id
-                                        
-                                        Card(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(100.dp)
-                                                .clickable {
-                                                    viewModel.triggerKeypressEffects(context)
-                                                    if (!isSelected) {
-                                                        pendingDisguiseTarget = Pair(id, name)
-                                                    }
-                                                },
-                                            shape = RoundedCornerShape(16.dp),
-                                            border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, ThemePurple) else null,
-                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
-                                        ) {
-                                            Column(
-                                                modifier = Modifier.fillMaxSize().padding(top = 10.dp, bottom = 4.dp, start = 4.dp, end = 4.dp),
-                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier.size(54.dp),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    AppDisguiseIconPreview(
-                                                        id = id,
-                                                        modifier = Modifier.fillMaxSize()
-                                                    )
-                                                    
-                                                    if (isSelected) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .align(Alignment.BottomEnd)
-                                                                .offset(x = 2.dp, y = 2.dp)
-                                                                .size(18.dp)
-                                                                .background(ThemePurple, CircleShape)
-                                                                .border(1.5.dp, Color(0xFF1B2031), CircleShape),
-                                                            contentAlignment = Alignment.Center
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = Icons.Default.Check,
-                                                                contentDescription = "Selected",
-                                                                tint = Color.White,
-                                                                modifier = Modifier.size(11.dp)
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                                
-                                                Box(
-                                                    modifier = Modifier.height(16.dp),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    if (id == "LauncherCalculator") {
-                                                        Text(
-                                                            text = "Default",
-                                                            color = ThemePurple,
-                                                            fontSize = 11.sp,
-                                                            fontWeight = FontWeight.Bold,
-                                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                                            maxLines = 1
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    
-                                    if (rowItems.size < 3) {
-                                        repeat(3 - rowItems.size) {
-                                            Box(modifier = Modifier.weight(1f).height(100.dp))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                "Backup" -> {
-                    var selectedBackupSubTab by remember { mutableStateOf(0) } // 0 = Google Drive, 1 = Local Offline
-                    
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        // Polished Sub-Tab row
-                        Row(
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF1E2235))
-                                .padding(4.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                                .padding(vertical = 4.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(2.dp, ThemePurple),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031))
                         ) {
-                            val tabAccentContentColor = if (IsWhiteTheme) Color(0xFF1E2235) else Color.White
-                            listOf("Cloud Backup", "Local Offline").forEachIndexed { index, title ->
-                                val isSelected = selectedBackupSubTab == index
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) ThemePurple else Color.Transparent)
-                                        .clickable { selectedBackupSubTab = index }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                AppDisguiseIconPreview(
+                                    id = "LauncherCalculator",
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Column(
+                                    modifier = Modifier.weight(1f)
                                 ) {
                                     Text(
-                                        text = title,
-                                        color = if (isSelected) tabAccentContentColor else TextMedium,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold
+                                        text = "Calculator Vault (Default)",
+                                        color = Color.White,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Premium luxury vault interface seamlessly disguised as a fully functional standard scientific calculator.",
+                                        color = TextMedium,
+                                        fontSize = 12.sp,
+                                        lineHeight = 16.sp
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .background(ThemePurple, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
                                     )
                                 }
                             }
@@ -4805,6 +4723,64 @@ fun VaultTabUnlockedContent(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
+                        // Polished Upcoming Disguises Information block
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF242B3F))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(ThemePurple.copy(alpha = 0.15f))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "UPCOMING DISGUISES",
+                                        color = ThemePurple,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                }
+
+                                Text(
+                                    text = "New Invisibility Themes Coming Soon",
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Text(
+                                    text = "To guarantee absolute stealth on your home screen, we are currently designing new icon and app name disguise packages that will bypass advanced system scanner frameworks:\n\n" +
+                                            "• Notes App Disguise (Stylized yellow notepad wrapper)\n" +
+                                            "• Utility Tools (Compass navigation & Voice Recorder templates)\n" +
+                                            "• Gaming / Puzzle Launchers (Sudoku classic board simulation)\n" +
+                                            "• Live Climate Forecast Disguise (Weather radar mockups)\n" +
+                                            "• Retro/Neon Calculator Themes (80s hardware & Cyberpunk aesthetics)\n\n" +
+                                            "All upcoming themes will arrive in the next major update, keeping your privacy secure and 100% offline.",
+                                    color = TextMedium,
+                                    fontSize = 13.sp,
+                                    lineHeight = 19.sp
+                                )
+                            }
+                        }
+                    }
+                }
+                "Backup" -> {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
                         Column(
                             modifier = Modifier
                                 .weight(1f)
@@ -4813,278 +4789,77 @@ fun VaultTabUnlockedContent(
                             verticalArrangement = Arrangement.Top,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            if (selectedBackupSubTab == 0) {
-                                // --- GOOGLE DRIVE CLOUD BACKUP TAB ---
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Icon(
-                                    imageVector = Icons.Default.CloudQueue, 
-                                    contentDescription = "Cloud Backup", 
-                                    tint = Color(0xFF4285F4), 
-                                    modifier = Modifier.size(72.dp)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "Google Drive Backup",
-                                    color = Color.White,
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Backup and sync all your hidden vaults, documents, and settings directly to your personal Google Drive cloud storage securely.",
-                                    color = TextMedium,
-                                    fontSize = 13.sp,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 12.dp)
-                                )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Icon(
+                                imageVector = Icons.Default.SwapVert, 
+                                contentDescription = "Export/Import", 
+                                tint = Color(0xFFD4E157), 
+                                modifier = Modifier.size(72.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Offline Local Backup",
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Create a fully offline backup of all your hidden files, secret notes, folders, browser data, and settings into a single secure file on your storage.",
+                                color = TextMedium,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
 
-                                Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(28.dp))
 
-                                if (googleDriveConnected) {
-                                    // Connected State Card
-                                    Card(
-                                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2235)),
-                                        shape = RoundedCornerShape(16.dp),
-                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
-                                    ) {
-                                        Column(
-                                            modifier = Modifier.padding(16.dp),
-                                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(40.dp)
-                                                        .clip(CircleShape)
-                                                        .background(ThemePurple.copy(alpha = 0.2f)),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(Icons.Default.Person, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(24.dp))
-                                                }
-                                                Column {
-                                                    Text(
-                                                        text = googleDriveName ?: "Google User",
-                                                        color = Color.White,
-                                                        fontSize = 15.sp,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                    Text(
-                                                        text = googleDriveEmail ?: "",
-                                                        color = TextMedium,
-                                                        fontSize = 13.sp
-                                                    )
-                                                }
-                                            }
-
-                                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.1f)))
-
-                                            // Backup Metadata status
-                                            Column {
-                                                Text(
-                                                    text = "☁️ Google Drive Backup Info",
-                                                    color = Color.White,
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                if (cloudBackupInfo != null) {
-                                                    Text(
-                                                        text = "• File name: ${cloudBackupInfo!!.name}",
-                                                        color = TextMedium,
-                                                        fontSize = 12.sp
-                                                    )
-                                                    Text(
-                                                        text = "• Last backed up: ${cloudBackupInfo!!.createdTime}",
-                                                        color = TextMedium,
-                                                        fontSize = 12.sp
-                                                    )
-                                                    val sizeMb = String.format(java.util.Locale.US, "%.2f MB", cloudBackupInfo!!.size.toDouble() / (1024.0 * 1024.0))
-                                                    Text(
-                                                        text = "• Backup file size: $sizeMb",
-                                                        color = TextMedium,
-                                                        fontSize = 12.sp
-                                                    )
-                                                } else {
-                                                    Text(
-                                                        text = "No backup found in Google Drive. Click 'Backup Now' to sync for the first time.",
-                                                        color = Color(0xFFFFCC00),
-                                                        fontSize = 12.sp
-                                                    )
-                                                }
-                                            }
-                                        }
+                            Button(
+                                onClick = { 
+                                    try {
+                                        exportBackupLauncher.launch("vault_backup.zip")
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(context, "Failed to launch export dialog", android.widget.Toast.LENGTH_SHORT).show()
                                     }
-
-                                    Spacer(modifier = Modifier.height(24.dp))
-
-                                    Button(
-                                        onClick = {
-                                            isBackupRestoreProcessing = true
-                                            viewModel.backupToGoogleDrive(
-                                                context = context,
-                                                onSuccess = {
-                                                    isBackupRestoreProcessing = false
-                                                    android.widget.Toast.makeText(context, "Google Drive backup completed!", android.widget.Toast.LENGTH_LONG).show()
-                                                },
-                                                onFailure = { error ->
-                                                    isBackupRestoreProcessing = false
-                                                    android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
-                                                }
-                                            )
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.fillMaxWidth(0.9f).height(50.dp).testTag("gdrive_backup_button")
-                                    ) {
-                                        val btnContentColor = if (IsWhiteTheme) Color(0xFF1E2235) else Color.White
-                                        Icon(Icons.Default.CloudDone, contentDescription = null, tint = btnContentColor, modifier = Modifier.padding(end = 8.dp))
-                                        Text("Backup Now", color = btnContentColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                    }
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    OutlinedButton(
-                                        onClick = {
-                                            isBackupRestoreProcessing = true
-                                            viewModel.restoreFromGoogleDrive(
-                                                context = context,
-                                                onSuccess = {
-                                                    isBackupRestoreProcessing = false
-                                                    android.widget.Toast.makeText(context, "Google Drive restore completed successfully!", android.widget.Toast.LENGTH_LONG).show()
-                                                },
-                                                onFailure = { error ->
-                                                    isBackupRestoreProcessing = false
-                                                    android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
-                                                }
-                                            )
-                                        },
-                                        border = BorderStroke(1.5.dp, ThemePurple),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ThemePurple),
-                                        modifier = Modifier.fillMaxWidth(0.9f).height(50.dp).testTag("gdrive_restore_button")
-                                    ) {
-                                        Icon(Icons.Default.CloudDownload, contentDescription = null, tint = ThemePurple, modifier = Modifier.padding(end = 8.dp))
-                                        Text("Restore from Cloud", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                    }
-
-                                    Spacer(modifier = Modifier.height(20.dp))
-
-                                    TextButton(
-                                        onClick = { viewModel.disconnectGoogleDrive() }
-                                    ) {
-                                        Text("Disconnect Account", color = Color.Red.copy(alpha = 0.8f), fontSize = 14.sp)
-                                    }
-
-                                } else {
-                                    // Not Connected State
-                                    Button(
-                                        onClick = {
-                                            viewModel.startGoogleDriveConnection(
-                                                activity = context as android.app.Activity,
-                                                onLaunchIntent = { pendingIntent ->
-                                                    googleDriveAuthLauncher.launch(
-                                                        androidx.activity.result.IntentSenderRequest.Builder(pendingIntent.intentSender).build()
-                                                    )
-                                                },
-                                                onSuccess = {
-                                                    android.widget.Toast.makeText(context, "Google Drive connected successfully!", android.widget.Toast.LENGTH_SHORT).show()
-                                                },
-                                                onFailure = { error ->
-                                                    android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
-                                                }
-                                            )
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.fillMaxWidth(0.9f).height(52.dp).testTag("gdrive_connect_button")
-                                    ) {
-                                        Icon(Icons.Default.CloudQueue, contentDescription = null, tint = Color.White, modifier = Modifier.padding(end = 8.dp))
-                                        Text("Connect Google Drive", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                    }
-
-                                    Spacer(modifier = Modifier.height(24.dp))
-                                }
-
-
-
-                            } else {
-                                // --- LOCAL OFFLINE BACKUP TAB ---
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Icon(
-                                    imageVector = Icons.Default.SwapVert, 
-                                    contentDescription = "Export/Import", 
-                                    tint = Color(0xFFD4E157), 
-                                    modifier = Modifier.size(72.dp)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "Offline Local Backup",
-                                    color = Color.White,
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Create a fully offline backup of all your hidden files, secret notes, folders, browser data, and settings into a single secure file on your storage.",
-                                    color = TextMedium,
-                                    fontSize = 13.sp,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 12.dp)
-                                )
-
-                                Spacer(modifier = Modifier.height(28.dp))
-
-                                Button(
-                                    onClick = { 
-                                        try {
-                                            exportBackupLauncher.launch("vault_backup.zip")
-                                        } catch (e: Exception) {
-                                            android.widget.Toast.makeText(context, "Failed to launch export dialog", android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.9f)
-                                        .height(52.dp)
-                                        .testTag("create_backup_button")
-                                ) {
-                                    val btnContentColor = if (IsWhiteTheme) Color(0xFF1E2235) else Color.White
-                                    Icon(Icons.Default.Lock, contentDescription = null, tint = btnContentColor, modifier = Modifier.padding(end = 8.dp))
-                                    Text("Create Offline Backup", color = btnContentColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                OutlinedButton(
-                                    onClick = { 
-                                        try {
-                                            importBackupLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
-                                        } catch (e: Exception) {
-                                            android.widget.Toast.makeText(context, "Failed to launch import dialog", android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
-                                    border = BorderStroke(1.5.dp, ThemePurple),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ThemePurple),
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.9f)
-                                        .height(52.dp)
-                                        .testTag("restore_backup_button")
-                                ) {
-                                    Icon(Icons.Default.Refresh, contentDescription = null, tint = ThemePurple, modifier = Modifier.padding(end = 8.dp))
-                                    Text("Restore Previous Backup", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth(0.9f)
+                                    .height(52.dp)
+                                    .testTag("create_backup_button")
+                            ) {
+                                val btnContentColor = if (IsWhiteTheme) Color(0xFF1E2235) else Color.White
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = btnContentColor, modifier = Modifier.padding(end = 8.dp))
+                                Text("Create Offline Backup", color = btnContentColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             }
 
-                            Spacer(modifier = Modifier.height(30.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                            // Dynamic Informational Guide Card based on Backup Type
+                            OutlinedButton(
+                                onClick = { 
+                                    try {
+                                        importBackupLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(context, "Failed to launch import dialog", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                border = BorderStroke(1.5.dp, ThemePurple),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = ThemePurple),
+                                modifier = Modifier
+                                    .fillMaxWidth(0.9f)
+                                    .height(52.dp)
+                                    .testTag("restore_backup_button")
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, tint = ThemePurple, modifier = Modifier.padding(end = 8.dp))
+                                Text("Restore Previous Backup", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            // Local Backup Guide Card
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = Color(0xFF242B3F)),
                                 shape = RoundedCornerShape(16.dp),
@@ -5094,94 +4869,112 @@ fun VaultTabUnlockedContent(
                                     modifier = Modifier.padding(18.dp),
                                     verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    if (selectedBackupSubTab == 0) {
-                                        // Google Drive Cloud Backup Instructions
+                                    Text(
+                                        text = "💾 Offline Local Backup Guide",
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
                                         Text(
-                                            text = "☁️ Google Drive Cloud Backup Guide",
-                                            color = Color.White,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Bold
+                                            text = "How it works:",
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
                                         )
-                                        
-                                        Column(
-                                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Text(
-                                                text = "How it works:",
-                                                color = Color.White.copy(alpha = 0.9f),
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                            Text(
-                                                text = "1. Connect your secure personal Google Account.\n2. Tap 'Backup Now' to package and upload all hidden media and settings to Google Drive.\n3. Tap 'Restore from Cloud' to re-import everything when re-installing or changing phones.",
-                                                color = TextMedium,
-                                                fontSize = 12.sp,
-                                                lineHeight = 18.sp
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.height(4.dp))
-
-                                        Column(
-                                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Text(
-                                                text = "Key Benefits:",
-                                                color = Color.White.copy(alpha = 0.9f),
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                            Text(
-                                                text = "• Safe from loss: If your phone is lost, broken, or formatted, you never lose your vault.\n• Zero Server Access: Data goes directly from your phone to Google Drive - no external servers are involved.",
-                                                color = TextMedium,
-                                                fontSize = 12.sp,
-                                                lineHeight = 18.sp
-                                            )
-                                        }
-                                    } else {
-                                        // Offline Local Backup Instructions
                                         Text(
-                                            text = "💾 Offline Local Backup Guide",
-                                            color = Color.White,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Bold
+                                            text = "1. Tap 'Create Offline Backup'.\n2. Use the system folder picker to select a safe location (e.g., Download folder, SD card, or USB) and save the backup file ('vault_backup.zip').\n3. To restore, tap 'Restore Previous Backup' and choose that zip file.",
+                                            color = TextMedium,
+                                            fontSize = 12.sp,
+                                            lineHeight = 18.sp
                                         )
+                                    }
 
-                                        Column(
-                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            text = "Key Benefits:",
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            text = "• 100% Offline: Absolutely no internet required. Complete control over your backup files.\n• Portability: You can copy, transfer, or email the zip file to your PC, SD card, or secondary devices.",
+                                            color = TextMedium,
+                                            fontSize = 12.sp,
+                                            lineHeight = 18.sp
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Google Drive Cloud Backup Upcoming Card
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2235)),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF4285F4).copy(alpha = 0.1f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudQueue,
+                                            contentDescription = "Cloud Backup",
+                                            tint = Color(0xFF4285F4),
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
                                             Text(
-                                                text = "How it works:",
-                                                color = Color.White.copy(alpha = 0.9f),
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.SemiBold
+                                                text = "Google Drive Cloud Sync",
+                                                color = Color.White,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold
                                             )
-                                            Text(
-                                                text = "1. Tap 'Create Offline Backup'.\n2. Use the system folder picker to select a safe location (e.g., Download folder, SD card, or USB) and save the backup file ('vault_backup.zip').\n3. To restore, tap 'Restore Previous Backup' and choose that zip file.",
-                                                color = TextMedium,
-                                                fontSize = 12.sp,
-                                                lineHeight = 18.sp
-                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(Color(0xFFFFCC00).copy(alpha = 0.15f))
+                                                    .padding(horizontal = 5.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = "SOON",
+                                                    color = Color(0xFFFFCC00),
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.ExtraBold
+                                                )
+                                            }
                                         }
-
                                         Spacer(modifier = Modifier.height(4.dp))
-
-                                        Column(
-                                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Text(
-                                                text = "Key Benefits:",
-                                                color = Color.White.copy(alpha = 0.9f),
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                            Text(
-                                                text = "• 100% Offline: Absolutely no internet required. Complete control over your backup files.\n• Portability: You can copy, transfer, or email the zip file to your PC, SD card, or secondary devices.",
-                                                color = TextMedium,
-                                                fontSize = 12.sp,
-                                                lineHeight = 18.sp
-                                            )
-                                        }
+                                        Text(
+                                            text = "Automatic cloud backup & restore synchronization via Google Drive is undergoing final cryptographic security audits to guarantee 100% data isolation. Coming in the next release.",
+                                            color = TextMedium,
+                                            fontSize = 12.sp,
+                                            lineHeight = 16.sp
+                                        )
                                     }
                                 }
                             }
@@ -10242,86 +10035,13 @@ fun createPrivateWebView(
     isDesktopMode: Boolean = false,
     onDownloadRequested: (url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long) -> Unit,
     onCreatePopup: (android.webkit.WebView?) -> Unit,
+    onShowCustomView: (android.view.View, android.webkit.WebChromeClient.CustomViewCallback) -> Unit,
+    onHideCustomView: () -> Unit,
     onUpdate: ((TabState) -> TabState) -> Unit
 ): android.webkit.WebView {
     val cleanMobileUa = "Mozilla/5.0 (Linux; Android 13; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
     val cleanDesktopUa = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     val iOSMobileUa = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
-
-    val bypassScript = """
-        (function() {
-            var ua = navigator.userAgent;
-            var isIOS = ua.indexOf('iPhone') > -1 || ua.indexOf('iPad') > -1 || ua.indexOf('Macintosh') > -1;
-            
-            if (isIOS) {
-                var platformStr = ua.indexOf('iPhone') > -1 ? 'iPhone' : (ua.indexOf('iPad') > -1 ? 'iPad' : 'MacIntel');
-                Object.defineProperty(navigator, 'platform', { get: function() { return platformStr; } });
-                Object.defineProperty(navigator, 'vendor', { get: function() { return 'Apple Computer, Inc.'; } });
-            } else {
-                Object.defineProperty(navigator, 'platform', { get: function() { return 'Win32'; } });
-                Object.defineProperty(navigator, 'vendor', { get: function() { return 'Google Inc.'; } });
-                if (!window.chrome) {
-                    window.chrome = { runtime: {} };
-                }
-            }
-            Object.defineProperty(navigator, 'webdriver', { get: function() { return false; } });
-
-            // Intercept XMLHttpRequest to modify headers (remove X-Requested-With and add Sec-CH-UA client hints if Chrome)
-            var originalOpen = XMLHttpRequest.prototype.open;
-            var originalSend = XMLHttpRequest.prototype.send;
-            var originalSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
-
-            XMLHttpRequest.prototype.open = function(method, url) {
-                this._url = url;
-                this._headers = {};
-                return originalOpen.apply(this, arguments);
-            };
-
-            XMLHttpRequest.prototype.setRequestHeader = function(header, value) {
-                this._headers[header.toLowerCase()] = value;
-                if (header.toLowerCase() === 'x-requested-with') {
-                    return;
-                }
-                return originalSetRequestHeader.apply(this, arguments);
-            };
-
-            XMLHttpRequest.prototype.send = function() {
-                if (this._url && (this._url.indexOf('youtube.com') > -1 || this._url.indexOf('youtu.be') > -1)) {
-                    if (!isIOS) {
-                        originalSetRequestHeader.call(this, 'Sec-CH-UA', '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"');
-                        originalSetRequestHeader.call(this, 'Sec-CH-UA-Mobile', '?0');
-                        originalSetRequestHeader.call(this, 'Sec-CH-UA-Platform', '"Windows"');
-                    }
-                }
-                return originalSend.apply(this, arguments);
-            };
-
-            // Intercept fetch requests to do the same
-            if (window.fetch) {
-                var originalFetch = window.fetch;
-                window.fetch = function(input, init) {
-                    init = init || {};
-                    var headers = new Headers(init.headers || {});
-                    headers.delete('X-Requested-With');
-                    var url = '';
-                    if (typeof input === 'string') {
-                        url = input;
-                    } else if (input && input.url) {
-                        url = input.url;
-                    }
-                    if (url && (url.indexOf('youtube.com') > -1 || url.indexOf('youtu.be') > -1)) {
-                        if (!isIOS) {
-                            headers.set('Sec-CH-UA', '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"');
-                            headers.set('Sec-CH-UA-Mobile', '?0');
-                            headers.set('Sec-CH-UA-Platform', '"Windows"');
-                        }
-                    }
-                    init.headers = headers;
-                    return originalFetch.call(window, input, init);
-                };
-            }
-        })();
-    """.trimIndent()
 
     fun getUserAgentForUrl(url: String?, isDesktop: Boolean): String {
         val lowerUrl = url?.lowercase() ?: ""
@@ -10423,11 +10143,6 @@ fun createPrivateWebView(
                 (ctx.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
             )
         }
-        try {
-            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
-                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(this, bypassScript, setOf("*"))
-            }
-        } catch (e: Throwable) {}
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -10464,9 +10179,6 @@ fun createPrivateWebView(
                 if (checkAndRedirectSocialLogin(view, url)) return
                 super.onPageStarted(view, url, favicon)
                 view?.settings?.userAgentString = getUserAgentForUrl(url, isDesktopMode)
-                if (url != null && (url.contains("youtube.com") || url.contains("youtu.be"))) {
-                    view?.evaluateJavascript(bypassScript, null)
-                }
                 onUpdate { tab ->
                     tab.copy(
                         url = url ?: tab.url,
@@ -10478,9 +10190,6 @@ fun createPrivateWebView(
             }
             override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                if (url != null && (url.contains("youtube.com") || url.contains("youtu.be"))) {
-                    view?.evaluateJavascript(bypassScript, null)
-                }
                 try {
                     android.webkit.CookieManager.getInstance().flush()
                 } catch (e: Exception) {}
@@ -10525,6 +10234,14 @@ fun createPrivateWebView(
             }
         }
         webChromeClient = object : android.webkit.WebChromeClient() {
+            override fun onShowCustomView(view: android.view.View?, callback: android.webkit.WebChromeClient.CustomViewCallback?) {
+                if (view != null && callback != null) {
+                    onShowCustomView(view, callback)
+                }
+            }
+            override fun onHideCustomView() {
+                onHideCustomView()
+            }
             override fun onProgressChanged(view: android.webkit.WebView?, newProgress: Int) {
                 super.onProgressChanged(view, newProgress)
                 onUpdate { tab ->
@@ -10559,11 +10276,6 @@ fun createPrivateWebView(
                         super.loadUrl(url, headers)
                     }
                 }.apply {
-                    try {
-                        if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
-                            androidx.webkit.WebViewCompat.addDocumentStartJavaScript(this, bypassScript, setOf("*"))
-                        }
-                    } catch (e: Throwable) {}
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
@@ -10598,15 +10310,9 @@ fun createPrivateWebView(
                             if (checkAndRedirectSocialLogin(view, url)) return
                             super.onPageStarted(view, url, favicon)
                             view?.settings?.userAgentString = getUserAgentForUrl(url, isDesktopMode)
-                            if (url != null && (url.contains("youtube.com") || url.contains("youtu.be"))) {
-                                view?.evaluateJavascript(bypassScript, null)
-                            }
                         }
                         override fun onPageFinished(newView: android.webkit.WebView?, url: String?) {
                             super.onPageFinished(newView, url)
-                            if (url != null && (url.contains("youtube.com") || url.contains("youtu.be"))) {
-                                newView?.evaluateJavascript(bypassScript, null)
-                            }
                             try {
                                 android.webkit.CookieManager.getInstance().flush()
                             } catch (e: Exception) {}
@@ -10784,6 +10490,9 @@ fun PrivateBrowserSection(
     var showSearchEngineDialog by remember { mutableStateOf(false) }
     var activePopupWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
     var pendingDownload by remember { mutableStateOf<PendingDownloadData?>(null) }
+    
+    var activeCustomView by remember { mutableStateOf<android.view.View?>(null) }
+    var activeCustomViewCallback by remember { mutableStateOf<android.webkit.WebChromeClient.CustomViewCallback?>(null) }
 
     // Restore WebViews for existing tabs
     androidx.compose.runtime.LaunchedEffect(tabs.toList()) {
@@ -10798,7 +10507,19 @@ fun PrivateBrowserSection(
                     onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
                         pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
                     },
-                    onCreatePopup = { activePopupWebView = it }
+                    onCreatePopup = { activePopupWebView = it },
+                    onShowCustomView = { view, callback ->
+                        activeCustomView = view
+                        activeCustomViewCallback = callback
+                        val activity = context as? android.app.Activity
+                        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    },
+                    onHideCustomView = {
+                        activeCustomView = null
+                        activeCustomViewCallback = null
+                        val activity = context as? android.app.Activity
+                        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    }
                 ) { transform ->
                     val index = tabs.indexOfFirst { it.id == tab.id }
                     if (index != -1) {
@@ -10828,7 +10549,19 @@ fun PrivateBrowserSection(
             onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
                 pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
             },
-            onCreatePopup = { activePopupWebView = it }
+            onCreatePopup = { activePopupWebView = it },
+            onShowCustomView = { view, callback ->
+                activeCustomView = view
+                activeCustomViewCallback = callback
+                val activity = context as? android.app.Activity
+                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            },
+            onHideCustomView = {
+                activeCustomView = null
+                activeCustomViewCallback = null
+                val activity = context as? android.app.Activity
+                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
         ) { transform ->
             val index = tabs.indexOfFirst { it.id == tabId }
             if (index != -1) {
@@ -11241,7 +10974,7 @@ fun PrivateBrowserSection(
     }
 
     Box(modifier = modifier.fillMaxSize().background(Color(0xFF0A0C16))) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             val isHome = activeTab?.url == "home" || activeTab?.url == "about:blank" || activeTab?.url?.isEmpty() == true
             
             Row(
@@ -11681,9 +11414,9 @@ fun PrivateBrowserSection(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             QuickAccessItem(url = "https://www.google.com/?hl=en&gl=US", label = "Google", onClick = { activeWebView?.loadUrl("https://www.google.com/?hl=en&gl=US") })
+                            QuickAccessItem(url = "https://www.youtube.com", label = "YouTube", onClick = { activeWebView?.loadUrl("https://duckduckgo.com/?q=youtube&kl=us-en") })
                             QuickAccessItem(url = "https://duckduckgo.com/?kl=us-en", label = "DuckDuckGo", onClick = { activeWebView?.loadUrl("https://duckduckgo.com/?kl=us-en") })
                             QuickAccessItem(url = "https://en.wikipedia.org", label = "Wikipedia", onClick = { activeWebView?.loadUrl("https://en.wikipedia.org") })
-                            QuickAccessItem(url = "https://x.com", label = "X / Twitter", onClick = { activeWebView?.loadUrl("https://x.com") })
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -11692,10 +11425,10 @@ fun PrivateBrowserSection(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            QuickAccessItem(url = "https://www.pinterest.com", label = "Pinterest", onClick = { activeWebView?.loadUrl("https://www.pinterest.com") })
                             QuickAccessItem(url = "https://www.reddit.com", label = "Reddit", onClick = { activeWebView?.loadUrl("https://www.reddit.com") })
-                            QuickAccessItem(url = "https://www.quora.com", label = "Quora", onClick = { activeWebView?.loadUrl("https://www.quora.com") })
+                            QuickAccessItem(url = "https://x.com", label = "X / Twitter", onClick = { activeWebView?.loadUrl("https://x.com") })
                             QuickAccessItem(url = "https://web.telegram.org", label = "Telegram", onClick = { activeWebView?.loadUrl("https://web.telegram.org") })
+                            QuickAccessItem(url = "https://www.quora.com", label = "Quora", onClick = { activeWebView?.loadUrl("https://www.quora.com") })
                         }
 
                         Spacer(modifier = Modifier.height(28.dp))
@@ -12104,6 +11837,45 @@ fun PrivateBrowserSection(
                             modifier = Modifier.fillMaxSize()
                         )
                     }
+                }
+            }
+        }
+    }
+
+    if (activeCustomView != null) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = {
+                activeCustomViewCallback?.onCustomViewHidden()
+                activeCustomView = null
+                activeCustomViewCallback = null
+                val activity = context as? android.app.Activity
+                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            },
+            properties = androidx.compose.ui.window.DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            )
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color.Black
+            ) {
+                androidx.activity.compose.BackHandler(enabled = true) {
+                    activeCustomViewCallback?.onCustomViewHidden()
+                    activeCustomView = null
+                    activeCustomViewCallback = null
+                    val activity = context as? android.app.Activity
+                    activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                }
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AndroidView(
+                        factory = { _ ->
+                            (activeCustomView!!.parent as? android.view.ViewGroup)?.removeView(activeCustomView)
+                            activeCustomView!!
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
             }
         }
@@ -14079,27 +13851,74 @@ fun MonitoringSection(
 @Composable
 fun AppDisguiseIconPreview(id: String, modifier: Modifier = Modifier) {
     val roundedShape = RoundedCornerShape(12.dp)
-    val drawableIds = when (id) {
-        "LauncherCalculator" -> Pair(R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground)
-        else -> Pair(R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground)
-    }
+    if (id == "LauncherCalculator") {
+        Box(
+            modifier = modifier
+                .clip(roundedShape)
+        ) {
+            coil.compose.AsyncImage(
+                model = R.drawable.ic_launcher_background,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            coil.compose.AsyncImage(
+                model = R.drawable.ic_launcher_foreground,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    } else {
+        val gradient = when (id) {
+            "LauncherCalcClassic" -> Brush.verticalGradient(listOf(Color(0xFF78909C), Color(0xFF37474F)))
+            "LauncherCalcRetro" -> Brush.verticalGradient(listOf(Color(0xFFA1887F), Color(0xFF4E342E)))
+            "LauncherCalcNeon" -> Brush.verticalGradient(listOf(Color(0xFF00E5FF), Color(0xFF006064)))
+            "LauncherNotes" -> Brush.verticalGradient(listOf(Color(0xFFFFD54F), Color(0xFFFF8F00)))
+            "LauncherCompass" -> Brush.verticalGradient(listOf(Color(0xFF4DB6AC), Color(0xFF004D40)))
+            "LauncherVoice" -> Brush.verticalGradient(listOf(Color(0xFFE57373), Color(0xFFC62828)))
+            "LauncherSudoku" -> Brush.verticalGradient(listOf(Color(0xFF7986CB), Color(0xFF283593)))
+            "LauncherWeather" -> Brush.verticalGradient(listOf(Color(0xFF4FC3F7), Color(0xFF0277BD)))
+            else -> Brush.verticalGradient(listOf(Color(0xFF9575CD), Color(0xFF4527A0)))
+        }
+        
+        val icon = when (id) {
+            "LauncherNotes" -> Icons.Default.Article
+            "LauncherCompass" -> Icons.Default.ScreenRotation
+            "LauncherVoice" -> Icons.Default.MusicNote
+            "LauncherSudoku" -> Icons.Default.GridView
+            "LauncherWeather" -> Icons.Default.CloudQueue
+            else -> Icons.Default.Calculate
+        }
 
-    Box(
-        modifier = modifier
-            .clip(roundedShape)
-    ) {
-        coil.compose.AsyncImage(
-            model = drawableIds.first,
-            contentDescription = null,
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-        coil.compose.AsyncImage(
-            model = drawableIds.second,
-            contentDescription = null,
-            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-            modifier = Modifier.fillMaxSize()
-        )
+        Box(
+            modifier = modifier
+                .clip(roundedShape)
+                .background(gradient)
+                .padding(10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.85f),
+                modifier = Modifier.fillMaxSize(0.75f)
+            )
+            
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = "SOON",
+                    color = Color(0xFFFFCC00),
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }
 
