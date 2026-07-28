@@ -96,6 +96,74 @@ data class LastMediaInfo(
     val raw: String
 )
 
+private fun processCapturedPhoto(filePath: String, isFrontCamera: Boolean) {
+    try {
+        val exif = ExifInterface(filePath)
+        val orientation = exif.getAttributeInt(
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_UNDEFINED
+        )
+        
+        var degrees = 0
+        var isFlipped = false
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> degrees = 90
+            ExifInterface.ORIENTATION_ROTATE_180 -> degrees = 180
+            ExifInterface.ORIENTATION_ROTATE_270 -> degrees = 270
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> isFlipped = true
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
+                degrees = 180
+                isFlipped = true
+            }
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                degrees = 90
+                isFlipped = true
+            }
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                degrees = 270
+                isFlipped = true
+            }
+        }
+        
+        val options = android.graphics.BitmapFactory.Options()
+        val bitmap = android.graphics.BitmapFactory.decodeFile(filePath, options) ?: return
+        
+        val matrix = android.graphics.Matrix()
+        if (degrees != 0) {
+            matrix.postRotate(degrees.toFloat())
+        }
+        
+        if (isFrontCamera) {
+            // Apply a horizontal scale flip for the front camera selfie photo to match 
+            // the expected natural mirror view of the preview and fix left/right swap.
+            matrix.postScale(-1f, 1f)
+        } else if (isFlipped) {
+            matrix.postScale(-1f, 1f)
+        }
+        
+        val processedBitmap = android.graphics.Bitmap.createBitmap(
+            bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+        )
+        
+        java.io.FileOutputStream(filePath).use { out ->
+            processedBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, out)
+        }
+        
+        if (processedBitmap != bitmap) {
+            bitmap.recycle()
+            processedBitmap.recycle()
+        } else {
+            bitmap.recycle()
+        }
+        
+        val newExif = ExifInterface(filePath)
+        newExif.setAttribute(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL.toString())
+        newExif.saveAttributes()
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
 private fun sanitizeExifMetadata(filePath: String) {
     try {
         val exifInterface = ExifInterface(filePath)
@@ -152,6 +220,7 @@ fun SecureCameraView(
     var timerMode by remember { mutableStateOf(0) } // 0 = Off, 3s, 5s, 10s
     var timerCountdown by remember { mutableStateOf(0) }
     var isTimerRunning by remember { mutableStateOf(false) }
+    var showTimerSelector by remember { mutableStateOf(false) }
 
     // Zoom States
     var minZoomRatio by remember { mutableStateOf(1f) }
@@ -405,6 +474,8 @@ fun SecureCameraView(
                     ContextCompat.getMainExecutor(context),
                     object : ImageCapture.OnImageSavedCallback {
                         override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                            // Process captured orientation and handling selfie mirroring
+                            processCapturedPhoto(destFile.absolutePath, isFrontCamera)
                             // Strip metadata automatically before saving
                             sanitizeExifMetadata(destFile.absolutePath)
                             
@@ -681,21 +752,14 @@ fun SecureCameraView(
                     // Self Timer toggle button
                     IconButton(
                         onClick = {
-                            timerMode = when (timerMode) {
-                                0 -> 3
-                                3 -> 5
-                                5 -> 10
-                                else -> 0
-                            }
-                            val msg = when (timerMode) {
-                                0 -> "Self-timer turned off"
-                                else -> "Self-timer set to $timerMode seconds"
-                            }
-                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                            showTimerSelector = !showTimerSelector
                         },
                         modifier = Modifier
                             .size(44.dp)
-                            .background(Color.White.copy(alpha = 0.12f), CircleShape)
+                            .background(
+                                if (showTimerSelector) Color.Yellow.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.12f),
+                                CircleShape
+                            )
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
@@ -747,6 +811,60 @@ fun SecureCameraView(
                             contentDescription = "Flash Mode",
                             tint = if (flashMode == "OFF") Color.LightGray else Color.Yellow
                         )
+                    }
+                }
+            }
+        }
+
+        // Glassmorphic Premium Self-Timer Popup Selector
+        if (showTimerSelector) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 76.dp), // Positioned cleanly directly below top action bar
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    color = Color(0xDD111625), // rich glassmorphic dark background
+                    shape = RoundedCornerShape(24.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                    shadowElevation = 8.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        listOf(0, 3, 5, 10).forEach { seconds ->
+                            val isSelected = timerMode == seconds
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(
+                                        if (isSelected) Color.Yellow else Color.Transparent
+                                    )
+                                    .clickable {
+                                        timerMode = seconds
+                                        showTimerSelector = false
+                                        val msg = when (seconds) {
+                                            0 -> "Self-timer turned off"
+                                            else -> "Self-timer set to $seconds seconds"
+                                        }
+                                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (seconds == 0) "Off" else "${seconds}s",
+                                    color = if (isSelected) Color.Black else Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                 }
             }

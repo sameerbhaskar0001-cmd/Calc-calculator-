@@ -574,6 +574,7 @@ fun CalculatorScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .statusBarsPadding()
                         .drawBehind {
                             // Elegant dynamic ambient glow pool
                             val glowColor = calcGlowColor.copy(alpha = 0.08f)
@@ -1264,6 +1265,7 @@ fun CalculatorTabContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1.5f)
+                .navigationBarsPadding()
                 .padding(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -2598,6 +2600,7 @@ fun VaultTabUnlockedContent(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .statusBarsPadding()
                         .padding(16.dp)
                 ) {
                 // Clean and spacious Unlocked Header
@@ -3439,7 +3442,7 @@ fun VaultTabUnlockedContent(
                                 }
                                 Icon(Icons.Default.ArrowForward, contentDescription = "Open", tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
                             }
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(100.dp))
                         }
                     }
                 "Photos", "Videos", "Documents", "Notes", "Music & Audio" -> {
@@ -9269,6 +9272,7 @@ fun VaultTabUnlockedContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF161B2B).copy(alpha = 0.95f))
+                        .navigationBarsPadding()
                         .height(56.dp)
                         .drawBehind {
                             // High-end glassmorphic top hairline divider
@@ -9788,14 +9792,6 @@ fun VaultTabUnlockedContent(
                     activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                     setSystemBarsVisibility(activity, true)
                 }
-                AndroidView(
-                    factory = { _ ->
-                        val view = viewModel.browserCustomView!!
-                        (view.parent as? android.view.ViewGroup)?.removeView(view)
-                        view
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
             }
         }
         if (showAddNoteDialog) {
@@ -10891,24 +10887,24 @@ fun PrivateBrowserSection(
                     },
                     onCreatePopup = { activePopupWebView = it },
                     onShowCustomView = { view, callback ->
-                        view.layoutParams = android.widget.FrameLayout.LayoutParams(
-                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT
-                        )
-                        viewModel.browserCustomView = view
-                        viewModel.browserCustomViewCallback = callback
                         val activity = context as? android.app.Activity
-                        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR
-                        view.post {
-                            if (view.width > 0 && view.height > 0) {
-                                if (view.height > view.width) {
-                                    activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                                } else {
-                                    activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                                }
+                        if (activity != null) {
+                            val decor = activity.window.decorView as? android.widget.FrameLayout
+                            if (decor != null) {
+                                try { (view.parent as? android.view.ViewGroup)?.removeView(view) } catch(e: Exception) {}
+                                view.setBackgroundColor(android.graphics.Color.BLACK)
+                                view.layoutParams = android.widget.FrameLayout.LayoutParams(
+                                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                                )
+                                decor.addView(view)
+                                view.requestFocus()
+                                viewModel.browserCustomView = view
+                                viewModel.browserCustomViewCallback = callback
+                                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                                setSystemBarsVisibility(activity, false)
                             }
                         }
-                        setSystemBarsVisibility(activity, false)
                     },
                     onHideCustomView = {
                         val viewToRemove = viewModel.browserCustomView
@@ -10952,24 +10948,24 @@ fun PrivateBrowserSection(
             },
             onCreatePopup = { activePopupWebView = it },
             onShowCustomView = { view, callback ->
-                view.layoutParams = android.widget.FrameLayout.LayoutParams(
-                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
-                )
-                viewModel.browserCustomView = view
-                viewModel.browserCustomViewCallback = callback
                 val activity = context as? android.app.Activity
-                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR
-                view.post {
-                    if (view.width > 0 && view.height > 0) {
-                        if (view.height > view.width) {
-                            activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                        } else {
-                            activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                        }
+                if (activity != null) {
+                    val decor = activity.window.decorView as? android.widget.FrameLayout
+                    if (decor != null) {
+                        try { (view.parent as? android.view.ViewGroup)?.removeView(view) } catch(e: Exception) {}
+                        view.setBackgroundColor(android.graphics.Color.BLACK)
+                        view.layoutParams = android.widget.FrameLayout.LayoutParams(
+                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                        )
+                        decor.addView(view)
+                        view.requestFocus()
+                        viewModel.browserCustomView = view
+                        viewModel.browserCustomViewCallback = callback
+                        activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                        setSystemBarsVisibility(activity, false)
                     }
                 }
-                setSystemBarsVisibility(activity, false)
             },
             onHideCustomView = {
                 val viewToRemove = viewModel.browserCustomView
@@ -11146,6 +11142,8 @@ fun PrivateBrowserSection(
             modifier = modifier
                 .fillMaxSize()
                 .background(Color(0xFF0A0C16))
+                .statusBarsPadding()
+                .navigationBarsPadding()
         ) {
             Row(
                 modifier = Modifier
@@ -11290,6 +11288,8 @@ fun PrivateBrowserSection(
             modifier = modifier
                 .fillMaxSize()
                 .background(Color(0xFF0A0C16))
+                .statusBarsPadding()
+                .navigationBarsPadding()
         ) {
             Row(
                 modifier = Modifier
@@ -11341,6 +11341,8 @@ fun PrivateBrowserSection(
             modifier = modifier
                 .fillMaxSize()
                 .background(Color(0xFF0A0C16))
+                .statusBarsPadding()
+                .navigationBarsPadding()
         ) {
             Row(
                 modifier = Modifier
@@ -11983,6 +11985,7 @@ fun PrivateBrowserSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF0F1015))
+                    .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .drawBehind {
                         drawLine(
@@ -12079,6 +12082,7 @@ fun PrivateBrowserSection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
                         .padding(16.dp)
                         .clickable(enabled = false) {},
                     shape = RoundedCornerShape(20.dp),
@@ -13481,6 +13485,8 @@ fun DownloadsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0A0C16))
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
         // Header
         Row(

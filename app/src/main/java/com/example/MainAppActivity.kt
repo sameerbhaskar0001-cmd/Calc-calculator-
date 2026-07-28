@@ -62,7 +62,8 @@ class MainAppActivity : FragmentActivity() {
         }
     }
 
-    enableEdgeToEdge()
+    // Force the window to fit system windows (status and navigation bars) to avoid overlaps globally
+    androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, true)
 
     try {
         viewModel = ViewModelProvider(this)[CalculatorViewModel::class.java]
@@ -143,5 +144,13 @@ class MainAppActivity : FragmentActivity() {
   override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
     super.onConfigurationChanged(newConfig)
     Log.d("ActivityLifecycle", "onConfigurationChanged called - orientation: ${newConfig.orientation}")
+    val customView = viewModel?.browserCustomView
+    if (customView != null) {
+        customView.layoutParams = android.widget.FrameLayout.LayoutParams(
+            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+            android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+        )
+        customView.requestLayout()
+    }
   }
 }

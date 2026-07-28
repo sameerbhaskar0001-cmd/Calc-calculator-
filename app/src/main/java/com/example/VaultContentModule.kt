@@ -575,6 +575,7 @@ fun VaultContentScreen(
                     exit = scaleOut(animationSpec = tween(150)) + fadeOut(),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
                         .padding(bottom = 40.dp)
                 ) {
                     val contentColor = if (ThemePurple.red > 0.95f && ThemePurple.green > 0.95f && ThemePurple.blue > 0.95f) BrandBg else Color.White
@@ -601,7 +602,10 @@ fun VaultContentScreen(
                     ) {
                     Surface(
                         color = Color(0xFF161B2B).copy(alpha = 0.98f),
-                        modifier = Modifier.fillMaxWidth().height(96.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .height(96.dp),
                         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                         shadowElevation = 24.dp
                     ) {
