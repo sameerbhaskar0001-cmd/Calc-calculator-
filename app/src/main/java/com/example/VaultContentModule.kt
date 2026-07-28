@@ -143,7 +143,8 @@ fun VaultContentScreen(
     onDeleteItems: (Set<String>) -> Unit,
     onToggleFavorite: (String) -> Unit,
     onCreateFolder: (String) -> Unit,
-    onMoveItems: (Set<String>, String) -> Unit
+    onMoveItems: (Set<String>, String) -> Unit,
+    onShareItems: ((Set<String>) -> Unit)? = null
 ) {
     val BrandBg = LocalAppThemeColors.current.brandBg
     val ThemePurple = LocalAppThemeColors.current.themePurple
@@ -641,6 +642,18 @@ fun VaultContentScreen(
                                     selectedItemRaws = emptySet()
                                 }
                             )
+                            if (onShareItems != null && selectedItemRaws.isNotEmpty()) {
+                                SelectionActionButton(
+                                    icon = Icons.Default.Share,
+                                    label = "Share",
+                                    color = Color.White,
+                                    onClick = {
+                                        onShareItems(selectedItemRaws)
+                                        isSelectionMode = false
+                                        selectedItemRaws = emptySet()
+                                    }
+                                )
+                            }
                             SelectionActionButton(
                                 icon = Icons.Default.Delete,
                                 label = "Delete",

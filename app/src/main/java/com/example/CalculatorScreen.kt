@@ -272,6 +272,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ScreenRotation
@@ -3531,8 +3532,11 @@ fun VaultTabUnlockedContent(
                         onItemClick = { item, index, allFiltered -> 
                             if (item.type == "note") {
                                 viewNoteToShow = item.rawString
+                            } else if (item.type == "image" || item.type == "video") {
+                                activeViewerFiles = allFiltered.map { it.rawString }
+                                activeViewerIndex = index
                             } else {
-                                secureShareFileSerialized = item.rawString
+                                activeDocumentToView = item.rawString
                             }
                         },
                         onCreateFolder = { viewModel.addFolder(it) },
@@ -3555,6 +3559,21 @@ fun VaultTabUnlockedContent(
                                 viewModel.toggleFavoriteNote(rawString)
                             } else {
                                 viewModel.toggleFavoriteFile(rawString.split("|||")[0])
+                            }
+                        },
+                        onShareItems = { rawStrings ->
+                            if (rawStrings.isNotEmpty()) {
+                                android.widget.Toast.makeText(context, "Preparing secure share...", android.widget.Toast.LENGTH_SHORT).show()
+                                viewModel.shareMultipleVaultFiles(
+                                    context = context,
+                                    filesSerialized = rawStrings.toList(),
+                                    onSuccess = {
+                                        // Shared successfully
+                                    },
+                                    onFailure = { error ->
+                                        android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
+                                    }
+                                )
                             }
                         }
                     )
@@ -5831,7 +5850,6 @@ fun VaultTabUnlockedContent(
                     val hideNotifications by viewModel.hideNotifications.collectAsStateWithLifecycle()
                     val clipboardProtection by viewModel.clipboardProtection.collectAsStateWithLifecycle()
                     val stealthMode by viewModel.stealthMode.collectAsStateWithLifecycle()
-                    val secureShareBranding by viewModel.secureShareBranding.collectAsStateWithLifecycle()
                     
                     val autoLockDurationVal by viewModel.autoLockDuration.collectAsStateWithLifecycle()
                     val preventScreenshotsVal by viewModel.preventScreenshots.collectAsStateWithLifecycle()
@@ -6269,65 +6287,6 @@ fun VaultTabUnlockedContent(
                                     onCheckedChange = { enabled ->
                                         viewModel.triggerKeypressEffects(context)
                                         viewModel.setStealthMode(enabled)
-                                    },
-                                    colors = dynamicSwitchColors()
-                                )
-                            }
-                        }
-
-                        // 7. Secure Share Branding
-                        UnifiedGlassCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
-                            bgColor = Color(0xFF1B2031).copy(alpha = 0.95f),
-                            elevation = 2.dp
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(Color(0xFF3B82F6).copy(alpha = 0.12f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Security,
-                                            contentDescription = "Secure Share Branding",
-                                            tint = Color(0xFF3B82F6),
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-                                    Column {
-                                        Text(
-                                            text = "Secure Share Branding",
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                        Text(
-                                            text = "Add a subtle Secret Vault watermark when sharing supported images.",
-                                            fontSize = 11.sp,
-                                            color = Color.White.copy(alpha = 0.5f),
-                                            lineHeight = 14.sp
-                                        )
-                                    }
-                                }
-                                androidx.compose.material3.Switch(
-                                    checked = secureShareBranding,
-                                    onCheckedChange = { enabled ->
-                                        viewModel.triggerKeypressEffects(context)
-                                        viewModel.setSecureShareBranding(enabled)
                                     },
                                     colors = dynamicSwitchColors()
                                 )
@@ -8495,6 +8454,28 @@ fun VaultTabUnlockedContent(
                                 IconButton(
                                     onClick = {
                                         viewModel.triggerKeypressEffects(context)
+                                        if (activeFile != null) {
+                                            android.widget.Toast.makeText(context, "Preparing secure share...", android.widget.Toast.LENGTH_SHORT).show()
+                                            viewModel.shareMultipleVaultFiles(
+                                                context = context,
+                                                filesSerialized = listOf(activeFile!!),
+                                                onSuccess = {},
+                                                onFailure = { error ->
+                                                    android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
+                                                }
+                                            )
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "Share File",
+                                        tint = Color.White
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        viewModel.triggerKeypressEffects(context)
                                         viewModel.exportVaultFile(
                                             context = context,
                                             fileSerialized = activeFile!!,
@@ -9786,6 +9767,37 @@ fun VaultTabUnlockedContent(
                 }
             }
         }
+        if (viewModel.browserCustomView != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.activity.compose.BackHandler(enabled = true) {
+                    try {
+                        viewModel.browserCustomViewCallback?.onCustomViewHidden()
+                    } catch (e: Exception) {}
+                    val viewToRemove = viewModel.browserCustomView
+                    if (viewToRemove != null) {
+                        try { (viewToRemove.parent as? android.view.ViewGroup)?.removeView(viewToRemove) } catch(e: Exception) {}
+                    }
+                    viewModel.browserCustomView = null
+                    viewModel.browserCustomViewCallback = null
+                    val activity = context as? android.app.Activity
+                    activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    setSystemBarsVisibility(activity, true)
+                }
+                AndroidView(
+                    factory = { _ ->
+                        val view = viewModel.browserCustomView!!
+                        (view.parent as? android.view.ViewGroup)?.removeView(view)
+                        view
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
         if (showAddNoteDialog) {
         AlertDialog(
             onDismissRequest = { showAddNoteDialog = false },
@@ -10375,6 +10387,7 @@ fun setSystemBarsVisibility(activity: android.app.Activity?, visible: Boolean) {
     val window = activity.window ?: return
     val decorView = window.decorView
     try {
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, visible)
         val controller = androidx.core.view.WindowCompat.getInsetsController(window, decorView)
         if (visible) {
             controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
@@ -10862,9 +10875,6 @@ fun PrivateBrowserSection(
     var showSearchEngineDialog by remember { mutableStateOf(false) }
     var activePopupWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
     var pendingDownload by remember { mutableStateOf<PendingDownloadData?>(null) }
-    
-    var activeCustomView by remember { mutableStateOf<android.view.View?>(null) }
-    var activeCustomViewCallback by remember { mutableStateOf<android.webkit.WebChromeClient.CustomViewCallback?>(null) }
 
     // Restore WebViews for existing tabs
     androidx.compose.runtime.LaunchedEffect(tabs.toList()) {
@@ -10881,19 +10891,32 @@ fun PrivateBrowserSection(
                     },
                     onCreatePopup = { activePopupWebView = it },
                     onShowCustomView = { view, callback ->
-                        activeCustomView = view
-                        activeCustomViewCallback = callback
+                        view.layoutParams = android.widget.FrameLayout.LayoutParams(
+                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                        )
+                        viewModel.browserCustomView = view
+                        viewModel.browserCustomViewCallback = callback
                         val activity = context as? android.app.Activity
-                        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                        view.post {
+                            if (view.width > 0 && view.height > 0) {
+                                if (view.height > view.width) {
+                                    activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                                } else {
+                                    activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                                }
+                            }
+                        }
                         setSystemBarsVisibility(activity, false)
                     },
                     onHideCustomView = {
-                        val viewToRemove = activeCustomView
+                        val viewToRemove = viewModel.browserCustomView
                         if (viewToRemove != null) {
                             try { (viewToRemove.parent as? android.view.ViewGroup)?.removeView(viewToRemove) } catch(e: Exception) {}
                         }
-                        activeCustomView = null
-                        activeCustomViewCallback = null
+                        viewModel.browserCustomView = null
+                        viewModel.browserCustomViewCallback = null
                         val activity = context as? android.app.Activity
                         activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                         setSystemBarsVisibility(activity, true)
@@ -10929,19 +10952,32 @@ fun PrivateBrowserSection(
             },
             onCreatePopup = { activePopupWebView = it },
             onShowCustomView = { view, callback ->
-                activeCustomView = view
-                activeCustomViewCallback = callback
+                view.layoutParams = android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                )
+                viewModel.browserCustomView = view
+                viewModel.browserCustomViewCallback = callback
                 val activity = context as? android.app.Activity
-                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                view.post {
+                    if (view.width > 0 && view.height > 0) {
+                        if (view.height > view.width) {
+                            activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                        } else {
+                            activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                        }
+                    }
+                }
                 setSystemBarsVisibility(activity, false)
             },
             onHideCustomView = {
-                val viewToRemove = activeCustomView
+                val viewToRemove = viewModel.browserCustomView
                 if (viewToRemove != null) {
                     try { (viewToRemove.parent as? android.view.ViewGroup)?.removeView(viewToRemove) } catch(e: Exception) {}
                 }
-                activeCustomView = null
-                activeCustomViewCallback = null
+                viewModel.browserCustomView = null
+                viewModel.browserCustomViewCallback = null
                 val activity = context as? android.app.Activity
                 activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                 setSystemBarsVisibility(activity, true)
@@ -11095,38 +11131,6 @@ fun PrivateBrowserSection(
             titleContentColor = Color.White,
             textContentColor = Color.White
         )
-    }
-
-    if (activeCustomView != null) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black),
-            contentAlignment = Alignment.Center
-        ) {
-            androidx.activity.compose.BackHandler(enabled = true) {
-                try {
-                    activeCustomViewCallback?.onCustomViewHidden()
-                } catch (e: Exception) {}
-                val viewToRemove = activeCustomView
-                if (viewToRemove != null) {
-                    try { (viewToRemove.parent as? android.view.ViewGroup)?.removeView(viewToRemove) } catch(e: Exception) {}
-                }
-                activeCustomView = null
-                activeCustomViewCallback = null
-                val activity = context as? android.app.Activity
-                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                setSystemBarsVisibility(activity, true)
-            }
-            AndroidView(
-                factory = { _ ->
-                    (activeCustomView!!.parent as? android.view.ViewGroup)?.removeView(activeCustomView)
-                    activeCustomView!!
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-        return
     }
 
     if (showDownloads) {
@@ -11681,7 +11685,7 @@ fun PrivateBrowserSection(
                     ) {
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Phantom Secure Shield Hero Section
+                        // Secret Vault Shield Hero Section
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -11705,7 +11709,7 @@ fun PrivateBrowserSection(
                                 }
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Text(
-                                    text = "PHANTOM SECURE",
+                                    text = "SECRET VAULT",
                                     color = Color.White,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,

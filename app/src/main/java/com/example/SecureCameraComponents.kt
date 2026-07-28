@@ -536,48 +536,55 @@ fun SecureCameraView(
             .background(Color.Black)
     ) {
         // Real-time Camera Preview View with Tap-to-Focus, Zoom Gestures, and Double Tap Zoom Toggle
-        AndroidView(
-            factory = { ctx ->
-                PreviewView(ctx).apply {
-                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                    previewViewRef = this
-                }
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onDoubleTap = {
-                            val targetZoom = if (currentZoomRatio > 1.5f) 1f else 2f
-                            camera?.cameraControl?.setZoomRatio(targetZoom)
-                            savedZoomRatio = targetZoom
-                        },
-                        onTap = { offset ->
-                            focusPoint = offset
-                            focusRingAnimTrigger = !focusRingAnimTrigger
-                            
-                            val factory = previewViewRef?.meteringPointFactory
-                            if (factory != null) {
-                                val point = factory.createPoint(offset.x, offset.y)
-                                val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
-                                    .setAutoCancelDuration(3, java.util.concurrent.TimeUnit.SECONDS)
-                                    .build()
-                                camera?.cameraControl?.startFocusAndMetering(action)
-                            }
-                        }
-                    )
-                }
-                .pointerInput(Unit) {
-                    detectTransformGestures { _, _, zoom, _ ->
-                        if (zoom != 1f) {
-                            val newZoom = (currentZoomRatio * zoom).coerceIn(minZoomRatio, maxZoomRatio)
-                            camera?.cameraControl?.setZoomRatio(newZoom)
-                            savedZoomRatio = newZoom
-                        }
+        Box(modifier = Modifier.fillMaxSize()) {
+            AndroidView(
+                factory = { ctx ->
+                    PreviewView(ctx).apply {
+                        implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                        previewViewRef = this
                     }
                 },
-            update = {}
-        )
+                modifier = Modifier.fillMaxSize(),
+                update = {}
+            )
+
+            // Transparent overlay for gestures to prevent native touch dispatch conflicts
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onDoubleTap = {
+                                val targetZoom = if (currentZoomRatio > 1.5f) 1f else 2f
+                                camera?.cameraControl?.setZoomRatio(targetZoom)
+                                savedZoomRatio = targetZoom
+                            },
+                            onTap = { offset ->
+                                focusPoint = offset
+                                focusRingAnimTrigger = !focusRingAnimTrigger
+                                
+                                val factory = previewViewRef?.meteringPointFactory
+                                if (factory != null) {
+                                    val point = factory.createPoint(offset.x, offset.y)
+                                    val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
+                                        .setAutoCancelDuration(3, java.util.concurrent.TimeUnit.SECONDS)
+                                        .build()
+                                    camera?.cameraControl?.startFocusAndMetering(action)
+                                }
+                            }
+                        )
+                    }
+                    .pointerInput(Unit) {
+                        detectTransformGestures { _, _, zoom, _ ->
+                            if (zoom != 1f) {
+                                val newZoom = (currentZoomRatio * zoom).coerceIn(minZoomRatio, maxZoomRatio)
+                                camera?.cameraControl?.setZoomRatio(newZoom)
+                                savedZoomRatio = newZoom
+                            }
+                        }
+                    }
+            )
+        }
 
         // Composition Grid (Rule of Thirds Canvas Overlay)
         if (showGrid) {
@@ -614,101 +621,133 @@ fun SecureCameraView(
             )
         }
 
-        // Top Control Overlay Bar
-        Row(
+        // Top Control Overlay Bar with a premium dark gradient background and gesture interceptor
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.75f),
+                            Color.Black.copy(alpha = 0.4f),
+                            Color.Transparent
+                        )
+                    )
+                )
                 .statusBarsPadding()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .pointerInput(Unit) {} // Intercept gestures so they don't zoom the preview underneath
         ) {
-            // Exit Button
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-            ) {
-                Icon(Icons.Default.Close, contentDescription = "Exit Camera", tint = Color.White)
-            }
-
-            // Top Quick settings buttons (Grid, Self-Timer, Flash Mode)
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Grid toggle button
+                // Exit Button
                 IconButton(
-                    onClick = { showGrid = !showGrid },
+                    onClick = onDismiss,
                     modifier = Modifier
                         .size(44.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        .background(Color.White.copy(alpha = 0.12f), CircleShape)
                 ) {
-                    Icon(
-                        imageVector = if (showGrid) Icons.Default.GridOn else Icons.Default.GridOff,
-                        contentDescription = "Grid Toggle",
-                        tint = if (showGrid) Color.Yellow else Color.White
-                    )
+                    Icon(Icons.Default.Close, contentDescription = "Exit Camera", tint = Color.White)
                 }
 
-                // Self Timer toggle button
-                IconButton(
-                    onClick = {
-                        timerMode = when (timerMode) {
-                            0 -> 3
-                            3 -> 5
-                            5 -> 10
-                            else -> 0
-                        }
-                    },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                // Top Quick settings buttons (Grid, Self-Timer, Flash Mode)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    // Grid toggle button
+                    IconButton(
+                        onClick = { 
+                            showGrid = !showGrid 
+                            val msg = if (showGrid) "Grid overlay enabled" else "Grid overlay disabled"
+                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(Color.White.copy(alpha = 0.12f), CircleShape)
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.Timer,
-                            contentDescription = "Self Timer Mode",
-                            tint = if (timerMode > 0) Color.Yellow else Color.White
+                            imageVector = if (showGrid) Icons.Default.GridOn else Icons.Default.GridOff,
+                            contentDescription = "Grid Toggle",
+                            tint = if (showGrid) Color.Yellow else Color.White
                         )
-                        if (timerMode > 0) {
-                            Text(
-                                text = "${timerMode}s",
-                                color = Color.Black,
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .background(Color.Yellow, CircleShape)
-                                    .padding(horizontal = 2.dp)
+                    }
+
+                    // Self Timer toggle button
+                    IconButton(
+                        onClick = {
+                            timerMode = when (timerMode) {
+                                0 -> 3
+                                3 -> 5
+                                5 -> 10
+                                else -> 0
+                            }
+                            val msg = when (timerMode) {
+                                0 -> "Self-timer turned off"
+                                else -> "Self-timer set to $timerMode seconds"
+                            }
+                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(Color.White.copy(alpha = 0.12f), CircleShape)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Timer,
+                                contentDescription = "Self Timer Mode",
+                                tint = if (timerMode > 0) Color.Yellow else Color.White
                             )
+                            if (timerMode > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .offset(x = 4.dp, y = 4.dp)
+                                        .size(16.dp)
+                                        .background(Color.Yellow, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "$timerMode",
+                                        color = Color.Black,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                            }
                         }
                     }
-                }
 
-                // Flash Toggle Button
-                IconButton(
-                    onClick = {
-                        flashMode = when (flashMode) {
-                            "AUTO" -> "ON"
-                            "ON" -> "OFF"
-                            else -> "AUTO"
-                        }
-                    },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = when (flashMode) {
-                            "ON" -> Icons.Default.FlashOn
-                            "OFF" -> Icons.Default.FlashOff
-                            else -> Icons.Default.FlashAuto
+                    // Flash Toggle Button
+                    IconButton(
+                        onClick = {
+                            flashMode = when (flashMode) {
+                                "AUTO" -> "ON"
+                                "ON" -> "OFF"
+                                else -> "AUTO"
+                            }
+                            val msg = "Flash mode: $flashMode"
+                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
                         },
-                        contentDescription = "Flash Mode",
-                        tint = if (flashMode == "OFF") Color.LightGray else Color.Yellow
-                    )
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(Color.White.copy(alpha = 0.12f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = when (flashMode) {
+                                "ON" -> Icons.Default.FlashOn
+                                "OFF" -> Icons.Default.FlashOff
+                                else -> Icons.Default.FlashAuto
+                            },
+                            contentDescription = "Flash Mode",
+                            tint = if (flashMode == "OFF") Color.LightGray else Color.Yellow
+                        )
+                    }
                 }
             }
         }
@@ -737,57 +776,8 @@ fun SecureCameraView(
         }
 
         // Floating Zoom Level Controls (Quick Presets: 1x, 2x, 5x + precise live ratio display)
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 128.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Zoom Ratio floating text
-            Text(
-                text = String.format(Locale.US, "%.1fx", currentZoomRatio),
-                color = Color.Yellow,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            )
-
-            // Zoom Presets Quick Pills
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                listOf(1f, 2f, 5f).forEach { targetZoom ->
-                    val isSelected = kotlin.math.abs(currentZoomRatio - targetZoom) < 0.15f
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(if (isSelected) ThemePurple else Color.DarkGray.copy(alpha = 0.5f))
-                            .clickable {
-                                val target = targetZoom.coerceIn(minZoomRatio, maxZoomRatio)
-                                camera?.cameraControl?.setZoomRatio(target)
-                                savedZoomRatio = target
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "${targetZoom.toInt()}x",
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-
+        // Moved inside Bottom Dashboard Panel Column to prevent overlap issues
+        
         // Active video recording time badge
         if (isRecording) {
             var recordSeconds by remember { mutableStateOf(0) }
@@ -832,145 +822,210 @@ fun SecureCameraView(
             )
         }
 
-        // Bottom Dashboard Panel (Gallery preview, Shutter trigger button, Flip Camera)
-        Column(
+        // Bottom Dashboard Panel (Gallery preview, Shutter trigger button, Flip Camera) with gradient background and gesture interceptor
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Sliding Mode Tabs (PHOTO vs VIDEO)
-            Row(
-                modifier = Modifier
-                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(20.dp))
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf(false to "PHOTO", true to "VIDEO").forEach { (mode, label) ->
-                    val isSelected = isVideoMode == mode
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) ThemePurple else Color.Transparent)
-                            .clickable {
-                                if (!isRecording) {
-                                    isVideoMode = mode
-                                }
-                            }
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = label,
-                            color = if (isSelected) Color.White else Color.LightGray,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.5f),
+                            Color.Black.copy(alpha = 0.85f),
+                            Color.Black
                         )
-                    }
-                }
-            }
-
-            // Bottom Core controls
-            Row(
+                    )
+                )
+                .navigationBarsPadding()
+                .pointerInput(Unit) {} // Consume all touches to prevent accidental zoom/focus underneath
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 32.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(top = 20.dp, bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Left: Vault Gallery Preview Circle
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.1f))
-                        .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
-                        .clickable {
-                            if (lastCapturedFile != null && onViewMedia != null) {
-                                val index = mediaFiles.indexOf(lastCapturedFile.raw)
-                                if (index != -1) {
-                                    onViewMedia(lastCapturedFile.raw, index, mediaFiles)
-                                }
-                            }
-                        },
-                    contentAlignment = Alignment.Center
+                // Stacked Zoom Level Controls to prevent overlap
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (lastCapturedFile != null) {
-                        AsyncImage(
-                            model = coil.request.ImageRequest.Builder(context)
-                                .data(File(lastCapturedFile.path))
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = "Last captured item",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                        if (lastCapturedFile.isVideo) {
+                    // Zoom Ratio text
+                    Text(
+                        text = String.format(Locale.US, "%.1fx", currentZoomRatio),
+                        color = Color.Yellow,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+
+                    // Zoom Presets Pills
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(20.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        listOf(1f, 2f, 5f).forEach { targetZoom ->
+                            val isSelected = kotlin.math.abs(currentZoomRatio - targetZoom) < 0.15f
                             Box(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.3f)),
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) ThemePurple else Color.DarkGray.copy(alpha = 0.5f))
+                                    .clickable {
+                                        val target = targetZoom.coerceIn(minZoomRatio, maxZoomRatio)
+                                        camera?.cameraControl?.setZoomRatio(target)
+                                        savedZoomRatio = target
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = "Video Thumbnail icon",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
+                                Text(
+                                    text = "${targetZoom.toInt()}x",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.PhotoLibrary,
-                            contentDescription = "Gallery Empty",
-                            tint = Color.White.copy(alpha = 0.6f),
-                            modifier = Modifier.size(24.dp)
-                        )
                     }
                 }
 
-                // Center: Capture Shutter button (respects self timer countdown)
-                Box(
+                // Sliding Mode Tabs (PHOTO vs VIDEO)
+                Row(
                     modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.2f))
-                        .padding(6.dp),
-                    contentAlignment = Alignment.Center
+                        .background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(20.dp))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape)
-                            .background(if (isVideoMode) Color.Red else Color.White)
-                            .clickable {
-                                triggerShutter()
-                            }
-                    )
+                    listOf(false to "PHOTO", true to "VIDEO").forEach { (mode, label) ->
+                        val isSelected = isVideoMode == mode
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSelected) ThemePurple else Color.Transparent)
+                                .clickable {
+                                    if (!isRecording) {
+                                        isVideoMode = mode
+                                    }
+                                }
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isSelected) Color.White else Color.LightGray,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
 
-                // Right: Flip Front/Back Camera
-                IconButton(
-                    onClick = {
-                        savedZoomRatio = currentZoomRatio
-                        isFrontCamera = !isFrontCamera
-                    },
+                // Bottom Core controls
+                Row(
                     modifier = Modifier
-                        .size(56.dp)
-                        .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                        .fillMaxWidth()
+                        .padding(horizontal = 32.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.FlipCameraAndroid,
-                        contentDescription = "Flip Camera",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    // Left: Vault Gallery Preview Circle
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.12f))
+                            .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                            .clickable {
+                                if (lastCapturedFile != null && onViewMedia != null) {
+                                    val index = mediaFiles.indexOf(lastCapturedFile.raw)
+                                    if (index != -1) {
+                                        onViewMedia(lastCapturedFile.raw, index, mediaFiles)
+                                    }
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (lastCapturedFile != null) {
+                            AsyncImage(
+                                model = coil.request.ImageRequest.Builder(context)
+                                    .data(File(lastCapturedFile.path))
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Last captured item",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                            if (lastCapturedFile.isVideo) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.3f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = "Video Thumbnail icon",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.PhotoLibrary,
+                                contentDescription = "Gallery Empty",
+                                tint = Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    // Center: Capture Shutter button (respects self timer countdown)
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.2f))
+                            .padding(6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                                .background(if (isVideoMode) Color.Red else Color.White)
+                                .clickable {
+                                    triggerShutter()
+                                }
+                        )
+                    }
+
+                    // Right: Flip Front/Back Camera
+                    IconButton(
+                        onClick = {
+                            savedZoomRatio = currentZoomRatio
+                            isFrontCamera = !isFrontCamera
+                        },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(Color.White.copy(alpha = 0.12f), CircleShape)
+                            .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FlipCameraAndroid,
+                            contentDescription = "Flip Camera",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
         }

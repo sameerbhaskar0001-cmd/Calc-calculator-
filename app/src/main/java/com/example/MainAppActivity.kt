@@ -84,7 +84,7 @@ class MainAppActivity : FragmentActivity() {
               if (viewModel != null) {
                   CalculatorScreen(
                     viewModel = viewModel!!,
-                    modifier = Modifier.padding(innerPadding)
+                    modifier = Modifier.fillMaxSize()
                   )
               }
             }

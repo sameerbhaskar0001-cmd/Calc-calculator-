@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Secret Vault"
+rootProject.name = "Calculator"
 include(":app")
