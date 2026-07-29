@@ -230,6 +230,7 @@ fun SecureCameraView(
 
     // Interactive UI States
     var showShutterFlash by remember { mutableStateOf(false) }
+    var isScreenFlashActive by remember { mutableStateOf(false) }
     var focusPoint by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
     var showFocusRing by remember { mutableStateOf(false) }
     var focusRingAnimTrigger by remember { mutableStateOf(false) }
@@ -466,33 +467,77 @@ fun SecureCameraView(
 
                 val outputOpts = ImageCapture.OutputFileOptions.Builder(destFile).build()
                 
-                // Show screen-flash capture animation
-                showShutterFlash = true
+                // Screen Flash Logic for front camera
+                val hasFrontFlashHardware = camera?.cameraInfo?.hasFlashUnit() == true
+                val shouldTriggerScreenFlash = isFrontCamera && !hasFrontFlashHardware && flashMode == "ON"
                 
-                imgCap.takePicture(
-                    outputOpts,
-                    ContextCompat.getMainExecutor(context),
-                    object : ImageCapture.OnImageSavedCallback {
-                        override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                            // Process captured orientation and handling selfie mirroring
-                            processCapturedPhoto(destFile.absolutePath, isFrontCamera)
-                            // Strip metadata automatically before saving
-                            sanitizeExifMetadata(destFile.absolutePath)
-                            
-                            viewModel.registerDirectVaultFile(
-                                context,
-                                destFile,
-                                "Photo_$id.jpg",
-                                "image/jpeg"
-                            )
-                            Toast.makeText(context, "Photo secured directly in Vault (Metadata Stripped)!", Toast.LENGTH_SHORT).show()
-                        }
-
-                        override fun onError(exception: ImageCaptureException) {
-                            Toast.makeText(context, "Capture failed: ${exception.message}", Toast.LENGTH_SHORT).show()
+                val activity = context as? android.app.Activity
+                var oldBrightness = -1f
+                activity?.window?.let { window ->
+                    val lp = window.attributes
+                    oldBrightness = lp.screenBrightness
+                }
+                
+                val onCaptureDone = {
+                    if (shouldTriggerScreenFlash) {
+                        isScreenFlashActive = false
+                        activity?.runOnUiThread {
+                            activity.window?.let { window ->
+                                val lp = window.attributes
+                                lp.screenBrightness = oldBrightness
+                                window.attributes = lp
+                            }
                         }
                     }
-                )
+                }
+                
+                val captureAction = {
+                    // Show screen-flash capture animation
+                    showShutterFlash = true
+                    
+                    imgCap.takePicture(
+                        outputOpts,
+                        ContextCompat.getMainExecutor(context),
+                        object : ImageCapture.OnImageSavedCallback {
+                            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                onCaptureDone()
+                                // Process captured orientation and handling selfie mirroring
+                                processCapturedPhoto(destFile.absolutePath, isFrontCamera)
+                                // Strip metadata automatically before saving
+                                sanitizeExifMetadata(destFile.absolutePath)
+                                
+                                viewModel.registerDirectVaultFile(
+                                    context,
+                                    destFile,
+                                    "Photo_$id.jpg",
+                                    "image/jpeg"
+                                )
+                                Toast.makeText(context, "Photo secured directly in Vault (Metadata Stripped)!", Toast.LENGTH_SHORT).show()
+                            }
+
+                            override fun onError(exception: ImageCaptureException) {
+                                onCaptureDone()
+                                Toast.makeText(context, "Capture failed: ${exception.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                }
+                
+                if (shouldTriggerScreenFlash) {
+                    activity?.window?.let { window ->
+                        val lp = window.attributes
+                        lp.screenBrightness = android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
+                        window.attributes = lp
+                    }
+                    isScreenFlashActive = true
+                    // Small delay to let the screen brightness and white background apply before capturing
+                    scope.launch {
+                        kotlinx.coroutines.delay(250)
+                        captureAction()
+                    }
+                } else {
+                    captureAction()
+                }
             }
         }
     }
@@ -940,6 +985,15 @@ fun SecureCameraView(
             )
         }
 
+        // Active solid screen flash white overlay
+        if (isScreenFlashActive) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.White)
+            )
+        }
+
         // Bottom Dashboard Panel (Gallery preview, Shutter trigger button, Flip Camera) with gradient background and gesture interceptor
         Box(
             modifier = Modifier
@@ -1107,19 +1161,47 @@ fun SecureCameraView(
                     }
 
                     // Center: Capture Shutter button (respects self timer countdown)
+                    val isVideoAndRecording = isVideoMode && isRecording
+                    val innerButtonShape = remember(isVideoAndRecording) {
+                        if (isVideoAndRecording) RoundedCornerShape(12.dp) else CircleShape
+                    }
+                    val innerButtonSize by animateDpAsState(
+                        targetValue = if (isVideoAndRecording) 32.dp else 68.dp,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+                    )
+                    val innerButtonColor = if (isVideoMode) Color.Red else Color.White
+                    
+                    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                    val pulseScale by if (isVideoAndRecording) {
+                        infiniteTransition.animateFloat(
+                            initialValue = 1.0f,
+                            targetValue = 1.2f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(1000, easing = LinearEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "scale"
+                        )
+                    } else {
+                        remember { mutableStateOf(1.0f) }
+                    }
+
                     Box(
                         modifier = Modifier
                             .size(80.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.2f))
+                            .graphicsLayer {
+                                scaleX = pulseScale
+                                scaleY = pulseScale
+                            }
+                            .border(4.dp, if (isVideoAndRecording) Color.Red.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.4f), CircleShape)
                             .padding(6.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                                .background(if (isVideoMode) Color.Red else Color.White)
+                                .size(innerButtonSize)
+                                .clip(innerButtonShape)
+                                .background(innerButtonColor)
                                 .clickable {
                                     triggerShutter()
                                 }

@@ -3535,7 +3535,7 @@ fun VaultTabUnlockedContent(
                         onItemClick = { item, index, allFiltered -> 
                             if (item.type == "note") {
                                 viewNoteToShow = item.rawString
-                            } else if (item.type == "image" || item.type == "video") {
+                            } else if (item.type == "image" || item.type == "video" || item.type == "audio") {
                                 activeViewerFiles = allFiltered.map { it.rawString }
                                 activeViewerIndex = index
                             } else {
@@ -5347,71 +5347,6 @@ fun VaultTabUnlockedContent(
                             }
                         }
 
-                        // 4. App Lock Method
-                        UnifiedGlassCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
-                            bgColor = Color(0xFF1B2031).copy(alpha = 0.95f),
-                            elevation = 2.dp,
-                            onClick = { showAppLockDialog = true }
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(Color(0xFFFF9100).copy(alpha = 0.12f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Security,
-                                            contentDescription = "App Lock Method",
-                                            tint = Color(0xFFFF9100),
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-                                    Column {
-                                        Text(
-                                            text = "App Lock Method",
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                        Text(
-                                            text = "Choose how the vault should authenticate access.",
-                                            fontSize = 11.sp,
-                                            color = Color.White.copy(alpha = 0.5f),
-                                            lineHeight = 14.sp
-                                        )
-                                        Text(
-                                            text = "Current: $appLockMethod",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = ThemePurple,
-                                            modifier = Modifier.padding(top = 2.dp)
-                                        )
-                                    }
-                                }
-                                Icon(
-                                    imageVector = Icons.Default.ChevronRight,
-                                    contentDescription = "Open",
-                                    tint = Color.White.copy(alpha = 0.3f),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-
                         // PIN Recovery Options Section
                         Text(
                             text = "PIN RECOVERY & SECURITY BACKUPS",
@@ -5777,74 +5712,6 @@ fun VaultTabUnlockedContent(
                         }
 
                         Spacer(modifier = Modifier.height(100.dp))
-                    }
-
-                    // Selection Dialog for App Lock Method
-                    if (showAppLockDialog) {
-                        androidx.compose.material3.AlertDialog(
-                            onDismissRequest = { showAppLockDialog = false },
-                            containerColor = Color(0xFF1B2031),
-                            titleContentColor = Color.White,
-                            textContentColor = Color.White.copy(alpha = 0.8f),
-                            shape = RoundedCornerShape(24.dp),
-                            title = {
-                                Text(
-                                    text = "Select App Lock Method",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp,
-                                    color = Color.White
-                                )
-                            },
-                            text = {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    listOf("PIN Only", "Biometric Only", "PIN + Biometric").forEach { method ->
-                                        val isSelected = appLockMethod == method
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(if (isSelected) ThemePurple.copy(alpha = 0.15f) else Color.Transparent)
-                                                .clickable {
-                                                    viewModel.triggerKeypressEffects(context)
-                                                    appLockMethod = method
-                                                    showAppLockDialog = false
-                                                }
-                                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Text(
-                                                text = method,
-                                                color = if (isSelected) ThemePurple else Color.White,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                fontSize = 14.sp
-                                            )
-                                            if (isSelected) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = "Selected",
-                                                    tint = ThemePurple,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            confirmButton = {
-                                androidx.compose.material3.TextButton(
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        showAppLockDialog = false
-                                    }
-                                ) {
-                                    Text("Cancel", color = Color.White.copy(alpha = 0.6f))
-                                }
-                            }
-                        )
                     }
                 }
                 "Protection" -> {
@@ -8196,26 +8063,48 @@ fun VaultTabUnlockedContent(
                                         var currentPosition by remember { mutableStateOf(0f) }
                                         var duration by remember { mutableStateOf(1f) }
                                         val context = LocalContext.current
+                                        
+                                        var isPrepared by remember(path) { mutableStateOf(false) }
                                         val mediaPlayer = remember(path) {
-                                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                                                android.media.MediaPlayer(context)
-                                            } else {
-                                                android.media.MediaPlayer()
-                                            }.apply {
-                                                setDataSource(path)
-                                                prepare()
-                                                duration = this.duration.toFloat()
+                                            try {
+                                                val mp = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                                                    android.media.MediaPlayer(context)
+                                                } else {
+                                                    android.media.MediaPlayer()
+                                                }
+                                                mp.setDataSource(path)
+                                                mp.prepare()
+                                                duration = mp.duration.toFloat()
+                                                isPrepared = true
+                                                mp.setOnCompletionListener {
+                                                    isPlaying = false
+                                                    currentPosition = 0f
+                                                    try {
+                                                        mp.seekTo(0)
+                                                    } catch (e: Exception) {}
+                                                }
+                                                mp
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                                null
                                             }
                                         }
-                                        LaunchedEffect(isPlaying) {
-                                            while (isPlaying) {
-                                                currentPosition = mediaPlayer.currentPosition.toFloat()
+                                        LaunchedEffect(isPlaying, isPrepared) {
+                                            while (isPlaying && isPrepared) {
+                                                try {
+                                                    currentPosition = (mediaPlayer?.currentPosition ?: 0).toFloat()
+                                                } catch (e: Exception) {}
                                                 kotlinx.coroutines.delay(250)
                                             }
                                         }
                                         DisposableEffect(path) {
                                             onDispose {
-                                                mediaPlayer.release()
+                                                try {
+                                                    mediaPlayer?.stop()
+                                                } catch (e: Exception) {}
+                                                try {
+                                                    mediaPlayer?.release()
+                                                } catch (e: Exception) {}
                                             }
                                         }
                                         Column(
@@ -8275,10 +8164,14 @@ fun VaultTabUnlockedContent(
                                             )
                                             Spacer(modifier = Modifier.height(24.dp))
                                             Slider(
-                                                value = currentPosition,
+                                                value = currentPosition.coerceIn(0f, duration),
                                                 onValueChange = {
                                                     currentPosition = it
-                                                    mediaPlayer.seekTo(it.toInt())
+                                                    if (isPrepared) {
+                                                        try {
+                                                            mediaPlayer?.seekTo(it.toInt())
+                                                        } catch (e: Exception) {}
+                                                    }
                                                 },
                                                 valueRange = 0f..duration,
                                                 colors = SliderDefaults.colors(
@@ -8328,12 +8221,20 @@ fun VaultTabUnlockedContent(
                                                 IconButton(
                                                     onClick = {
                                                         viewModel.triggerKeypressEffects(context)
-                                                        if (isPlaying) {
-                                                            mediaPlayer.pause()
-                                                            isPlaying = false
+                                                        if (mediaPlayer != null && isPrepared) {
+                                                            if (isPlaying) {
+                                                                try {
+                                                                    mediaPlayer.pause()
+                                                                } catch (e: Exception) {}
+                                                                isPlaying = false
+                                                            } else {
+                                                                try {
+                                                                    mediaPlayer.start()
+                                                                } catch (e: Exception) {}
+                                                                isPlaying = true
+                                                            }
                                                         } else {
-                                                            mediaPlayer.start()
-                                                            isPlaying = true
+                                                            Toast.makeText(context, "Audio file failed to load", Toast.LENGTH_SHORT).show()
                                                         }
                                                     },
                                                     modifier = Modifier
@@ -14113,6 +14014,7 @@ fun MonitoringSection(
                 }
             }
         }
+        Spacer(modifier = Modifier.height(100.dp).navigationBarsPadding())
     }
 
     // Detail Dialog

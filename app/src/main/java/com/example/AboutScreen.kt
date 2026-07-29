@@ -2,6 +2,7 @@ package com.example
 
 import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -38,11 +39,21 @@ fun AboutScreen(
     val ThemePurple = themeColors.themePurple
     val TextMedium = themeColors.textMedium
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .navigationBarsPadding()
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
+
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn(animationSpec = tween(durationMillis = 800)),
+        exit = fadeOut(animationSpec = tween(durationMillis = 300))
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -249,12 +260,6 @@ fun AboutScreen(
                         )
                         Divider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(vertical = 12.dp))
                         InfoItemRow(
-                            label = "Package Name",
-                            value = "com.aistudio.calculatorvault.app",
-                            icon = Icons.Default.Android
-                        )
-                        Divider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(vertical = 12.dp))
-                        InfoItemRow(
                             label = "Developer",
                             value = "Sam Unmatched",
                             icon = Icons.Default.Code,
@@ -364,54 +369,79 @@ fun AboutScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // FOOTER
-                Column(
+                // FOOTER - Luxury minimal obsidian glass card (Apple / Notion style)
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                        .padding(vertical = 24.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color(0xFF0F1016)) // Solid deep obsidian dark
+                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
                 ) {
-                    Text(
-                        text = "Designed & Developed by",
-                        color = TextMedium.copy(alpha = 0.7f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "Sam Unmatched",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Founder",
-                        color = TextMedium.copy(alpha = 0.7f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "Sameer Bhaskar",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "© 2026 Sam Unmatched",
-                        color = TextMedium.copy(alpha = 0.5f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Normal
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp, horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        Text(
+                            text = "CRAFTED WITH PRECISION.",
+                            color = Color(0xFF8E8E93), // subtle grey
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        
+                        Spacer(modifier = Modifier.height(10.dp))
+                        
+                        Text(
+                            text = "Sam Unmatched",
+                            color = Color.White,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.5.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        
+                        // Generous spacing around a minimal divider
+                        Spacer(modifier = Modifier.height(36.dp))
+                        Box(
+                            modifier = Modifier
+                                .width(32.dp)
+                                .height(1.dp)
+                                .background(Color.White.copy(alpha = 0.12f))
+                        )
+                        Spacer(modifier = Modifier.height(36.dp))
+                        
+                        Text(
+                            text = "Founder",
+                            color = Color(0xFF8E8E93), // subtle grey
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Normal,
+                            letterSpacing = 1.5.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        
+                        Spacer(modifier = Modifier.height(6.dp))
+                        
+                        Text(
+                            text = "Sameer Bhaskar",
+                            color = Color(0xFFD1D5DB), // soft silver
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 0.5.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(100.dp))
             }
         }
     }
+}
 }
 
 @Composable
