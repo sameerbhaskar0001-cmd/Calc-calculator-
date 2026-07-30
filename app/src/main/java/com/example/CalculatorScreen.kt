@@ -3321,6 +3321,7 @@ fun VaultTabUnlockedContent(
                                         ) {
                                             val parts = file.split("|||")
                                             val isMedia = parts.size >= 4 && (parts[3].startsWith("image/") || parts[3].startsWith("video/")) || file.lowercase().endsWith(".jpg") || file.lowercase().endsWith(".png") || file.lowercase().endsWith(".mp4")
+                                            val isAudio = parts.size >= 4 && parts[3].startsWith("audio/") || file.lowercase().endsWith(".mp3") || file.lowercase().endsWith(".wav") || file.lowercase().endsWith(".m4a") || file.lowercase().endsWith(".ogg") || file.lowercase().endsWith(".flac") || file.lowercase().endsWith(".aac")
                                             Box(
                                                 modifier = Modifier
                                                     .size(40.dp)
@@ -3347,7 +3348,7 @@ fun VaultTabUnlockedContent(
                                                     )
                                                 } else {
                                                     Icon(
-                                                        imageVector = if (isMedia) Icons.Default.Image else Icons.Default.Description,
+                                                        imageVector = if (isMedia) Icons.Default.Image else if (isAudio) Icons.Default.MusicNote else Icons.Default.Description,
                                                         contentDescription = null,
                                                         tint = ThemePurple
                                                     )
@@ -8052,82 +8053,18 @@ fun VaultTabUnlockedContent(
                                         }
                                     } else if (mimeType.startsWith("audio/") || mimeType.startsWith("music/") || originalName.lowercase().endsWith(".mp3") || originalName.lowercase().endsWith(".wav") || originalName.lowercase().endsWith(".m4a") || originalName.lowercase().endsWith(".ogg") || originalName.lowercase().endsWith(".flac") || originalName.lowercase().endsWith(".aac")) {
                                         // Audio Player with beautiful Vinyl Record Layout
-                                        var isPlaying by remember { mutableStateOf(false) }
-                                        var currentPosition by remember { mutableStateOf(0f) }
-                                        var duration by remember { mutableStateOf(1f) }
                                         val context = LocalContext.current
-                                        val audioPlayerScope = rememberCoroutineScope()
                                         
-                                        var isPrepared by remember(path) { mutableStateOf(false) }
-                                        val mediaPlayer = remember(path) {
-                                            try {
-                                                val mp = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                                                    android.media.MediaPlayer(context)
-                                                } else {
-                                                    android.media.MediaPlayer()
-                                                }
-                                                mp.setDataSource(path)
-                                                mp.prepare()
-                                                duration = mp.duration.toFloat()
-                                                isPrepared = true
-                                                mp.setOnCompletionListener {
-                                                    isPlaying = false
-                                                    currentPosition = 0f
-                                                    try {
-                                                        mp.seekTo(0)
-                                                    } catch (e: Exception) {}
-                                                }
-                                                mp
-                                            } catch (e: Exception) {
-                                                e.printStackTrace()
-                                                null
-                                            }
-                                        }
+                                        val isPlaying by viewModel.isAudioPlaying.collectAsStateWithLifecycle()
+                                        val currentPosition by viewModel.audioPosition.collectAsStateWithLifecycle()
+                                        val duration by viewModel.audioDuration.collectAsStateWithLifecycle()
+                                        val isCurrentAudio = viewModel.currentAudioPlayingPath == path
+                                        val actualIsPlaying = isCurrentAudio && isPlaying
                                         
-                                        // Pause if swiped away
-                                        LaunchedEffect(pagerState.currentPage) {
-                                            if (pagerState.currentPage != page && isPlaying) {
-                                                isPlaying = false
-                                                try {
-                                                    mediaPlayer?.pause()
-                                                } catch (e: Exception) {}
-                                            }
-                                        }
-                                        LaunchedEffect(isPlaying, isPrepared) {
-                                            while (isPlaying && isPrepared) {
-                                                try {
-                                                    currentPosition = (mediaPlayer?.currentPosition ?: 0).toFloat()
-                                                } catch (e: Exception) {}
-                                                kotlinx.coroutines.delay(250)
-                                            }
-                                        }
-                                        DisposableEffect(path) {
-                                            onDispose {
-                                                try {
-                                                    mediaPlayer?.stop()
-                                                } catch (e: Exception) {}
-                                                try {
-                                                    mediaPlayer?.release()
-                                                } catch (e: Exception) {}
-                                            }
-                                        }
-                                        
-                                        val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-                                        val isBackgroundEnabled by viewModel.backgroundAudioPlaybackEnabled.collectAsStateWithLifecycle()
-                                        DisposableEffect(lifecycleOwner, isBackgroundEnabled) {
-                                            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-                                                if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
-                                                    if (!isBackgroundEnabled && isPlaying) {
-                                                        try {
-                                                            mediaPlayer?.pause()
-                                                        } catch (e: Exception) {}
-                                                        isPlaying = false
-                                                    }
-                                                }
-                                            }
-                                            lifecycleOwner.lifecycle.addObserver(observer)
-                                            onDispose {
-                                                lifecycleOwner.lifecycle.removeObserver(observer)
+                                        // Start automatically if it's the active page and we just opened it
+                                        LaunchedEffect(path, pagerState.currentPage) {
+                                            if (pagerState.currentPage == page && viewModel.currentAudioPlayingPath != path) {
+                                                viewModel.playOrToggleAudio(path, context)
                                             }
                                         }
 
@@ -8139,8 +8076,8 @@ fun VaultTabUnlockedContent(
                                             verticalArrangement = Arrangement.Center
                                         ) {
                                             var rotationAngle by remember { mutableStateOf(0f) }
-                                            LaunchedEffect(isPlaying) {
-                                                while (isPlaying) {
+                                            LaunchedEffect(actualIsPlaying) {
+                                                while (actualIsPlaying) {
                                                     rotationAngle = (rotationAngle + 2f) % 360f
                                                     kotlinx.coroutines.delay(16)
                                                 }
@@ -8171,7 +8108,7 @@ fun VaultTabUnlockedContent(
                                                         Icon(
                                                             imageVector = Icons.Default.MusicNote,
                                                             contentDescription = null,
-                                                            tint = Color.White,
+                                                            tint = if (IsLightColor) Color(0xFF1B2031) else Color.White,
                                                             modifier = Modifier.size(28.dp)
                                                         )
                                                     }
@@ -8190,11 +8127,8 @@ fun VaultTabUnlockedContent(
                                             Slider(
                                                 value = currentPosition.coerceIn(0f, duration),
                                                 onValueChange = {
-                                                    currentPosition = it
-                                                    if (isPrepared) {
-                                                        try {
-                                                            mediaPlayer?.seekTo(it.toInt())
-                                                        } catch (e: Exception) {}
+                                                    if (isCurrentAudio) {
+                                                        viewModel.seekAudio(it)
                                                     }
                                                 },
                                                 valueRange = 0f..duration,
@@ -8245,30 +8179,16 @@ fun VaultTabUnlockedContent(
                                                 IconButton(
                                                     onClick = {
                                                         viewModel.triggerKeypressEffects(context)
-                                                        if (mediaPlayer != null && isPrepared) {
-                                                            if (isPlaying) {
-                                                                try {
-                                                                    mediaPlayer.pause()
-                                                                } catch (e: Exception) {}
-                                                                isPlaying = false
-                                                            } else {
-                                                                try {
-                                                                    mediaPlayer.start()
-                                                                } catch (e: Exception) {}
-                                                                isPlaying = true
-                                                            }
-                                                        } else {
-                                                            Toast.makeText(context, "Audio file failed to load", Toast.LENGTH_SHORT).show()
-                                                        }
+                                                        viewModel.playOrToggleAudio(path, context)
                                                     },
                                                     modifier = Modifier
                                                         .size(64.dp)
                                                         .background(ThemePurple, CircleShape)
                                                 ) {
                                                     Icon(
-                                                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                                        contentDescription = if (isPlaying) "Pause" else "Play",
-                                                        tint = Color.White,
+                                                        imageVector = if (actualIsPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                        contentDescription = if (actualIsPlaying) "Pause" else "Play",
+                                                        tint = if (IsLightColor) Color(0xFF1B2031) else Color.White,
                                                         modifier = Modifier.size(36.dp)
                                                     )
                                                 }
@@ -8367,18 +8287,7 @@ fun VaultTabUnlockedContent(
                                         tint = if (activeIsFav) Color(0xFFFFD600) else Color.White
                                     )
                                 }
-                                IconButton(
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        showMoveToFolderDialog = Pair(activeId, "file")
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Folder,
-                                        contentDescription = "Move to Folder",
-                                        tint = Color(0xFF2979FF)
-                                    )
-                                }
+                                // Folder option removed from top bar as per request
                                 IconButton(
                                     onClick = {
                                         viewModel.triggerKeypressEffects(context)
@@ -14514,6 +14423,7 @@ fun YourJourneySection(
                                     "first_note" -> Icons.Default.Edit
                                     "first_photo" -> Icons.Default.CameraAlt
                                     "first_video" -> Icons.Default.PlayCircle
+                                    "first_audio" -> Icons.Default.MusicNote
                                     "first_doc" -> Icons.Default.Description
                                     "first_browser" -> Icons.Default.Language
                                     "first_voice_note" -> Icons.Default.Mic
@@ -14647,11 +14557,11 @@ fun SecretVaultUnlockingAnimation(
             val currentRadius = maxRadius * p
             
             if (p > 0f && p < 1f) {
-                // 1. Base frosted wave edge (very thin and subtle)
+                // 1. Base frosted wave edge (extremely soft, feathered, no hard outlines)
                 drawCircle(
                     brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                        0.92f to Color.Transparent,
-                        0.97f to Color.White.copy(alpha = (1f - p) * 0.12f),
+                        0.75f to Color.Transparent,
+                        0.92f to Color.White.copy(alpha = (1f - p) * 0.08f), // Max 8%
                         1.0f to Color.Transparent,
                         center = rippleCenter,
                         radius = currentRadius.coerceAtLeast(1f)
@@ -14660,29 +14570,35 @@ fun SecretVaultUnlockingAnimation(
                     center = rippleCenter
                 )
                 
-                // 2. Refraction moving highlight (tight light bending)
-                val highlightRadius = currentRadius * 0.97f
+                // 2. Liquid Glass Moving Highlight
+                // By offsetting the center of this inner gradient, it creates a directional light refraction
+                // that travels as the radius expands, simulating liquid glass.
+                val highlightRadius = currentRadius * 0.96f
                 if (highlightRadius > 0f) {
+                    val highlightOffset = Offset(
+                        rippleCenter.x - (currentRadius * 0.12f * (1f - p)), 
+                        rippleCenter.y - (currentRadius * 0.12f * (1f - p))
+                    )
                     drawCircle(
                         brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                            0.94f to Color.Transparent,
-                            0.98f to Color.White.copy(alpha = (1f - p) * 0.20f),
+                            0.80f to Color.Transparent,
+                            0.95f to Color.White.copy(alpha = (1f - p) * 0.12f), // Max 12%
                             1.0f to Color.Transparent,
-                            center = rippleCenter,
+                            center = highlightOffset,
                             radius = highlightRadius.coerceAtLeast(1f)
                         ),
                         radius = highlightRadius,
-                        center = rippleCenter
+                        center = rippleCenter // Drawn at same center, but gradient is offset
                     )
                 }
                 
                 // 3. Inner depth (darker refraction tone, extremely faint)
-                val innerRadius = currentRadius * 0.94f
+                val innerRadius = currentRadius * 0.92f
                 if (innerRadius > 0f) {
                      drawCircle(
                         brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                            0.92f to Color.Transparent,
-                            0.98f to Color.Black.copy(alpha = (1f - p) * 0.04f),
+                            0.80f to Color.Transparent,
+                            0.96f to Color.Black.copy(alpha = (1f - p) * 0.05f),
                             1.0f to Color.Transparent,
                             center = rippleCenter,
                             radius = innerRadius.coerceAtLeast(1f)
@@ -14701,7 +14617,7 @@ fun SecretVaultUnlockingAnimation(
                 p < 0.6f -> (p - 0.3f) / 0.3f // Slower, smoother fade in
                 p < 0.85f -> 1f // Stay
                 else -> 1f - ((p - 0.85f) / 0.15f) // Fade out
-            } * 0.5f // 50% opacity for premium whisper feel
+            } * 0.65f // 65% opacity for premium whisper feel (15% increase)
             
             Text(
                 text = "SECRET VAULT",

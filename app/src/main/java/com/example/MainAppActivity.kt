@@ -119,6 +119,13 @@ class MainAppActivity : FragmentActivity() {
       return super.onKeyDown(keyCode, event)
   }
 
+  override fun onPause() {
+      super.onPause()
+      if (!isChangingConfigurations && viewModel?.isPickingFile != true) {
+          viewModel?.onAppBackgrounded()
+      }
+  }
+  
   override fun onStop() {
     super.onStop()
     val isStealth = viewModel?.stealthMode?.value == true

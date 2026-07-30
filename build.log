@@ -1,0 +1,406 @@
+Initialized native services in: /opt/gradle/.gradle/native
+Initialized jansi services in: /opt/gradle/.gradle/native
+The client will now receive all logging from the daemon (pid: 680). The daemon log file: /opt/gradle/.gradle/daemon/9.3.1/daemon-680.out.log
+Starting 2nd build in daemon [uptime: 2 mins 22.415 secs, performance: 98%, GC rate: 0.00/s, heap usage: 0% of 4 GiB]
+Using 4 worker leases.
+Operational build model parameters: {requiresToolingModels=false, parallelProjectExecution=true, configureOnDemand=false, configurationCache=true, configurationCacheParallelStore=false, configurationCacheParallelLoad=true, isolatedProjects=false, parallelProjectConfiguration=false, intermediateModelCache=false, parallelToolingApiActions=true, invalidateCoupledProjects=false, modelAsProjectDependency=false, resilientModelBuilding=false}
+Encryption key source: default Gradle keystore (pkcs12)
+Reusing configuration cache.
+Watching the file system is configured to be enabled if available
+Unable to list file systems to check whether they can be watched. Disabling watching. Reason: Could not query file systems: could not open mount file (errno 2: No such file or directory)
+File system watching is inactive
+Using local directory build cache for the root build (location = /opt/gradle/.gradle/caches/build-cache-1, remove unused entries = after 7 days).
+Tasks to be executed: [task ':app:preBuild', task ':app:preDebugBuild', task ':app:mergeDebugNativeDebugMetadata', task ':app:generateDebugBuildConfig', task ':app:generateDebugResources', task ':app:processDebugGoogleServices', task ':app:packageDebugResources', task ':app:processDebugNavigationResources', task ':app:parseDebugLocalResources', task ':app:generateDebugRFile', task ':app:kspDebugKotlin', task ':app:compileDebugKotlin', task ':app:javaPreCompileDebug', task ':app:compileDebugJavaWithJavac', task ':app:generateDebugAssets', task ':app:mergeDebugAssets', task ':app:compressDebugAssets', task ':app:processDebugJavaRes', task ':app:mergeDebugJavaResource', task ':app:checkDebugDuplicateClasses', task ':app:desugarDebugFileDependencies', task ':app:mergeExtDexDebug', task ':app:mergeLibDexDebug', task ':app:checkDebugAarMetadata', task ':app:mapDebugSourceSetPaths', task ':app:compileDebugNavigationResources', task ':app:mergeDebugResources', task ':app:createDebugCompatibleScreenManifests', task ':app:extractDeepLinksDebug', task ':app:processDebugMainManifest', task ':app:processDebugManifest', task ':app:processDebugManifestForPackage', task ':app:processDebugResources', task ':app:dexBuilderDebug', task ':app:mergeProjectDexDebug', task ':app:mergeDebugJniLibFolders', task ':app:mergeDebugNativeLibs', task ':app:stripDebugDebugSymbols', task ':app:validateSigningDebug', task ':app:writeDebugAppMetadata', task ':app:writeDebugSigningConfigVersions', task ':app:packageDebug', task ':app:createDebugApkListingFileRedirect', task ':app:assembleDebug']
+Tasks that were excluded: []
+Resolve mutations for :app:preBuild (Thread[#125,Execution worker,5,main]) started.
+Resolve mutations for :app:processDebugGoogleServices (Thread[#127,Execution worker Thread 3,5,main]) started.
+:app:processDebugGoogleServices (Thread[#127,Execution worker Thread 3,5,main]) started.
+Resolve mutations for :app:generateDebugAssets (Thread[#124,included builds,5,main]) started.
+:app:generateDebugAssets (Thread[#124,included builds,5,main]) started.
+
+> Task :app:generateDebugAssets UP-TO-DATE
+Skipping task ':app:generateDebugAssets' as it has no actions.
+Build aae2a0bf-dae3-4642-ad6b-265d69989e8d is started
+:app:preBuild (Thread[#125,Execution worker,5,main]) started.
+
+> Task :app:preBuild UP-TO-DATE
+Skipping task ':app:preBuild' as it has no actions.
+Resolve mutations for :app:preDebugBuild (Thread[#125,Execution worker,5,main]) started.
+:app:preDebugBuild (Thread[#125,Execution worker,5,main]) started.
+
+> Task :app:preDebugBuild UP-TO-DATE
+Skipping task ':app:preDebugBuild' as it has no actions.
+Resolve mutations for :app:mergeDebugNativeDebugMetadata (Thread[#125,Execution worker,5,main]) started.
+:app:mergeDebugNativeDebugMetadata (Thread[#125,Execution worker,5,main]) started.
+
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+Skipping task ':app:mergeDebugNativeDebugMetadata' as it has no source files and no previous output files.
+
+> Task :app:processDebugGoogleServices UP-TO-DATE
+Build cache key for task ':app:processDebugGoogleServices' is 9375a841ba0fccf72e8b5d1d6da71df9
+Skipping task ':app:processDebugGoogleServices' as it is up-to-date.
+Resolve mutations for :app:javaPreCompileDebug (Thread[#127,Execution worker Thread 3,5,main]) started.
+:app:javaPreCompileDebug (Thread[#127,Execution worker Thread 3,5,main]) started.
+Resolve mutations for :app:processDebugNavigationResources (Thread[#124,included builds,5,main]) started.
+Resolve mutations for :app:generateDebugBuildConfig (Thread[#125,Execution worker,5,main]) started.
+Resolve mutations for :app:generateDebugResources (Thread[#126,Execution worker Thread 2,5,main]) started.
+:app:processDebugNavigationResources (Thread[#124,included builds,5,main]) started.
+:app:generateDebugBuildConfig (Thread[#125,Execution worker,5,main]) started.
+:app:generateDebugResources (Thread[#126,Execution worker Thread 2,5,main]) started.
+
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+Build cache key for task ':app:generateDebugBuildConfig' is 6816587f0cbab65ee1947f636c8e04ef
+Skipping task ':app:generateDebugBuildConfig' as it is up-to-date.
+Resolve mutations for :app:kspDebugKotlin (Thread[#125,Execution worker,5,main]) started.
+:app:kspDebugKotlin (Thread[#125,Execution worker,5,main]) started.
+
+> Task :app:javaPreCompileDebug UP-TO-DATE
+Build cache key for task ':app:javaPreCompileDebug' is bd429aebda073de0712786bbd37ebe43
+Skipping task ':app:javaPreCompileDebug' as it is up-to-date.
+
+> Task :app:generateDebugResources UP-TO-DATE
+Build cache key for task ':app:generateDebugResources' is 391454c49e28eedc905cf21f1a757aa3
+Skipping task ':app:generateDebugResources' as it is up-to-date.
+Resolve mutations for :app:mergeDebugAssets (Thread[#127,Execution worker Thread 3,5,main]) started.
+Resolve mutations for :app:packageDebugResources (Thread[#126,Execution worker Thread 2,5,main]) started.
+:app:mergeDebugAssets (Thread[#127,Execution worker Thread 3,5,main]) started.
+:app:packageDebugResources (Thread[#126,Execution worker Thread 2,5,main]) started.
+
+> Task :app:packageDebugResources UP-TO-DATE
+Caching disabled for task ':app:packageDebugResources' because:
+  Gradle does not know how file 'build/intermediates/incremental/debug/packageDebugResources/stripped.dir' was created (output property 'incrementalFolder'). Task output caching requires exclusive access to output paths to guarantee correctness (i.e. multiple tasks are not allowed to produce output in the same location).
+Skipping task ':app:packageDebugResources' as it is up-to-date.
+Resolve mutations for :app:checkDebugDuplicateClasses (Thread[#126,Execution worker Thread 2,5,main]) started.
+:app:checkDebugDuplicateClasses (Thread[#126,Execution worker Thread 2,5,main]) started.
+
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+Caching disabled for task ':app:checkDebugDuplicateClasses' because:
+  Caching has been disabled for the task
+Skipping task ':app:checkDebugDuplicateClasses' as it is up-to-date.
+Resolve mutations for :app:desugarDebugFileDependencies (Thread[#126,Execution worker Thread 2,5,main]) started.
+:app:desugarDebugFileDependencies (Thread[#126,Execution worker Thread 2,5,main]) started.
+
+> Task :app:kspDebugKotlin UP-TO-DATE
+Build cache key for task ':app:kspDebugKotlin' is 3b3c1b2d7846e2a3679dc3953d880361
+Skipping task ':app:kspDebugKotlin' as it is up-to-date.
+Resolve mutations for :app:mergeLibDexDebug (Thread[#125,Execution worker,5,main]) started.
+:app:mergeLibDexDebug (Thread[#125,Execution worker,5,main]) started.
+
+> Task :app:mergeLibDexDebug UP-TO-DATE
+Build cache key for task ':app:mergeLibDexDebug' is 1073ad7ce0880f0ad0537030ff3637ef
+Skipping task ':app:mergeLibDexDebug' as it is up-to-date.
+Resolve mutations for :app:checkDebugAarMetadata (Thread[#125,Execution worker,5,main]) started.
+:app:checkDebugAarMetadata (Thread[#125,Execution worker,5,main]) started.
+
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+Build cache key for task ':app:desugarDebugFileDependencies' is 1ae7ffd95d9007d77d6e0ce0467d1d36
+Skipping task ':app:desugarDebugFileDependencies' as it is up-to-date.
+Resolve mutations for :app:mergeExtDexDebug (Thread[#126,Execution worker Thread 2,5,main]) started.
+:app:mergeExtDexDebug (Thread[#126,Execution worker Thread 2,5,main]) started.
+
+> Task :app:mergeDebugAssets UP-TO-DATE
+Caching disabled for task ':app:mergeDebugAssets' because:
+  Simple merging task
+Skipping task ':app:mergeDebugAssets' as it is up-to-date.
+
+> Task :app:mergeExtDexDebug UP-TO-DATE
+Build cache key for task ':app:mergeExtDexDebug' is 124a9197efc09e70276b233a1bd87d82
+Skipping task ':app:mergeExtDexDebug' as it is up-to-date.
+Resolve mutations for :app:compressDebugAssets (Thread[#127,Execution worker Thread 3,5,main]) started.
+Resolve mutations for :app:mapDebugSourceSetPaths (Thread[#126,Execution worker Thread 2,5,main]) started.
+:app:compressDebugAssets (Thread[#127,Execution worker Thread 3,5,main]) started.
+
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+Caching disabled for task ':app:checkDebugAarMetadata' because:
+  Caching has been disabled for the task
+Skipping task ':app:checkDebugAarMetadata' as it is up-to-date.
+Resolve mutations for :app:mergeDebugResources (Thread[#125,Execution worker,5,main]) started.
+:app:mergeDebugResources (Thread[#125,Execution worker,5,main]) started.
+:app:mapDebugSourceSetPaths (Thread[#126,Execution worker Thread 2,5,main]) started.
+
+> Task :app:compressDebugAssets UP-TO-DATE
+Build cache key for task ':app:compressDebugAssets' is 9a6dc76e8d3a95a5e7b3253a9b34df63
+Skipping task ':app:compressDebugAssets' as it is up-to-date.
+Resolve mutations for :app:createDebugCompatibleScreenManifests (Thread[#127,Execution worker Thread 3,5,main]) started.
+:app:createDebugCompatibleScreenManifests (Thread[#127,Execution worker Thread 3,5,main]) started.
+
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+Caching disabled for task ':app:createDebugCompatibleScreenManifests' because:
+  Caching has been disabled for the task
+Skipping task ':app:createDebugCompatibleScreenManifests' as it is up-to-date.
+Resolve mutations for :app:extractDeepLinksDebug (Thread[#127,Execution worker Thread 3,5,main]) started.
+:app:extractDeepLinksDebug (Thread[#127,Execution worker Thread 3,5,main]) started.
+
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+Caching disabled for task ':app:mapDebugSourceSetPaths' because:
+  Caching has been disabled for the task
+Skipping task ':app:mapDebugSourceSetPaths' as it is up-to-date.
+Resolve mutations for :app:mergeDebugJniLibFolders (Thread[#126,Execution worker Thread 2,5,main]) started.
+
+> Task :app:mergeDebugResources UP-TO-DATE
+Build cache key for task ':app:mergeDebugResources' is 5157e97c111122710bb531e5cf49aa77
+Skipping task ':app:mergeDebugResources' as it is up-to-date.
+Resolve mutations for :app:validateSigningDebug (Thread[#125,Execution worker,5,main]) started.
+:app:mergeDebugJniLibFolders (Thread[#126,Execution worker Thread 2,5,main]) started.
+:app:validateSigningDebug (Thread[#125,Execution worker,5,main]) started.
+
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+Build cache key for task ':app:extractDeepLinksDebug' is 37030ef54a17c2c402c763d0db32a216
+Skipping task ':app:extractDeepLinksDebug' as it is up-to-date.
+Resolve mutations for :app:processDebugMainManifest (Thread[#127,Execution worker Thread 3,5,main]) started.
+:app:processDebugMainManifest (Thread[#127,Execution worker Thread 3,5,main]) started.
+
+> Task :app:validateSigningDebug UP-TO-DATE
+Caching disabled for task ':app:validateSigningDebug' because:
+  Caching has been disabled for the task
+Skipping task ':app:validateSigningDebug' as it is up-to-date.
+Resolve mutations for :app:writeDebugAppMetadata (Thread[#125,Execution worker,5,main]) started.
+:app:writeDebugAppMetadata (Thread[#125,Execution worker,5,main]) started.
+
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+Caching disabled for task ':app:mergeDebugJniLibFolders' because:
+  Simple merging task
+Skipping task ':app:mergeDebugJniLibFolders' as it is up-to-date.
+Resolve mutations for :app:mergeDebugNativeLibs (Thread[#126,Execution worker Thread 2,5,main]) started.
+:app:mergeDebugNativeLibs (Thread[#126,Execution worker Thread 2,5,main]) started.
+
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+Caching disabled for task ':app:writeDebugAppMetadata' because:
+  Caching has been disabled for the task
+Skipping task ':app:writeDebugAppMetadata' as it is up-to-date.
+Resolve mutations for :app:writeDebugSigningConfigVersions (Thread[#125,Execution worker,5,main]) started.
+:app:writeDebugSigningConfigVersions (Thread[#125,Execution worker,5,main]) started.
+
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+Caching disabled for task ':app:writeDebugSigningConfigVersions' because:
+  Caching has been disabled for the task
+Skipping task ':app:writeDebugSigningConfigVersions' as it is up-to-date.
+
+> Task :app:processDebugNavigationResources UP-TO-DATE
+Build cache key for task ':app:processDebugNavigationResources' is 5e8e25ab9d364bd968d41155d3601942
+Skipping task ':app:processDebugNavigationResources' as it is up-to-date.
+Resolve mutations for :app:parseDebugLocalResources (Thread[#124,included builds,5,main]) started.
+
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+Caching disabled for task ':app:mergeDebugNativeLibs' because:
+  Caching has been disabled for the task
+Skipping task ':app:mergeDebugNativeLibs' as it is up-to-date.
+:app:parseDebugLocalResources (Thread[#124,included builds,5,main]) started.
+Resolve mutations for :app:compileDebugNavigationResources (Thread[#126,Execution worker Thread 2,5,main]) started.
+:app:compileDebugNavigationResources (Thread[#126,Execution worker Thread 2,5,main]) started.
+Resolve mutations for :app:stripDebugDebugSymbols (Thread[#125,Execution worker,5,main]) started.
+
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+Build cache key for task ':app:compileDebugNavigationResources' is e1ab76651ff7c0f8414cde0a1ac75e21
+Skipping task ':app:compileDebugNavigationResources' as it is up-to-date.
+:app:stripDebugDebugSymbols (Thread[#125,Execution worker,5,main]) started.
+
+> Task :app:processDebugMainManifest UP-TO-DATE
+Build cache key for task ':app:processDebugMainManifest' is 05a05da48c5135208f7142455c71531b
+Skipping task ':app:processDebugMainManifest' as it is up-to-date.
+Resolve mutations for :app:processDebugManifest (Thread[#127,Execution worker Thread 3,5,main]) started.
+
+> Task :app:parseDebugLocalResources UP-TO-DATE
+Build cache key for task ':app:parseDebugLocalResources' is d5d0b5ef7520670363adbc6a09c2453d
+Skipping task ':app:parseDebugLocalResources' as it is up-to-date.
+Resolve mutations for :app:generateDebugRFile (Thread[#124,included builds,5,main]) started.
+:app:generateDebugRFile (Thread[#124,included builds,5,main]) started.
+:app:processDebugManifest (Thread[#127,Execution worker Thread 3,5,main]) started.
+
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+Caching disabled for task ':app:stripDebugDebugSymbols' because:
+  Caching has been disabled for the task
+Skipping task ':app:stripDebugDebugSymbols' as it is up-to-date.
+
+> Task :app:processDebugManifest UP-TO-DATE
+Build cache key for task ':app:processDebugManifest' is ad6b9af5d81a4a91a69fb51aced4a595
+Skipping task ':app:processDebugManifest' as it is up-to-date.
+
+> Task :app:generateDebugRFile UP-TO-DATE
+Build cache key for task ':app:generateDebugRFile' is 74d4c3abc10486f319306bf5269d3c3f
+Skipping task ':app:generateDebugRFile' as it is up-to-date.
+Resolve mutations for :app:compileDebugKotlin (Thread[#124,included builds,5,main]) started.
+Resolve mutations for :app:processDebugManifestForPackage (Thread[#127,Execution worker Thread 3,5,main]) started.
+:app:processDebugManifestForPackage (Thread[#127,Execution worker Thread 3,5,main]) started.
+:app:compileDebugKotlin (Thread[#124,included builds,5,main]) started.
+
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+Build cache key for task ':app:processDebugManifestForPackage' is a36f573fa54e4cae046799266fb098a4
+Skipping task ':app:processDebugManifestForPackage' as it is up-to-date.
+Resolve mutations for :app:processDebugResources (Thread[#127,Execution worker Thread 3,5,main]) started.
+:app:processDebugResources (Thread[#127,Execution worker Thread 3,5,main]) started.
+
+> Task :app:processDebugResources FAILED
+Build cache key for task ':app:processDebugResources' is 0dce611cf7bc6822c5e8e5da1c83d493
+Task ':app:processDebugResources' is not up-to-date because:
+  Task has failed previously.
+The input changes require a full rebuild for incremental task ':app:processDebugResources'.
+
+> Task :app:compileDebugKotlin
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+Build cache key for task ':app:compileDebugKotlin' is e3da0a3bbde4b5a9f773fc2967e22787
+Task ':app:compileDebugKotlin' is not up-to-date because:
+  Input property 'javaSources' file /app/applet/app/build/generated/source/buildConfig/debug/com/example/BuildConfig.java has changed.
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/build/generated/ksp/debug/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/build/generated/ksp/debug/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/build/generated/ksp/debug/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/build/generated/ksp/debug/java', not found
+Kotlin source files: /app/applet/app/src/main/java/com/example/MetadataCleanerScreen.kt, /app/applet/app/src/main/java/com/example/ui/theme/Theme.kt, /app/applet/app/src/main/java/com/example/ui/theme/Color.kt, /app/applet/app/src/main/java/com/example/ui/theme/Type.kt, /app/applet/app/src/main/java/com/example/CalculatorScreen.kt, /app/applet/app/src/main/java/com/example/MainAppActivity.kt, /app/applet/app/src/main/java/com/example/PasswordGeneratorScreen.kt, /app/applet/app/src/main/java/com/example/SecureDocumentViewer.kt, /app/applet/app/src/main/java/com/example/CameraInitializer.kt, /app/applet/app/src/main/java/com/example/SecureVoiceNoteScreen.kt, /app/applet/app/src/main/java/com/example/TransformTextFix.kt, /app/applet/app/src/main/java/com/example/MainApplication.kt, /app/applet/app/src/main/java/com/example/ZoomableImage.kt, /app/applet/app/src/main/java/com/example/TranslationProvider.kt, /app/applet/app/src/main/java/com/example/CurrencyApi.kt, /app/applet/app/src/main/java/com/example/CalculatorViewModel.kt, /app/applet/app/src/main/java/com/example/GoogleDriveService.kt, /app/applet/app/src/main/java/com/example/NoteDetailScreen.kt, /app/applet/app/src/main/java/com/example/SecureCameraComponents.kt, /app/applet/app/src/main/java/com/example/AboutScreen.kt, /app/applet/app/src/main/java/com/example/VaultContentModule.kt, /app/applet/app/build/generated/ksp/debug/kotlin/com/example/CurrencyResponseJsonAdapter.kt
+Java source files: /app/applet/app/build/generated/source/buildConfig/debug/com/example/BuildConfig.java
+Script source files: 
+Script file extensions: 
+Using Kotlin/JVM incremental compilation
+[KOTLIN] Kotlin compilation 'jdkHome' argument: /usr/lib/jvm/temurin-21-jdk-amd64
+Finished executing kotlin compiler using IN_PROCESS strategy
+w: file:///app/applet/app/src/main/java/com/example/AboutScreen.kt:255:25 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/AboutScreen.kt:261:25 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/AboutScreen.kt:327:46 'val Icons.Filled.LibraryBooks: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.LibraryBooks.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:1384:49 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:1930:49 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:1981:97 'static field VIBRATOR_SERVICE: String' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:1984:97 'static field VIBRATOR_SERVICE: String' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:1985:42 'fun vibrate(p0: LongArray!, p1: Int): Unit' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:2810:65 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:2916:88 'val Icons.Filled.List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:3263:55 'val Icons.Filled.List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:3431:52 'val Icons.Filled.ArrowForward: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowForward.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:3679:58 'val Icons.Filled.Article: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Article.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:4638:70 'val Icons.Filled.Article: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Article.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:5153:50 'val Icons.Filled.ExitToApp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ExitToApp.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:5950:73 'val Icons.Filled.VolumeOff: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.VolumeOff.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:6278:73 'val Icons.Filled.ExitToApp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ExitToApp.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:6407:77 'val Icons.Filled.ExitToApp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ExitToApp.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:6896:56 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:6920:56 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:7153:68 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:7328:77 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:8173:85 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:8206:85 'val Icons.Filled.ArrowForward: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowForward.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:8264:69 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:8570:72 'val Icons.Filled.Article: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Article.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:8730:69 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:8930:68 'val Icons.Filled.List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:9481:64 'val Icons.Filled.Send: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Send.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:10368:13 'var databaseEnabled: Boolean' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:10371:13 'var savePassword: Boolean' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:10372:13 'var saveFormData: Boolean' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:10499:25 'var databaseEnabled: Boolean' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:10502:25 'var savePassword: Boolean' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:10503:25 'var saveFormData: Boolean' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:10989:40 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:11135:40 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:11190:44 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:11335:44 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:11617:56 'val Icons.Filled.ArrowForward: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowForward.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:11841:53 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:11854:53 'val Icons.Filled.ArrowForward: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowForward.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:13333:36 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:13358:59 'fun Indicator(modifier: Modifier = ..., height: Dp = ..., color: Color = ...): Unit' is deprecated. Use SecondaryIndicator instead.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:13442:47 'val Icons.Filled.InsertDriveFile: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.InsertDriveFile.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:14110:46 'val Icons.Filled.Article: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Article.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorScreen.kt:14301:48 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/CalculatorViewModel.kt:1532:57 'static field VIBRATOR_SERVICE: String' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/CurrencyApi.kt:12:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///app/applet/app/src/main/java/com/example/CurrencyApi.kt:13:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///app/applet/app/src/main/java/com/example/CurrencyApi.kt:14:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///app/applet/app/src/main/java/com/example/CurrencyApi.kt:15:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///app/applet/app/src/main/java/com/example/CurrencyApi.kt:16:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///app/applet/app/src/main/java/com/example/MetadataCleanerScreen.kt:351:56 'fun Indicator(modifier: Modifier = ..., height: Dp = ..., color: Color = ...): Unit' is deprecated. Use SecondaryIndicator instead.
+w: file:///app/applet/app/src/main/java/com/example/NoteDetailScreen.kt:150:57 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/NoteDetailScreen.kt:286:56 'val Icons.Filled.List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List.
+w: file:///app/applet/app/src/main/java/com/example/SecureCameraComponents.kt:297:17 Condition is always 'true'.
+w: file:///app/applet/app/src/main/java/com/example/SecureCameraComponents.kt:2199:40 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/SecureDocumentViewer.kt:320:56 'val Icons.Filled.InsertDriveFile: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.InsertDriveFile.
+w: file:///app/applet/app/src/main/java/com/example/SecureVoiceNoteScreen.kt:372:13 'constructor(): MediaRecorder' is deprecated. Deprecated in Java.
+w: file:///app/applet/app/src/main/java/com/example/VaultContentModule.kt:333:94 'val Icons.Filled.VolumeUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.VolumeUp.
+w: file:///app/applet/app/src/main/java/com/example/VaultContentModule.kt:333:122 'val Icons.Filled.VolumeOff: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.VolumeOff.
+w: file:///app/applet/app/src/main/java/com/example/VaultContentModule.kt:347:52 'val Icons.Filled.Sort: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Sort.
+w: file:///app/applet/app/src/main/java/com/example/VaultContentModule.kt:765:52 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/VaultContentModule.kt:907:67 'val Icons.Filled.Article: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Article.
+Invalidating in-memory cache of /app/applet/.gradle/9.3.1/fileHashes/fileHashes.bin
+Invalidating in-memory cache of /app/applet/.gradle/9.3.1/fileHashes/resourceHashesCache.bin
+Invalidating in-memory cache of /opt/gradle/.gradle/caches/journal-1/file-access.bin
+Stored cache entry for task ':app:compileDebugKotlin' with cache key e3da0a3bbde4b5a9f773fc2967e22787
+Invalidating in-memory cache of /app/applet/.gradle/9.3.1/executionHistory/executionHistory.bin
+Invalidating in-memory cache of /app/applet/.gradle/buildOutputCleanup/outputFiles.bin
+Build aae2a0bf-dae3-4642-ad6b-265d69989e8d is closed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:processDebugResources'.
+> A failure occurred while executing com.android.build.gradle.internal.res.LinkApplicationAndroidResourcesTask$TaskAction
+   > Path '/app/applet/app/build/intermediates/merged_res/debug/mergeDebugResources' is not a readable directory.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 2m 3s
+32 actionable tasks: 2 executed, 30 up-to-date
+Configuration cache entry reused.
