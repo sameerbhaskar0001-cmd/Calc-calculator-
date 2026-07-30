@@ -784,6 +784,14 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _intruderDetectionEnabled = MutableStateFlow(prefs.getBoolean("intruder_detection_enabled", true))
     val intruderDetectionEnabled: StateFlow<Boolean> = _intruderDetectionEnabled.asStateFlow()
 
+    private val _backgroundAudioPlaybackEnabled = MutableStateFlow(prefs.getBoolean("background_audio_playback_enabled", false))
+    val backgroundAudioPlaybackEnabled: StateFlow<Boolean> = _backgroundAudioPlaybackEnabled.asStateFlow()
+
+    fun setBackgroundAudioPlaybackEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("background_audio_playback_enabled", enabled).apply()
+        _backgroundAudioPlaybackEnabled.value = enabled
+    }
+
     private val _autoLockDuration = MutableStateFlow(prefs.getInt("auto_lock_duration", -1))
     val autoLockDuration: StateFlow<Int> = _autoLockDuration.asStateFlow()
 
@@ -892,16 +900,20 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         // Compute storage counts from files
         var photosCount = 0
         var videosCount = 0
+        var audioCount = 0
         var docsCount = 0
         
         files.forEach { file ->
             val parts = file.split("|||")
             if (parts.size >= 5) {
                 val mimeType = parts[3].lowercase()
+                val isAudioExt = file.lowercase().endsWith(".mp3") || file.lowercase().endsWith(".wav") || file.lowercase().endsWith(".m4a") || file.lowercase().endsWith(".ogg") || file.lowercase().endsWith(".flac") || file.lowercase().endsWith(".aac")
                 if (mimeType.startsWith("image/")) {
                     photosCount++
                 } else if (mimeType.startsWith("video/")) {
                     videosCount++
+                } else if (mimeType.startsWith("audio/") || isAudioExt) {
+                    audioCount++
                 } else {
                     docsCount++
                 }
@@ -978,6 +990,25 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     date = formatDate(videoTime),
                     description = "Imported your first confidential video into the media player.",
                     timestamp = videoTime
+                )
+            )
+        }
+        
+        // 5.5 First Hidden Audio
+        if (audioCount > 0) {
+            var audioTime = prefs.getLong("first_audio_time", 0L)
+            if (audioTime == 0L) {
+                audioTime = System.currentTimeMillis()
+                prefs.edit().putLong("first_audio_time", audioTime).apply()
+            }
+            list.add(
+                JourneyTimelineItem(
+                    id = "first_audio",
+                    icon = "🎵",
+                    title = "First Hidden Audio",
+                    date = formatDate(audioTime),
+                    description = "Secured your first audio file inside the encrypted vault.",
+                    timestamp = audioTime
                 )
             )
         }
@@ -2552,6 +2583,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 mimeType = when (ext) {
                     "jpg", "jpeg", "png", "webp", "heic", "heif", "gif", "bmp" -> "image/$ext"
                     "mp4", "mkv", "3gp", "avi", "mov", "webm" -> "video/$ext"
+                    "mp3", "wav", "m4a", "ogg", "flac", "aac" -> "audio/$ext"
                     "pdf" -> "application/pdf"
                     "txt", "csv", "log" -> "text/plain"
                     "zip" -> "application/zip"

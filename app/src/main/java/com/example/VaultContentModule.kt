@@ -1,6 +1,8 @@
 package com.example
 
 import android.content.Context
+import android.widget.Toast
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.util.Locale
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Sort
@@ -314,14 +316,36 @@ fun VaultContentScreen(
                     }
                     
                     Box {
-                        IconButton(
-                            onClick = { showSortOptions = true },
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.05f))
-                        ) {
-                            Icon(Icons.Default.Sort, contentDescription = "Sort", tint = Color.White, modifier = Modifier.size(22.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (title == "Music & Audio") {
+                                val isBackgroundEnabled by viewModel.backgroundAudioPlaybackEnabled.collectAsStateWithLifecycle()
+                                IconButton(
+                                    onClick = {
+                                        viewModel.setBackgroundAudioPlaybackEnabled(!isBackgroundEnabled)
+                                        Toast.makeText(context, if (!isBackgroundEnabled) "Background playback enabled" else "Background playback disabled", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isBackgroundEnabled) ThemePurple.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f))
+                                ) {
+                                    Icon(
+                                        imageVector = if (isBackgroundEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                                        contentDescription = "Toggle Background Playback",
+                                        tint = if (isBackgroundEnabled) ThemePurple else Color.White,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = { showSortOptions = true },
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.05f))
+                            ) {
+                                Icon(Icons.Default.Sort, contentDescription = "Sort", tint = Color.White, modifier = Modifier.size(22.dp))
+                            }
                         }
                         DropdownMenu(
                             expanded = showSortOptions,

@@ -410,36 +410,18 @@ fun CalculatorScreen(
     var transitionState by remember { mutableStateOf(0) } // 0=Calc, 1=Authenticating, 2=Transition, 3=Vault
     
     val blurRadius by animateDpAsState(
-        targetValue = when (transitionState) {
-            0 -> 0.dp
-            1 -> 12.dp
-            else -> 40.dp
-        },
-        animationSpec = tween(durationMillis = if (transitionState == 2) 300 else 150)
+        targetValue = if (transitionState >= 1) 12.dp else 0.dp,
+        animationSpec = if (transitionState >= 1) tween(durationMillis = 800, delayMillis = 0, easing = FastOutSlowInEasing) else tween(durationMillis = 300)
     )
     val calcAlpha by animateFloatAsState(
-        targetValue = if (transitionState >= 2) 0f else 1f,
-        animationSpec = tween(300)
+        targetValue = if (transitionState >= 1) 0f else 1f,
+        animationSpec = if (transitionState >= 1) tween(durationMillis = 600, delayMillis = 0, easing = FastOutSlowInEasing) else tween(durationMillis = 300)
     )
     val calcScale by animateFloatAsState(
-        targetValue = if (transitionState >= 2) 0.95f else 1f,
-        animationSpec = tween(300)
-    )
-    val vaultScale by animateFloatAsState(
-        targetValue = if (transitionState >= 3) 1f else if (transitionState == 2) 0.95f else 0.9f,
-        animationSpec = tween(450, easing = FastOutSlowInEasing)
+        targetValue = if (transitionState >= 1) 0.85f else 1f,
+        animationSpec = if (transitionState >= 1) tween(durationMillis = 800, delayMillis = 0, easing = FastOutSlowInEasing) else tween(durationMillis = 300)
     )
     val welcomeAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
-    
-    val vaultAlpha by animateFloatAsState(
-        targetValue = if (transitionState >= 3) 1f else 0f,
-        animationSpec = tween(500)
-    )
-    
-    val vaultBlurRadius by animateDpAsState(
-        targetValue = if (transitionState >= 3) 0.dp else 24.dp,
-        animationSpec = tween(800)
-    )
     
     val authOverlayAlpha by animateFloatAsState(
         targetValue = if (transitionState == 1) 1f else 0f,
@@ -520,7 +502,6 @@ fun CalculatorScreen(
             }
             viewModel.triggerKeypressEffects(context)
             transitionState = 1 
-            activeTab = ActiveTab.VAULT 
         } else {
             welcomeAlpha.snapTo(0f)
             transitionState = 0
@@ -574,6 +555,7 @@ fun CalculatorScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .zIndex(1f)
                         .statusBarsPadding()
                         .drawBehind {
                             // Elegant dynamic ambient glow pool
@@ -734,7 +716,9 @@ fun CalculatorScreen(
             // 1. Dashboard Content when unlocked
             if (activeTab == ActiveTab.VAULT || transitionState == 3) {
                 Box(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(0f)
                 ) {
                     VaultTabUnlockedContent(
                         viewModel = viewModel,
@@ -745,12 +729,15 @@ fun CalculatorScreen(
 
             // 2. Secret Vault Unlocking Animation
             if (transitionState == 1) {
-                SecretVaultUnlockingAnimation(
-                    onAnimationComplete = {
-                        activeTab = ActiveTab.VAULT
-                        transitionState = 3
-                    }
-                )
+                Box(modifier = Modifier.zIndex(2f)) {
+                    SecretVaultUnlockingAnimation(
+                        viewModel = viewModel,
+                        onAnimationComplete = {
+                            activeTab = ActiveTab.VAULT
+                            transitionState = 3
+                        }
+                    )
+                }
             }
         }
     }
@@ -3470,12 +3457,17 @@ fun VaultTabUnlockedContent(
                             "Documents" -> vaultFiles.filter { 
                                 val parts = it.split("|||")
                                 val isMedia = parts.size >= 4 && (parts[3].startsWith("image/") || parts[3].startsWith("video/")) || it.lowercase().endsWith(".jpg") || it.lowercase().endsWith(".png") || it.lowercase().endsWith(".mp4") || it.lowercase().endsWith(".jpeg") || it.lowercase().endsWith(".webp")
-                                parts.size >= 4 && !isMedia && !parts[3].startsWith("audio/")
+                                val isAudio = parts.size >= 4 && (parts[3].startsWith("audio/")) || it.lowercase().endsWith(".mp3") || it.lowercase().endsWith(".wav") || it.lowercase().endsWith(".m4a") || it.lowercase().endsWith(".ogg") || it.lowercase().endsWith(".flac") || it.lowercase().endsWith(".aac")
+                                parts.size >= 4 && !isMedia && !isAudio
                             }.map { fileStr ->
                                 val parts = fileStr.split("|||")
                                 VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "document", parts[4], fileStr, 0L)
                             }
-                            "Music & Audio" -> vaultFiles.filter { it.contains("|||audio/") }.map { fileStr ->
+                            "Music & Audio" -> vaultFiles.filter { 
+                                val parts = it.split("|||")
+                                val isAudio = parts.size >= 4 && (parts[3].startsWith("audio/")) || it.lowercase().endsWith(".mp3") || it.lowercase().endsWith(".wav") || it.lowercase().endsWith(".m4a") || it.lowercase().endsWith(".ogg") || it.lowercase().endsWith(".flac") || it.lowercase().endsWith(".aac")
+                                isAudio 
+                            }.map { fileStr ->
                                 val parts = fileStr.split("|||")
                                 VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "audio", parts[4], fileStr, 0L)
                             }
@@ -3822,7 +3814,7 @@ fun VaultTabUnlockedContent(
                                                                 )
                                                             }
                                                         }
-                                                    } else if (mimeType.startsWith("audio/")) {
+                                                    } else if (mimeType.startsWith("audio/") || originalName.lowercase().endsWith(".mp3") || originalName.lowercase().endsWith(".wav") || originalName.lowercase().endsWith(".m4a") || originalName.lowercase().endsWith(".ogg") || originalName.lowercase().endsWith(".flac") || originalName.lowercase().endsWith(".aac")) {
                                                         Icon(
                                                             imageVector = Icons.Default.MusicNote,
                                                             contentDescription = "Audio",
@@ -7012,7 +7004,7 @@ fun VaultTabUnlockedContent(
                             securityItems = securityItems
                         )
 
-                        // --- Your Journey Section (Phase 9D) ---
+                        // --- Your Journey Section ---
                         val journeyTimeline by viewModel.journeyTimeline.collectAsStateWithLifecycle()
                         YourJourneySection(
                             timelineItems = journeyTimeline
@@ -7853,6 +7845,7 @@ fun VaultTabUnlockedContent(
                 var currentScale by remember { mutableStateOf(1f) }
                 
                 Box(modifier = Modifier.fillMaxSize()) {
+                    val viewerScope = rememberCoroutineScope()
                     var isViewerUiVisible by remember { mutableStateOf(true) }
                     val formatDuration = remember {
                         { ms: Int ->
@@ -8057,12 +8050,13 @@ fun VaultTabUnlockedContent(
                                                 Text("$sizeStr • $timestamp", color = TextMedium, fontSize = 12.sp)
                                             }
                                         }
-                                    } else if (mimeType.startsWith("audio/") || mimeType.startsWith("music/")) {
+                                    } else if (mimeType.startsWith("audio/") || mimeType.startsWith("music/") || originalName.lowercase().endsWith(".mp3") || originalName.lowercase().endsWith(".wav") || originalName.lowercase().endsWith(".m4a") || originalName.lowercase().endsWith(".ogg") || originalName.lowercase().endsWith(".flac") || originalName.lowercase().endsWith(".aac")) {
                                         // Audio Player with beautiful Vinyl Record Layout
                                         var isPlaying by remember { mutableStateOf(false) }
                                         var currentPosition by remember { mutableStateOf(0f) }
                                         var duration by remember { mutableStateOf(1f) }
                                         val context = LocalContext.current
+                                        val audioPlayerScope = rememberCoroutineScope()
                                         
                                         var isPrepared by remember(path) { mutableStateOf(false) }
                                         val mediaPlayer = remember(path) {
@@ -8089,6 +8083,16 @@ fun VaultTabUnlockedContent(
                                                 null
                                             }
                                         }
+                                        
+                                        // Pause if swiped away
+                                        LaunchedEffect(pagerState.currentPage) {
+                                            if (pagerState.currentPage != page && isPlaying) {
+                                                isPlaying = false
+                                                try {
+                                                    mediaPlayer?.pause()
+                                                } catch (e: Exception) {}
+                                            }
+                                        }
                                         LaunchedEffect(isPlaying, isPrepared) {
                                             while (isPlaying && isPrepared) {
                                                 try {
@@ -8107,6 +8111,26 @@ fun VaultTabUnlockedContent(
                                                 } catch (e: Exception) {}
                                             }
                                         }
+                                        
+                                        val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+                                        val isBackgroundEnabled by viewModel.backgroundAudioPlaybackEnabled.collectAsStateWithLifecycle()
+                                        DisposableEffect(lifecycleOwner, isBackgroundEnabled) {
+                                            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                                                if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
+                                                    if (!isBackgroundEnabled && isPlaying) {
+                                                        try {
+                                                            mediaPlayer?.pause()
+                                                        } catch (e: Exception) {}
+                                                        isPlaying = false
+                                                    }
+                                                }
+                                            }
+                                            lifecycleOwner.lifecycle.addObserver(observer)
+                                            onDispose {
+                                                lifecycleOwner.lifecycle.removeObserver(observer)
+                                            }
+                                        }
+
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxSize()
@@ -8206,7 +8230,7 @@ fun VaultTabUnlockedContent(
                                                         viewModel.triggerKeypressEffects(context)
                                                         val prev = activeViewerIndex - 1
                                                         if (prev >= 0) {
-                                                            activeViewerIndex = prev
+                                                            viewerScope.launch { pagerState.animateScrollToPage(prev) }
                                                         }
                                                     },
                                                     modifier = Modifier.size(48.dp)
@@ -8253,7 +8277,7 @@ fun VaultTabUnlockedContent(
                                                         viewModel.triggerKeypressEffects(context)
                                                         val next = activeViewerIndex + 1
                                                         if (next < activeViewerFiles.size) {
-                                                            activeViewerIndex = next
+                                                            viewerScope.launch { pagerState.animateScrollToPage(next) }
                                                         }
                                                     },
                                                     modifier = Modifier.size(48.dp)
@@ -9459,7 +9483,7 @@ fun VaultTabUnlockedContent(
                                         Icon(
                                             imageVector = when {
                                                 mimeType.startsWith("video/") -> Icons.Default.PlayArrow
-                                                mimeType.startsWith("audio/") -> Icons.Default.MusicNote
+                                                mimeType.startsWith("audio/") || originalName.lowercase().endsWith(".mp3") || originalName.lowercase().endsWith(".wav") || originalName.lowercase().endsWith(".m4a") || originalName.lowercase().endsWith(".ogg") || originalName.lowercase().endsWith(".flac") || originalName.lowercase().endsWith(".aac") -> Icons.Default.MusicNote
                                                 else -> Icons.Default.Description
                                             },
                                             contentDescription = null,
@@ -14420,8 +14444,9 @@ fun YourJourneySection(
             )
             Text(
                 text = "Your Journey",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
                 color = Color.White,
                 letterSpacing = 0.5.sp
             )
@@ -14503,29 +14528,20 @@ fun YourJourneySection(
                                 Icon(
                                     imageVector = vectorIcon,
                                     contentDescription = item.title,
-                                    tint = ThemePurple,
+                                    tint = Color.White,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
-
                             // Line connecting to next item
                             if (index < timelineItems.size - 1) {
                                 Box(
                                     modifier = Modifier
                                         .width(2.dp)
                                         .weight(1f)
-                                        .background(
-                                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                                colors = listOf(
-                                                    Color.White.copy(alpha = 0.12f),
-                                                    Color.White.copy(alpha = 0.02f)
-                                                )
-                                            )
-                                        )
+                                        .background(Color.White.copy(alpha = 0.1f))
                                 )
                             }
                         }
-
                         // Right Column: Title, Date & Description
                         Column(
                             modifier = Modifier
@@ -14542,6 +14558,7 @@ fun YourJourneySection(
                                     text = item.title,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
                                     color = Color.White,
                                     modifier = Modifier.weight(1f)
                                 )
@@ -14596,422 +14613,113 @@ fun YourJourneySection(
 
 @Composable
 fun SecretVaultUnlockingAnimation(
+    viewModel: CalculatorViewModel,
     onAnimationComplete: () -> Unit
 ) {
     val view = androidx.compose.ui.platform.LocalView.current
     val progress = remember { androidx.compose.animation.core.Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        try {
-            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-        } catch (e: Exception) { }
-
+        try { view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM) } catch (e: Exception) { }
+        
         progress.animateTo(
             targetValue = 1f,
             animationSpec = androidx.compose.animation.core.tween(
-                durationMillis = 3200,
+                durationMillis = 1600, 
                 easing = androidx.compose.animation.core.FastOutSlowInEasing
             )
         )
         onAnimationComplete()
     }
-
+    
     val p = progress.value
-    val percent = (p * 100).toInt().coerceIn(0, 100)
-    val themeColors = LocalAppThemeColors.current
-    val themePurple = themeColors.themePurple
-
-    // Combination Dial physics movement formulas
-    val dialAngle = when {
-        p < 0.35f -> {
-            val frac = p / 0.35f
-            frac * 240f // CW turn to 240
-        }
-        p < 0.70f -> {
-            val frac = (p - 0.35f) / 0.35f
-            240f - (frac * 360f) // CCW turn to -120
-        }
-        p < 0.90f -> {
-            val frac = (p - 0.70f) / 0.20f
-            -120f + (frac * 200f) // CW turn to 80
-        }
-        else -> {
-            80f
-        }
-    }
-
-    // Interactive tactile haptic vibration feedback for every tick crossed
-    val currentTick = (dialAngle / 6.0f).toInt()
-    LaunchedEffect(currentTick) {
-        if (p > 0.01f && p < 0.90f) {
-            try {
-                view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-            } catch (e: Exception) { }
-        }
-    }
-
-    // Haptic trigger for bolt release
-    LaunchedEffect(p >= 0.90f) {
-        if (p >= 0.90f) {
-            try {
-                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-            } catch (e: Exception) { }
-        }
-    }
-
-    // Split/slide open animation variables
-    val slideFraction = if (p > 0.90f) (p - 0.90f) / 0.10f else 0f
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0D0D0D)), // Luxe ultra-dark backdrop
+            .background(Color.Transparent),
         contentAlignment = Alignment.Center
     ) {
-        // Golden/Warm inner glow revealed when safe doors slide open
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    androidx.compose.ui.graphics.Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFFFFFFFF).copy(alpha = 0.15f),
-                            Color(0xFF1F1F1F).copy(alpha = 0.05f),
-                            Color.Transparent
-                        )
-                    )
+        // Premium Liquid Glass Ripple from "=" button
+        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+            val rippleCenter = Offset(size.width * 0.85f, size.height * 0.85f)
+            val maxRadius = size.width * 1.6f
+            val currentRadius = maxRadius * p
+            
+            if (p > 0f && p < 1f) {
+                // 1. Base frosted wave edge (very thin and subtle)
+                drawCircle(
+                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                        0.92f to Color.Transparent,
+                        0.97f to Color.White.copy(alpha = (1f - p) * 0.12f),
+                        1.0f to Color.Transparent,
+                        center = rippleCenter,
+                        radius = currentRadius.coerceAtLeast(1f)
+                    ),
+                    radius = currentRadius,
+                    center = rippleCenter
                 )
-        )
-
-        // Left Vault Door
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(0.5f)
-                .align(Alignment.CenterStart)
-                .graphicsLayer {
-                    translationX = -size.width * slideFraction
-                    alpha = 1f - (slideFraction * 0.7f)
-                }
-                .background(
-                    androidx.compose.ui.graphics.Brush.horizontalGradient(
-                        colors = listOf(Color(0xFF1E1E1E), Color(0xFF2E2E2E))
-                    )
-                )
-        ) {
-            // Mechanical Bolt Left
-            Box(
-                modifier = Modifier
-                    .size(width = 40.dp, height = 30.dp)
-                    .align(Alignment.CenterEnd)
-                    .offset(x = (10).dp)
-                    .graphicsLayer {
-                        // Retracts from 10dp to inside as we progress
-                        val retract = if (p < 0.25f) p / 0.25f else 1f
-                        translationX = -retract * 30f
-                    }
-                    .background(
-                        androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(Color(0xFFE2E8F0), Color(0xFF94A3B8), Color(0xFF475569))
+                
+                // 2. Refraction moving highlight (tight light bending)
+                val highlightRadius = currentRadius * 0.97f
+                if (highlightRadius > 0f) {
+                    drawCircle(
+                        brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                            0.94f to Color.Transparent,
+                            0.98f to Color.White.copy(alpha = (1f - p) * 0.20f),
+                            1.0f to Color.Transparent,
+                            center = rippleCenter,
+                            radius = highlightRadius.coerceAtLeast(1f)
                         ),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                        radius = highlightRadius,
+                        center = rippleCenter
                     )
-            )
-        }
-
-        // Right Vault Door
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(0.5f)
-                .align(Alignment.CenterEnd)
-                .graphicsLayer {
-                    translationX = size.width * slideFraction
-                    alpha = 1f - (slideFraction * 0.7f)
                 }
-                .background(
-                    androidx.compose.ui.graphics.Brush.horizontalGradient(
-                        colors = listOf(Color(0xFF2E2E2E), Color(0xFF1E1E1E))
-                    )
-                )
-        ) {
-            // Mechanical Bolt Right
-            Box(
-                modifier = Modifier
-                    .size(width = 40.dp, height = 30.dp)
-                    .align(Alignment.CenterStart)
-                    .offset(x = (-10).dp)
-                    .graphicsLayer {
-                        val retract = if (p < 0.50f) p / 0.50f else 1f
-                        translationX = retract * 30f
-                    }
-                    .background(
-                        androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(Color(0xFFE2E8F0), Color(0xFF94A3B8), Color(0xFF475569))
+                
+                // 3. Inner depth (darker refraction tone, extremely faint)
+                val innerRadius = currentRadius * 0.94f
+                if (innerRadius > 0f) {
+                     drawCircle(
+                        brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                            0.92f to Color.Transparent,
+                            0.98f to Color.Black.copy(alpha = (1f - p) * 0.04f),
+                            1.0f to Color.Transparent,
+                            center = rippleCenter,
+                            radius = innerRadius.coerceAtLeast(1f)
                         ),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                        radius = innerRadius,
+                        center = rippleCenter
                     )
-            )
+                }
+            }
         }
-
-        // Center seam line dividing the safe door panels
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(2.dp)
-                .align(Alignment.Center)
-                .graphicsLayer {
-                    alpha = if (slideFraction > 0f) 0f else 0.4f
-                }
-                .background(Color.Black)
-        )
-
-        // Main Mechanical safe Dial & Info Group (Anchored to sliding layout by scale/fade)
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.graphicsLayer {
-                scaleX = 1f - (slideFraction * 0.15f)
-                scaleY = scaleX
-                alpha = 1f - slideFraction
-            }
-        ) {
-            // Indication Needle pointing at the safe dial top
-            Canvas(
-                modifier = Modifier
-                    .size(width = 16.dp, height = 16.dp)
-                    .padding(bottom = 4.dp)
-            ) {
-                val path = androidx.compose.ui.graphics.Path().apply {
-                    moveTo(size.width / 2f, size.height)
-                    lineTo(0f, 0f)
-                    lineTo(size.width, 0f)
-                    close()
-                }
-                drawPath(path = path, color = Color(0xFFE2E8F0))
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // The Combination Lock Dial wheel with glowing ambient background
-            Box(
-                modifier = Modifier.size(240.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                // Outer Ambient Purple/Cyber Glow
-                Box(
-                    modifier = Modifier
-                        .size(230.dp)
-                        .background(
-                            androidx.compose.ui.graphics.Brush.radialGradient(
-                                colors = listOf(
-                                    themePurple.copy(alpha = 0.28f),
-                                    themePurple.copy(alpha = 0.05f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
-
-                // The Combination Lock Dial wheel itself
-                Box(
-                    modifier = Modifier
-                        .size(200.dp)
-                        .graphicsLayer {
-                            rotationZ = dialAngle
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val r = size.width / 2f
-                        val centerPt = Offset(r, r)
-
-                        // 1. Outer Chrome Metallic Rim with sweep shading for 3D steel look
-                        val silverMetallic = androidx.compose.ui.graphics.Brush.sweepGradient(
-                            colors = listOf(
-                                Color(0xFFE2E8F0),
-                                Color(0xFF64748B),
-                                Color(0xFFF1F5F9),
-                                Color(0xFF334155),
-                                Color(0xFFCBD5E1),
-                                Color(0xFF94A3B8),
-                                Color(0xFFE2E8F0)
-                            ),
-                            center = centerPt
-                        )
-                        drawCircle(
-                            brush = silverMetallic,
-                            radius = r,
-                            style = androidx.compose.ui.graphics.drawscope.Fill
-                        )
-
-                        // 2. Beveled shadow ring inside outer rim
-                        drawCircle(
-                            color = Color(0xFF0F172A),
-                            radius = r - 4.dp.toPx(),
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
-                        )
-
-                        // 3. Dark titanium/carbon inner disc
-                        val titaniumBg = androidx.compose.ui.graphics.Brush.radialGradient(
-                            colors = listOf(Color(0xFF334155), Color(0xFF1E293B), Color(0xFF0B0F19)),
-                            center = centerPt
-                        )
-                        drawCircle(
-                            brush = titaniumBg,
-                            radius = r - 6.dp.toPx(),
-                            style = androidx.compose.ui.graphics.drawscope.Fill
-                        )
-
-                        // 4. Fine glowing theme circle
-                        drawCircle(
-                            color = themePurple.copy(alpha = 0.4f),
-                            radius = r - 16.dp.toPx(),
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
-                        )
-
-                        // 5. Dial Notch Marks (Ticks) every 6 degrees (60 divisions total)
-                        for (i in 0 until 60) {
-                            val angleRad = Math.toRadians((i * 6).toDouble())
-                            val cosVal = Math.cos(angleRad).toFloat()
-                            val sinVal = Math.sin(angleRad).toFloat()
-
-                            val isMajor = i % 5 == 0
-                            val tickLen = if (isMajor) 12.dp.toPx() else 6.dp.toPx()
-                            val tickStroke = if (isMajor) 2.dp.toPx() else 1.dp.toPx()
-                            val tickColor = if (isMajor) Color(0xFFF1F5F9) else Color(0xFF94A3B8).copy(alpha = 0.6f)
-
-                            val startPt = Offset(
-                                centerPt.x + (r - 18.dp.toPx()) * cosVal,
-                                centerPt.y + (r - 18.dp.toPx()) * sinVal
-                            )
-                            val endPt = Offset(
-                                centerPt.x + (r - 18.dp.toPx() - tickLen) * cosVal,
-                                centerPt.y + (r - 18.dp.toPx() - tickLen) * sinVal
-                            )
-
-                            drawLine(
-                                color = tickColor,
-                                start = startPt,
-                                end = endPt,
-                                strokeWidth = tickStroke
-                            )
-                        }
-                    }
-
-                    // Inner chrome handle bar/wheel
-                    Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .background(
-                                androidx.compose.ui.graphics.Brush.radialGradient(
-                                    colors = listOf(Color(0xFFE2E8F0), Color(0xFF64748B), Color(0xFF1E293B))
-                                ),
-                                shape = androidx.compose.foundation.shape.CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        // Glowing center neon ring
-                        Box(
-                            modifier = Modifier
-                                .size(92.dp)
-                                .background(Color.Transparent, shape = CircleShape)
-                                .border(1.5.dp, themePurple.copy(alpha = 0.5f), CircleShape)
-                        )
-
-                        // Brushed steel handle spoke overlay
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.85f)
-                                .height(16.dp)
-                                .background(
-                                    androidx.compose.ui.graphics.Brush.verticalGradient(
-                                        colors = listOf(
-                                            Color(0xFFFFFFFF),
-                                            Color(0xFFE2E8F0),
-                                            Color(0xFF94A3B8),
-                                            Color(0xFF475569)
-                                        )
-                                    ),
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
-                                )
-                                .border(1.dp, themePurple.copy(alpha = 0.4f), androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
-                        ) {
-                            // Tiny glowing center bolt/rivet
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .align(Alignment.Center)
-                                    .background(Color.White, shape = CircleShape)
-                                    .border(1.dp, themePurple, CircleShape)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Uncomplicate the status message with warm & friendly security greetings
-            val statusMsg = when {
-                percent < 30 -> "HELLO! PREPARING VAULT..."
-                percent < 60 -> "UNLOCKING SECURE SPACE..."
-                percent < 90 -> "VERIFYING IDENTITY..."
-                else -> "WELCOME HOME"
-            }
-
-            Text(
-                text = statusMsg,
-                style = TextStyle(
-                    fontSize = 13.sp,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.SansSerif,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp,
-                    color = Color.White
-                )
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Premium matching progress bar
-            Row(
-                modifier = Modifier
-                    .width(180.dp)
-                    .height(4.dp)
-                    .background(Color.White.copy(alpha = 0.12f), shape = RoundedCornerShape(2.dp)),
-                horizontalArrangement = Arrangement.Start
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(p)
-                        .background(
-                            androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                colors = listOf(themePurple, Color.White)
-                            ),
-                            shape = RoundedCornerShape(2.dp)
-                        )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(28.dp))
-
+        
+        // Secret Vault text (whisper branding) ONLY after calculator has faded out
+        if (p > 0.3f) {
+            val brandAlpha = when {
+                p < 0.3f -> 0f
+                p < 0.6f -> (p - 0.3f) / 0.3f // Slower, smoother fade in
+                p < 0.85f -> 1f // Stay
+                else -> 1f - ((p - 0.85f) / 0.15f) // Fade out
+            } * 0.5f // 50% opacity for premium whisper feel
+            
             Text(
                 text = "SECRET VAULT",
                 style = TextStyle(
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 10.sp,
-                    color = Color.White.copy(alpha = 0.95f),
-                    shadow = androidx.compose.ui.graphics.Shadow(
-                        color = themePurple.copy(alpha = 0.8f),
-                        blurRadius = 12f
-                    )
-                )
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.SansSerif,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 16.sp,
+                    color = Color.White
+                ),
+                modifier = Modifier.graphicsLayer {
+                    alpha = brandAlpha
+                    // Slight moving scale effect for elegance
+                    val textScale = 0.90f + (0.1f * p)
+                    scaleX = textScale
+                    scaleY = textScale
+                }
             )
         }
     }
 }
-
-
-
