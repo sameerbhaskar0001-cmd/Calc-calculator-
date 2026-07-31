@@ -74,7 +74,10 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private var currentAudioPath: String? = null
     
     private val _isAudioPlaying = MutableStateFlow(false)
-    val isAudioPlaying: StateFlow<Boolean> = _isAudioPlaying.asStateFlow()
+    val isAudioPlaying: StateFlow<Boolean> = _isAudioPlaying
+    
+    private val _audioPlaybackSpeed = MutableStateFlow(1.0f)
+    val audioPlaybackSpeed: StateFlow<Float> = _audioPlaybackSpeed.asStateFlow()
     
     private val _audioPosition = MutableStateFlow(0f)
     val audioPosition: StateFlow<Float> = _audioPosition.asStateFlow()
@@ -113,6 +116,11 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 stopAudioPositionUpdates()
                 try {
                     it.seekTo(0)
+                } catch (e: Exception) {}
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                try {
+                    mediaPlayer?.playbackParams = android.media.PlaybackParams().setSpeed(_audioPlaybackSpeed.value)
                 } catch (e: Exception) {}
             }
             mediaPlayer?.start()
@@ -161,6 +169,15 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         try {
             mediaPlayer?.seekTo(position.toInt())
             _audioPosition.value = position
+        } catch (e: Exception) {}
+    }
+    
+    fun setAudioPlaybackSpeed(speed: Float) {
+        _audioPlaybackSpeed.value = speed
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                mediaPlayer?.playbackParams = mediaPlayer?.playbackParams?.setSpeed(speed) ?: android.media.PlaybackParams().setSpeed(speed)
+            }
         } catch (e: Exception) {}
     }
     
@@ -1601,6 +1618,66 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun triggerCalculatorKeypressEffects(context: android.content.Context, key: String) {
+        // play native click sound
+        if (_soundEnabled.value) {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+            audioManager?.playSoundEffect(android.media.AudioManager.FX_KEY_CLICK)
+        }
+
+        // play haptic feedback based on key type
+        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+        if (vibrator != null && vibrator.hasVibrator()) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                // API 29+ (Android 10+)
+                val effectId = when {
+                    key == "=" -> android.os.VibrationEffect.EFFECT_HEAVY_CLICK
+                    key.matches(Regex("[0-9.]")) -> android.os.VibrationEffect.EFFECT_TICK
+                    else -> android.os.VibrationEffect.EFFECT_CLICK // Medium tick for operators
+                }
+                try {
+                    val effect = android.os.VibrationEffect.createPredefined(effectId)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                        val attributes = android.os.VibrationAttributes.Builder()
+                            .setUsage(android.os.VibrationAttributes.USAGE_TOUCH)
+                            .build()
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) { vibrator.vibrate(effect, attributes) } else { vibrator.vibrate(effect) }
+                    } else {
+                        vibrator.vibrate(effect)
+                    }
+                } catch (e: Exception) {
+                    val fallbackDuration = when {
+                        key == "=" -> 85L
+                        key.matches(Regex("[0-9.]")) -> 18L
+                        else -> 35L
+                    }
+                    if (fallbackDuration > 0) {
+                        vibrator.vibrate(android.os.VibrationEffect.createOneShot(fallbackDuration, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                    }
+                }
+            } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val duration = when {
+                    key == "=" -> 85L
+                    key.matches(Regex("[0-9.]")) -> 18L
+                    else -> 35L
+                }
+                if (duration > 0) {
+                    vibrator.vibrate(android.os.VibrationEffect.createOneShot(duration, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                }
+            } else {
+                val duration = when {
+                    key == "=" -> 85L
+                    key.matches(Regex("[0-9.]")) -> 18L
+                    else -> 35L
+                }
+                if (duration > 0) {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(duration)
+                }
+            }
+        }
+    }
+
     // --- Split Bill Methods ---
     fun incrementPeople() {
         _numPeople.value = (_numPeople.value + 1).coerceAtMost(100)
@@ -3033,6 +3110,27 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             e.printStackTrace()
             false
         }
+    }
+
+    fun emptyBin() {
+        val isDecoy = _decoyActive.value
+        val recentKey = if (isDecoy) "recently_deleted_decoy_files" else "recently_deleted_files"
+
+        // Delete physical files
+        _recentlyDeletedFiles.value.forEach { recentSerialized ->
+            val parts = recentSerialized.split("|||")
+            if (parts.size >= 5) {
+                val absolutePath = parts[4]
+                val file = File(absolutePath)
+                if (file.exists()) {
+                    file.delete()
+                }
+            }
+        }
+
+        // Clear references
+        prefs.edit().remove(recentKey).apply()
+        _recentlyDeletedFiles.value = emptyList()
     }
 
     fun permanentlyDeleteVaultFile(fileSerialized: String): Boolean {

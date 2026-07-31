@@ -1,5 +1,11 @@
 package com.example
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.border
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
@@ -292,6 +298,10 @@ import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.Canvas
+import kotlin.math.abs
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import com.example.ui.theme.LocalAppThemeColors
 class OpenMultipleDocumentsWithWrite : androidx.activity.result.contract.ActivityResultContract<Array<String>, List<android.net.Uri>>() {
     override fun createIntent(context: android.content.Context, input: Array<String>): android.content.Intent {
@@ -1104,9 +1114,11 @@ fun CalculatorTabContent(
         else -> TextDark
     }
     val mainFontSize = when {
-        isEvaluated -> 64.sp
-        else -> 54.sp
+        isEvaluated -> if (mainDisplay.length > 9) (64f * (9f / mainDisplay.length)).coerceAtLeast(28f).sp else 64.sp
+        else -> if (mainDisplay.length > 10) (54f * (10f / mainDisplay.length)).coerceAtLeast(28f).sp else 54.sp
     }
+    val formulaFontSize = if (formulaDisplay.length > 16) (22f * (16f / formulaDisplay.length)).coerceAtLeast(14f).sp else 22.sp
+    
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.SpaceBetween
@@ -1130,15 +1142,24 @@ fun CalculatorTabContent(
                         .fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    Text(
-                        text = formulaDisplay,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (isEvaluated) TextMedium.copy(alpha = 0.65f) else ThemePurple.copy(alpha = 0.75f),
-                        fontFamily = FontFamily.SansSerif,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.testTag("expression_display")
-                    )
+                    AnimatedContent(
+                        targetState = formulaDisplay,
+                        transitionSpec = {
+                            fadeIn(tween(120)) togetherWith fadeOut(tween(120))
+                        },
+                        label = "formula_anim"
+                    ) { targetFormula ->
+                        Text(
+                            text = targetFormula,
+                            fontSize = formulaFontSize,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isEvaluated) TextMedium.copy(alpha = 0.65f) else ThemePurple.copy(alpha = 0.75f),
+                            fontFamily = FontFamily.SansSerif,
+                            textAlign = TextAlign.End,
+                            maxLines = 1,
+                            modifier = Modifier.testTag("expression_display")
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
             }
@@ -1157,15 +1178,24 @@ fun CalculatorTabContent(
                     },
                 horizontalArrangement = Arrangement.End
             ) {
-                Text(
-                    text = mainDisplay,
-                    fontSize = mainFontSize,
-                    fontWeight = FontWeight.Bold,
-                    color = mainColor,
-                    fontFamily = FontFamily.SansSerif,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.testTag("calc_result_display")
-                )
+                AnimatedContent(
+                    targetState = mainDisplay,
+                    transitionSpec = {
+                        fadeIn(tween(100)) togetherWith fadeOut(tween(100))
+                    },
+                    label = "main_display_anim"
+                ) { targetDisplay ->
+                    Text(
+                        text = targetDisplay,
+                        fontSize = mainFontSize,
+                        fontWeight = FontWeight.Bold,
+                        color = mainColor,
+                        fontFamily = FontFamily.SansSerif,
+                        textAlign = TextAlign.End,
+                        maxLines = 1,
+                        modifier = Modifier.testTag("calc_result_display")
+                    )
+                }
             }
                         }
             Spacer(modifier = Modifier.height(8.dp))
@@ -1273,14 +1303,24 @@ fun CalculatorTabContent(
                             themePurple = ThemePurple,
                             themeLightPurple = ThemeLightPurple,
                             onClick = {
-                                viewModel.triggerKeypressEffects(context)
+                                viewModel.triggerCalculatorKeypressEffects(context, char)
                                 viewModel.onCalcKeyPress(char)
                             },
-                            onLongClick = if (isEquals && biometricEnabled) {
-                                {
-                                    onTriggerBiometric()
+                            onLongClick = when {
+                                isEquals && biometricEnabled -> {
+                                    {
+                                        viewModel.triggerCalculatorKeypressEffects(context, "=")
+                                        onTriggerBiometric()
+                                    }
                                 }
-                            } else null,
+                                char == "⌫" -> {
+                                    {
+                                        viewModel.triggerCalculatorKeypressEffects(context, "=") // Heavy click for delete all
+                                        viewModel.onCalcKeyPress("C")
+                                    }
+                                }
+                                else -> null
+                            },
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("key_$char")
@@ -2207,7 +2247,8 @@ fun VaultTabUnlockedContent(
         }
     }
 
-    var showDrawerMenu by remember { mutableStateOf(false) }
+    val drawerState = androidx.compose.material3.rememberDrawerState(initialValue = androidx.compose.material3.DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
@@ -2567,6 +2608,76 @@ fun VaultTabUnlockedContent(
                 }
             }
         }
+        
+        androidx.compose.material3.ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                androidx.compose.material3.ModalDrawerSheet(
+                    drawerContainerColor = Color(0xFF1B2031),
+                    modifier = Modifier.width(280.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 48.dp, bottom = 16.dp, start = 12.dp, end = 12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                            Icon(Icons.Default.Security, contentDescription = "Vault", tint = ThemePurple, modifier = Modifier.size(28.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("Secure Vault", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(bottom = 8.dp))
+                        
+                        val menuItems = listOf(
+                            "Home" to "🏠 Home Dashboard",
+                            "Photos" to "🖼️ Photos Vault",
+                            "Videos" to "🎥 Videos Vault",
+                            "Music & Audio" to "🎵 Music & Audio",
+                            "Documents" to "📄 Documents",
+                            "Notes" to "📝 Secure Notes",
+                            "Private Browser" to "🌐 Private Browser",
+                            "Password_Generator" to "🔑 Password Generator",
+                            "Secure_Voice_Note" to "🎙️ Secure Voice Note",
+                            "More" to "⚙️ Vault Settings"
+                        )
+                        
+                        LazyColumn(modifier = Modifier.weight(1f)) {
+                            items(menuItems) { item ->
+                                val isSelected = activeSection == item.first
+                                androidx.compose.material3.NavigationDrawerItem(
+                                    label = { Text(item.second, color = if (isSelected) ThemePurple else Color.White, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                    selected = isSelected,
+                                    onClick = { 
+                                        viewModel.triggerKeypressEffects(context)
+                                        activeSection = item.first
+                                        scope.launch { drawerState.close() }
+                                    },
+                                    colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
+                                        unselectedContainerColor = Color.Transparent,
+                                        selectedContainerColor = ThemePurple.copy(alpha = 0.15f)
+                                    ),
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+                        }
+                        
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 8.dp))
+                        androidx.compose.material3.NavigationDrawerItem(
+                            label = { Text("🔒 Lock Vault Now", color = Color(0xFFFF6B6B), fontWeight = FontWeight.Bold) },
+                            selected = false,
+                            onClick = { 
+                                viewModel.triggerKeypressEffects(context)
+                                viewModel.lockVault()
+                                scope.launch { drawerState.close() }
+                            },
+                            colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent)
+                        )
+                    }
+                }
+            },
+            scrimColor = Color.Black.copy(alpha = 0.6f)
+        ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -2587,132 +2698,31 @@ fun VaultTabUnlockedContent(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .statusBarsPadding()
-                        .padding(16.dp)
                 ) {
                 // Clean and spacious Unlocked Header
                 if (activeSection == "Home") {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp),
+                            .statusBarsPadding()
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 16.dp, bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Box {
-                            IconButton(
-                                onClick = { 
-                                    viewModel.triggerKeypressEffects(context)
-                                    showDrawerMenu = true
-                                },
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Menu,
-                                    contentDescription = "Menu",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-
-                            DropdownMenu(
-                                expanded = showDrawerMenu,
-                                onDismissRequest = { showDrawerMenu = false },
-                                modifier = Modifier
-                                    .background(Color(0xFF1E293B))
-                                    .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
-                                    .padding(vertical = 4.dp)
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("🏠 Home Dashboard", color = Color.White, style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Home"
-                                        showDrawerMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("🖼️ Photos Vault", color = Color.White, style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Photos"
-                                        showDrawerMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("🎥 Videos Vault", color = Color.White, style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Videos"
-                                        showDrawerMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("🎵 Music & Audio", color = Color.White, style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Music & Audio"
-                                        showDrawerMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("📄 Documents", color = Color.White, style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Documents"
-                                        showDrawerMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("📝 Secure Notes", color = Color.White, style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Notes"
-                                        showDrawerMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("🌐 Private Browser", color = Color.White, style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Private Browser"
-                                        showDrawerMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("🔑 Password Generator", color = Color.White, style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Password_Generator"
-                                        showDrawerMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("🎙️ Secure Voice Note", color = Color.White, style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "Secure_Voice_Note"
-                                        showDrawerMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("⚙️ Vault Settings", color = Color.White, style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        activeSection = "More"
-                                        showDrawerMenu = false
-                                    }
-                                )
-                                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF334155)))
-                                DropdownMenuItem(
-                                    text = { Text("🔒 Lock Vault Now", color = Color(0xFFEF4444), style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = {
-                                        viewModel.triggerKeypressEffects(context)
-                                        viewModel.lockVault()
-                                        showDrawerMenu = false
-                                    }
-                                )
-                            }
+                        IconButton(
+                            onClick = { 
+                                viewModel.triggerKeypressEffects(context)
+                                scope.launch { drawerState.open() }
+                            },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Menu",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                         
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -2782,7 +2792,9 @@ fun VaultTabUnlockedContent(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp),
+                            .statusBarsPadding()
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 16.dp, bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -2942,17 +2954,25 @@ fun VaultTabUnlockedContent(
                         }
                     }
                 }
-                // Section Contents with Crossfade Animation
-            androidx.compose.animation.Crossfade(
+                // Section Contents with Fluid Transition
+            androidx.compose.animation.AnimatedContent(
                 targetState = activeSection,
-                animationSpec = androidx.compose.animation.core.tween(300),
-                modifier = Modifier.weight(1f).fillMaxWidth()
+                transitionSpec = {
+                    (androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) + 
+                     androidx.compose.animation.scaleIn(initialScale = 0.95f, animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.LinearOutSlowInEasing)))
+                    .togetherWith(
+                     androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(200)) + 
+                     androidx.compose.animation.scaleOut(targetScale = 1.05f, animationSpec = androidx.compose.animation.core.tween(200)))
+                },
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                label = "VaultSection"
             ) { section ->
                 when (section) {
                     "Home" -> {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .padding(horizontal = 16.dp)
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
@@ -3045,56 +3065,78 @@ fun VaultTabUnlockedContent(
                                 letterSpacing = 2.sp,
                                 modifier = Modifier.padding(top = 8.dp)
                             )
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { 
-                                         viewModel.triggerKeypressEffects(context)
-                                         activeSection = "Storage" 
-                                    },
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF161B2B).copy(alpha = 0.95f)),
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                            UnifiedGlassCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                bgColor = Color(0xFF161B2B).copy(alpha = 0.85f),
+                                elevation = 6.dp,
+                                onClick = { 
+                                    viewModel.triggerKeypressEffects(context)
+                                    activeSection = "Storage" 
+                                }
                             ) {
-                                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Folder, contentDescription = "Storage", tint = ThemePurple, modifier = Modifier.size(16.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Vault Storage", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("View Details", color = ThemePurple, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                            Icon(Icons.Default.ChevronRight, contentDescription = "View Details", tint = ThemePurple, modifier = Modifier.size(12.dp))
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    val storageInfo by viewModel.storageInfo.collectAsStateWithLifecycle()
-                                    val maxStorage = 15L * 1024 * 1024 * 1024 // 15 GB
-                                    val progress = if (maxStorage > 0) (storageInfo.totalBytes.toFloat() / maxStorage.toFloat()).coerceIn(0f, 1f) else 0f
-                                    LinearProgressIndicator(
-                                        progress = { progress },
-                                        modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
-                                        color = ThemePurple,
-                                        trackColor = Color(0xFF090D1A),
-                                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(1.dp)
+                                            .background(
+                                                Brush.horizontalGradient(
+                                                    colors = listOf(
+                                                        Color.White.copy(alpha = 0.12f),
+                                                        Color.White.copy(alpha = 0.03f),
+                                                        Color.Transparent
+                                                    )
+                                                )
+                                            )
                                     )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text("${storageInfo.totalUsedFormatted} Used", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                                        val freeBytes = maxStorage - storageInfo.totalBytes
-                                        val freeFormatted = if (freeBytes <= 0) "0 B" else {
-                                            val units = arrayOf("B", "KB", "MB", "GB", "TB")
-                                            val digitGroups = (Math.log10(freeBytes.toDouble()) / Math.log10(1024.0)).toInt()
-                                            val index = if (digitGroups > 4) 4 else digitGroups
-                                            val num = freeBytes / Math.pow(1024.0, index.toDouble())
-                                            String.format(java.util.Locale.US, "%.1f %s", num, units[index])
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(32.dp)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(ThemePurple.copy(alpha = 0.15f)),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(Icons.Default.CloudQueue, contentDescription = "Storage", tint = ThemePurple, modifier = Modifier.size(16.dp))
+                                                }
+                                                Text("Vault Storage", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp)
+                                            }
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Text("Manage", color = ThemePurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                Icon(Icons.Default.ArrowForward, contentDescription = "View Details", tint = ThemePurple, modifier = Modifier.size(14.dp))
+                                            }
                                         }
-                                        Text("$freeFormatted Free", color = TextMedium, fontSize = 11.sp)
+                                        Spacer(modifier = Modifier.height(14.dp))
+                                        val storageInfo by viewModel.storageInfo.collectAsStateWithLifecycle()
+                                        val maxStorage = 15L * 1024 * 1024 * 1024 // 15 GB
+                                        val progress = if (maxStorage > 0) (storageInfo.totalBytes.toFloat() / maxStorage.toFloat()).coerceIn(0f, 1f) else 0f
+                                        LinearProgressIndicator(
+                                            progress = { progress },
+                                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                            color = ThemePurple,
+                                            trackColor = Color(0xFF090D1A).copy(alpha = 0.8f),
+                                            strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("${storageInfo.totalUsedFormatted} Used", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                            val freeBytes = maxStorage - storageInfo.totalBytes
+                                            val freeFormatted = if (freeBytes <= 0) "0 B" else {
+                                                val units = arrayOf("B", "KB", "MB", "GB", "TB")
+                                                val digitGroups = (Math.log10(freeBytes.toDouble()) / Math.log10(1024.0)).toInt()
+                                                val index = if (digitGroups > 4) 4 else digitGroups
+                                                val num = freeBytes / Math.pow(1024.0, index.toDouble())
+                                                String.format(java.util.Locale.US, "%.1f %s", num, units[index])
+                                            }
+                                            Text("$freeFormatted Free", color = TextMedium, fontSize = 12.sp)
+                                        }
                                     }
                                 }
                             }
@@ -3116,10 +3158,10 @@ fun VaultTabUnlockedContent(
                                     previewContent = {
                                         val photos = vaultFiles.filter { it.contains("|||image/") }.take(3)
                                         if (photos.isEmpty()) {
-                                            Row(modifier = Modifier.fillMaxSize().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
-                                                Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
-                                                Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
+                                            Row(modifier = Modifier.fillMaxSize().padding(6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.03f)))
+                                                Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.03f)))
+                                                Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.03f)))
                                             }
                                         } else {
                                             Row(modifier = Modifier.fillMaxSize().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -3138,7 +3180,7 @@ fun VaultTabUnlockedContent(
                                                 }
                                                 // Fill remaining space if less than 3 photos
                                                 repeat(3 - photos.size) {
-                                                    Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
+                                                    Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.03f)))
                                                 }
                                             }
                                         }
@@ -3208,12 +3250,12 @@ fun VaultTabUnlockedContent(
                                             }
                                         } else {
                                             Column(
-                                                modifier = Modifier.fillMaxSize().padding(8.dp),
-                                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                modifier = Modifier.fillMaxSize().padding(10.dp),
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
-                                                Box(modifier = Modifier.fillMaxWidth(0.8f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
-                                                Box(modifier = Modifier.fillMaxWidth(0.9f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
-                                                Box(modifier = Modifier.fillMaxWidth(0.6f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                                Box(modifier = Modifier.fillMaxWidth(0.7f).height(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)))
+                                                Box(modifier = Modifier.fillMaxWidth(0.9f).height(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)))
+                                                Box(modifier = Modifier.fillMaxWidth(0.5f).height(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)))
                                             }
                                         }
                                     },
@@ -3238,14 +3280,20 @@ fun VaultTabUnlockedContent(
                                             }
                                         } else {
                                             Row(
-                                                modifier = Modifier.fillMaxSize().padding(8.dp),
+                                                modifier = Modifier.fillMaxSize(),
                                                 verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                horizontalArrangement = Arrangement.Center
                                             ) {
-                                                Box(modifier = Modifier.width(4.dp).height(12.dp).clip(CircleShape).background(Color(0xFF262D45)))
-                                                Box(modifier = Modifier.width(4.dp).height(20.dp).clip(CircleShape).background(ThemePurple.copy(alpha=0.5f)))
-                                                Box(modifier = Modifier.width(4.dp).height(12.dp).clip(CircleShape).background(Color(0xFF262D45)))
-                                                Box(modifier = Modifier.width(4.dp).height(8.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                                val h1 = remember { androidx.compose.animation.core.Animatable(12f) }
+                                                val h2 = remember { androidx.compose.animation.core.Animatable(20f) }
+                                                val h3 = remember { androidx.compose.animation.core.Animatable(16f) }
+                                                val h4 = remember { androidx.compose.animation.core.Animatable(8f) }
+                                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                    Box(modifier = Modifier.width(4.dp).height(h1.value.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)))
+                                                    Box(modifier = Modifier.width(4.dp).height(h2.value.dp).clip(CircleShape).background(ThemePurple.copy(alpha = 0.5f)))
+                                                    Box(modifier = Modifier.width(4.dp).height(h3.value.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)))
+                                                    Box(modifier = Modifier.width(4.dp).height(h4.value.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)))
+                                                }
                                             }
                                         }
                                     },
@@ -3270,12 +3318,12 @@ fun VaultTabUnlockedContent(
                                         Text(parseRichTextToAnnotatedString(body), color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(8.dp).fillMaxWidth(), lineHeight = 12.sp)
                                     } else {
                                         Column(
-                                            modifier = Modifier.fillMaxSize().padding(8.dp),
-                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                            modifier = Modifier.fillMaxSize().padding(10.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
-                                            Box(modifier = Modifier.fillMaxWidth(0.5f).height(6.dp).clip(CircleShape).background(ThemePurple.copy(alpha = 0.4f)))
-                                            Box(modifier = Modifier.fillMaxWidth(0.9f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
-                                            Box(modifier = Modifier.fillMaxWidth(0.8f).height(4.dp).clip(CircleShape).background(Color(0xFF262D45)))
+                                            Box(modifier = Modifier.fillMaxWidth(0.4f).height(5.dp).clip(CircleShape).background(ThemePurple.copy(alpha = 0.5f)))
+                                            Box(modifier = Modifier.fillMaxWidth(0.9f).height(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)))
+                                            Box(modifier = Modifier.fillMaxWidth(0.7f).height(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)))
                                         }
                                     }
                                 },
@@ -3743,12 +3791,29 @@ fun VaultTabUnlockedContent(
                             )
                         }
                     } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
+                        Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.End) {
+                                Button(
+                                    onClick = { 
+                                        viewModel.triggerKeypressEffects(context)
+                                        viewModel.emptyBin()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Icon(Icons.Default.DeleteForever, contentDescription = "Empty Bin", modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Empty Bin", fontSize = 12.sp)
+                                }
+                            }
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
                             items(recentlyDeletedFiles) { recentStr ->
                                 val parts = recentStr.split("|||")
                                 if (parts.size >= 7) {
@@ -3898,6 +3963,7 @@ fun VaultTabUnlockedContent(
                                     }
                                 }
                             }
+                        }
                         }
                     }
                         if (showDeleteConfirm != null) {
@@ -7949,7 +8015,7 @@ fun VaultTabUnlockedContent(
                                         )
                                     } else if (mimeType.startsWith("video/") || originalName.lowercase().endsWith(".mp4")) {
                                         // Video Player
-                                        var playbackPosition by androidx.compose.runtime.saveable.rememberSaveable(path) { androidx.compose.runtime.mutableIntStateOf(0) }
+                                        var playbackPosition by androidx.compose.runtime.saveable.rememberSaveable(path) { androidx.compose.runtime.mutableStateOf(0) }
                                         var videoViewRef by remember { mutableStateOf<android.widget.VideoView?>(null) }
                                         
                                         LaunchedEffect(videoViewRef) {
@@ -7963,27 +8029,148 @@ fun VaultTabUnlockedContent(
                                             }
                                         }
 
-                                        AndroidView(
-                                            factory = { ctx ->
-                                                android.widget.VideoView(ctx).apply {
-                                                    setVideoPath(path)
-                                                    val mediaController = android.widget.MediaController(ctx)
-                                                    mediaController.setAnchorView(this)
-                                                    setMediaController(mediaController)
-                                                    setOnPreparedListener { mp ->
-                                                        mp.isLooping = true
-                                                        seekTo(playbackPosition)
-                                                        start()
+                                        val audioManager = remember { context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager }
+                                        var showBrightnessIndicator by remember { mutableStateOf(false) }
+                                        var showVolumeIndicator by remember { mutableStateOf(false) }
+                                        var currentBrightnessState by remember { mutableStateOf(0f) }
+                                        var currentVolumeState by remember { mutableStateOf(0) }
+                                        var maxVolume by remember { mutableStateOf(1) }
+                                        var accumulatedVolumeDelta by remember { mutableStateOf(0f) }
+                                        var accumulatedBrightnessDelta by remember { mutableStateOf(0f) }
+                                        
+                                        Box(modifier = Modifier.fillMaxSize()) {
+                                            AndroidView(
+                                                factory = { ctx ->
+                                                    android.widget.VideoView(ctx).apply {
+                                                        setVideoPath(path)
+                                                        val mediaController = android.widget.MediaController(ctx)
+                                                        mediaController.setAnchorView(this)
+                                                        setMediaController(mediaController)
+                                                        setOnPreparedListener { mp ->
+                                                            mp.isLooping = true
+                                                            seekTo(playbackPosition)
+                                                            start()
+                                                        }
+                                                        videoViewRef = this
                                                     }
-                                                    videoViewRef = this
+                                                },
+                                                modifier = Modifier.fillMaxSize(),
+                                                onRelease = {
+                                                    playbackPosition = it.currentPosition
+                                                    videoViewRef = null
                                                 }
-                                            },
-                                            modifier = Modifier.fillMaxSize(),
-                                            onRelease = {
-                                                playbackPosition = it.currentPosition
-                                                videoViewRef = null
+                                            )
+                                            
+                                            // Left half: Double tap rewind & vertical drag brightness
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxHeight()
+                                                    .fillMaxWidth(0.5f)
+                                                    .align(Alignment.CenterStart)
+                                                    .pointerInput(Unit) {
+                                                        detectTapGestures(
+                                                            onDoubleTap = {
+                                                                videoViewRef?.let {
+                                                                    val newPos = maxOf(0, it.currentPosition - 10000) // Rewind 10s
+                                                                    it.seekTo(newPos)
+                                                                    playbackPosition = newPos
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+                                                    .pointerInput(Unit) {
+                                                        detectVerticalDragGestures(
+                                                            onDragStart = { 
+                                                                val activity = generateSequence(context) { if (it is android.content.ContextWrapper) it.baseContext else null }.firstOrNull { it is android.app.Activity } as? android.app.Activity
+                                                                val initialB = activity?.window?.attributes?.screenBrightness?.takeIf { it >= 0 } ?: 0.5f
+                                                                currentBrightnessState = initialB
+                                                                accumulatedBrightnessDelta = 0f
+                                                                showBrightnessIndicator = true
+                                                            },
+                                                            onDragEnd = { showBrightnessIndicator = false },
+                                                            onDragCancel = { showBrightnessIndicator = false },
+                                                            onVerticalDrag = { change, dragAmount ->
+                                                                change.consume()
+                                                                val activity = generateSequence(context) { if (it is android.content.ContextWrapper) it.baseContext else null }.firstOrNull { it is android.app.Activity } as? android.app.Activity
+                                                                if (activity != null) {
+                                                                    // Full screen height represents about 1.5 of total brightness span for ease
+                                                                    accumulatedBrightnessDelta -= (dragAmount / 800f) 
+                                                                    val newB = (currentBrightnessState + accumulatedBrightnessDelta).coerceIn(0.01f, 1f)
+                                                                    val params = activity.window.attributes
+                                                                    params.screenBrightness = newB
+                                                                    activity.window.attributes = params
+                                                                    currentBrightnessState = newB
+                                                                    accumulatedBrightnessDelta = 0f // reset after applying
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+                                            )
+                                            // Right half: Double tap forward & vertical drag volume
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxHeight()
+                                                    .fillMaxWidth(0.5f)
+                                                    .align(Alignment.CenterEnd)
+                                                    .pointerInput(Unit) {
+                                                        detectTapGestures(
+                                                            onDoubleTap = {
+                                                                videoViewRef?.let {
+                                                                    val newPos = minOf(it.duration, it.currentPosition + 10000) // Forward 10s
+                                                                    it.seekTo(newPos)
+                                                                    playbackPosition = newPos
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+                                                    .pointerInput(Unit) {
+                                                        detectVerticalDragGestures(
+                                                            onDragStart = {
+                                                                maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                                                                currentVolumeState = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+                                                                accumulatedVolumeDelta = 0f
+                                                                showVolumeIndicator = true
+                                                            },
+                                                            onDragEnd = { showVolumeIndicator = false },
+                                                            onDragCancel = { showVolumeIndicator = false },
+                                                            onVerticalDrag = { change, dragAmount ->
+                                                                change.consume()
+                                                                // Full screen height represents about maxVolume * 1.5 for ease
+                                                                accumulatedVolumeDelta -= (dragAmount / 800f) * maxVolume
+                                                                if (abs(accumulatedVolumeDelta) >= 1f) {
+                                                                    val steps = accumulatedVolumeDelta.toInt()
+                                                                    val newVol = (currentVolumeState + steps).coerceIn(0, maxVolume)
+                                                                    audioManager.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, newVol, 0)
+                                                                    currentVolumeState = newVol
+                                                                    accumulatedVolumeDelta -= steps
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+                                            )
+                                            
+                                            // Indicators
+                                            if (showBrightnessIndicator) {
+                                                Column(
+                                                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 32.dp).background(Color.Black.copy(alpha=0.6f), RoundedCornerShape(16.dp)).padding(16.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Icon(androidx.compose.material.icons.Icons.Default.WbSunny, contentDescription = "Brightness", tint = Color.White)
+                                                    Text("${(currentBrightnessState * 100).toInt()}%", color = Color.White, fontWeight = FontWeight.Bold)
+                                                }
                                             }
-                                        )
+                                            if (showVolumeIndicator) {
+                                                Column(
+                                                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 32.dp).background(Color.Black.copy(alpha=0.6f), RoundedCornerShape(16.dp)).padding(16.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Icon(if (currentVolumeState == 0) androidx.compose.material.icons.Icons.Default.VolumeOff else androidx.compose.material.icons.Icons.Default.VolumeUp, contentDescription = "Volume", tint = Color.White)
+                                                    Text("${(currentVolumeState.toFloat() / maxVolume * 100).toInt()}%", color = Color.White, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
                                     } else if (mimeType.equals("application/pdf", ignoreCase = true) || originalName.endsWith(".pdf", ignoreCase = true)) {
                                         // PDF Viewer
                                         val bitmaps = remember(path) {
@@ -8153,6 +8340,35 @@ fun VaultTabUnlockedContent(
                                                     color = TextMedium,
                                                     fontSize = 12.sp
                                                 )
+                                            }
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.Center,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                val currentSpeed by viewModel.audioPlaybackSpeed.collectAsStateWithLifecycle()
+                                                val speeds = listOf(0.5f, 1.0f, 1.5f, 2.0f)
+                                                speeds.forEach { speed ->
+                                                    val isSelected = currentSpeed == speed
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .padding(horizontal = 4.dp)
+                                                            .clip(RoundedCornerShape(16.dp))
+                                                            .background(if (isSelected) ThemePurple else Color(0xFF161B2B))
+                                                            .border(1.dp, if (isSelected) ThemePurple else Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                                                            .clickable { viewModel.setAudioPlaybackSpeed(speed) }
+                                                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                                                    ) {
+                                                        val displaySpeed = if (speed == 1.0f) "1x" else "${speed}x"
+                                                        Text(
+                                                            text = displaySpeed,
+                                                            color = if (isSelected) (if (IsLightColor) Color(0xFF1B2031) else Color.White) else Color.White.copy(alpha = 0.7f),
+                                                            fontSize = 12.sp,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                                        )
+                                                    }
+                                                }
                                             }
                                             Spacer(modifier = Modifier.height(24.dp))
                                             Row(
@@ -8350,6 +8566,127 @@ fun VaultTabUnlockedContent(
                                     )
                                 }
                             }
+                            }
+                            
+                            // Bottom Action Bar - Mini film strip and details
+                            AnimatedVisibility(
+                                visible = isViewerUiVisible,
+                                enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                                exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                                modifier = Modifier.align(Alignment.BottomCenter)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color.Black.copy(alpha = 0.6f))
+                                        .navigationBarsPadding()
+                                ) {
+                                    // Swipe up indicator
+                                    var showDetails by remember { mutableStateOf(false) }
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp)
+                                            .pointerInput(Unit) {
+                                                detectDragGestures { change, dragAmount ->
+                                                    change.consume()
+                                                    if (dragAmount.y < -20) {
+                                                        showDetails = true
+                                                    } else if (dragAmount.y > 20) {
+                                                        showDetails = false
+                                                    }
+                                                }
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { showDetails = !showDetails }) {
+                                            Icon(
+                                                imageVector = if (showDetails) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                                                contentDescription = "Swipe up for secure details",
+                                                tint = Color.White.copy(alpha = 0.7f),
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Text(if (showDetails) "Hide Details" else "Secure Details", color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                    
+                                    AnimatedVisibility(
+                                        visible = showDetails,
+                                        enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Bottom),
+                                        exit = androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Bottom)
+                                    ) {
+                                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text("File Information", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                                Text("Name:", color = TextMedium, fontSize = 12.sp)
+                                                Text(activeName, color = Color.White, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 8.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                                            }
+                                            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                                val dateStr = if (activeParts.size >= 2) activeParts[1].substringBefore(",") else ""
+                                                val timeStr = if (activeParts.size >= 2) activeParts[1].substringAfter(",") else ""
+                                                Text("Date:", color = TextMedium, fontSize = 12.sp)
+                                                Text("$dateStr $timeStr", color = Color.White, fontSize = 12.sp)
+                                            }
+                                            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                                val sizeStr = if (activeParts.size >= 6) activeParts[5] else "Unknown"
+                                                Text("Size:", color = TextMedium, fontSize = 12.sp)
+                                                Text(sizeStr, color = Color.White, fontSize = 12.sp)
+                                            }
+                                            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                                val mime = if (activeParts.size >= 4) activeParts[3] else "Unknown"
+                                                Text("Format:", color = TextMedium, fontSize = 12.sp)
+                                                Text(mime, color = Color.White, fontSize = 12.sp)
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Mini Film Strip
+                                    val isImageOrVideoList = activeViewerFiles.all { 
+                                        val m = it.split("|||").getOrNull(3) ?: ""
+                                        m.startsWith("image/") || m.startsWith("video/")
+                                    }
+                                    if (isImageOrVideoList && activeViewerFiles.size > 1) {
+                                        androidx.compose.foundation.lazy.LazyRow(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            items(activeViewerFiles.size) { i ->
+                                                val fParts = activeViewerFiles[i].split("|||")
+                                                if (fParts.size >= 5) {
+                                                    val isSelected = i == activeViewerIndex
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(48.dp)
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(Color.DarkGray)
+                                                            .border(
+                                                                width = if (isSelected) 2.dp else 0.dp,
+                                                                color = if (isSelected) ThemePurple else Color.Transparent,
+                                                                shape = RoundedCornerShape(8.dp)
+                                                            )
+                                                            .clickable {
+                                                                viewModel.triggerKeypressEffects(context)
+                                                                viewerScope.launch { pagerState.animateScrollToPage(i) }
+                                                            },
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        AsyncImage(
+                                                            model = java.io.File(fParts[4]),
+                                                            contentDescription = null,
+                                                            modifier = Modifier.fillMaxSize(),
+                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                        )
+                                                        if (fParts[3].startsWith("video/")) {
+                                                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp).background(Color.Black.copy(alpha=0.5f), CircleShape))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -10144,6 +10481,7 @@ fun VaultTabUnlockedContent(
             )
         }
     }
+    } // End ModalNavigationDrawer
     if (activeDocumentToView != null) {
         SecureDocumentViewer(
             fileStr = activeDocumentToView!!,
@@ -12341,8 +12679,16 @@ fun UnifiedGlassCard(
     interactionSource: androidx.compose.foundation.interaction.MutableInteractionSource = remember { MutableInteractionSource() },
     content: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit
 ) {
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(150, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
+        label = "glassCardScale"
+    )
+    
     Box(
         modifier = modifier
+            .scale(scale)
             .drawBehind {
                 if (glowAlpha > 0f) {
                     val outerGlowRadius = size.width * 1.5f
@@ -12369,6 +12715,11 @@ fun UnifiedGlassCard(
             )
             .clip(shape)
             .background(bgColor)
+            .border(
+                width = 0.5.dp,
+                color = Color.White.copy(alpha = 0.08f),
+                shape = shape
+            )
             .drawWithContent {
                 drawContent()
                 if (glowAlpha > 0f) {
@@ -12454,50 +12805,80 @@ fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.gr
     val themePurple = LocalAppThemeColors.current.themePurple
     UnifiedGlassCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        bgColor = Color(0xFF161B2B).copy(alpha = 0.95f),
-        elevation = 4.dp,
+        shape = RoundedCornerShape(16.dp),
+        bgColor = Color(0xFF161B2B).copy(alpha = 0.85f),
+        elevation = 6.dp,
         onClick = onClick
     ) {
-        Column(
-            modifier = Modifier.padding(10.dp).fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(themePurple.copy(alpha = 0.1f))
-                        .border(1.dp, themePurple.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(icon, contentDescription = null, tint = themePurple, modifier = Modifier.size(15.dp))
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(6.dp))
-            
-            Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(1.dp))
-            Text(count, color = Color.White.copy(alpha = 0.4f), fontSize = 10.sp)
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Preview content
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // Subtle top highlight for glassmorphism
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(38.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF0F121C))
-                    .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(6.dp)),
-                contentAlignment = Alignment.Center
+                    .height(1.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.12f),
+                                Color.White.copy(alpha = 0.03f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+            Column(
+                modifier = Modifier.padding(12.dp).fillMaxWidth()
             ) {
-                previewContent()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Brush.linearGradient(listOf(themePurple.copy(alpha = 0.25f), themePurple.copy(alpha = 0.05f))))
+                            .border(1.dp, themePurple.copy(alpha = 0.3f), RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(icon, contentDescription = null, tint = themePurple, modifier = Modifier.size(18.dp))
+                    }
+                    
+                    Icon(Icons.Default.ArrowForward, contentDescription = "Open", tint = Color.White.copy(alpha = 0.15f), modifier = Modifier.size(14.dp))
+                }
+                
+                Spacer(modifier = Modifier.height(10.dp))
+                
+                Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(count, color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Preview content
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.04f),
+                                    Color.White.copy(alpha = 0.01f)
+                                )
+                            )
+                        )
+                        .border(
+                            width = 0.5.dp, 
+                            color = Color.White.copy(alpha = 0.08f), 
+                            shape = RoundedCornerShape(10.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    previewContent()
+                }
             }
         }
     }
