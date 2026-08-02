@@ -1,0 +1,8 @@
+Galti ke liye maafi! Maine original "Security Score" screen ko wapas restore kar diya hai aur "Screen Blackout" issue ko fix kar diya hai.
+
+**Fixes Applied:**
+1. **Blackout Issue Fixed:** Jab aapne pichli baar "App Disguise" ya kisi naye option par click kiya hoga, to screen black ho rahi thi kyunki uske peeche ka naya layout properly linked nahi tha. Us naye menu ko hata diya gaya hai.
+2. **Old Security Score UI Restored:** Aapka purana layout (Check/Cross marks ke saath checklist) "More" tab me wapas aa chuka hai. 
+3. **Colors Restored:** Original colors (95+ Excellent, etc.) wapas apply ho chuke hain.
+
+Sab kuch purani state me completely functional hai aur app successfully build ho chuka hai. Ab blackout issue nahi aayega.

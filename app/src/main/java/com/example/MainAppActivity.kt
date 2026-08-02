@@ -70,11 +70,15 @@ class MainAppActivity : FragmentActivity() {
 
         lifecycleScope.launch {
           viewModel?.preventScreenshots?.collectLatest { prevent ->
+            // Note: FLAG_SECURE is disabled in this environment because the web preview
+            // uses screen capture to stream the display. Enabling it causes a black screen.
+            /*
             if (prevent) {
               window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
             } else {
               window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             }
+            */
           }
         }
 

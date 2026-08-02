@@ -1,0 +1,6 @@
+Security Score screen ko successfully purane (original) design par revert kar diya gaya hai. 
+
+- **"Security Score Detail" Screen:** Original UI layout, purane check/cross icons, yellow/green colors aur typography wapas restore kar di gayi hai.
+- **"More" Tab:** Top card ke score colors bhi purane format (95+, 80+, 60+, 40+) ke hisab se set kar diye gaye hain.
+
+Sab kuch purani state me restore ho chuka hai aur build successful hai. Batayein aage kya karna hai?
