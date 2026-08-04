@@ -307,8 +307,7 @@ fun PasswordGeneratorScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
-            .padding(horizontal = 16.dp).padding(top = 16.dp)
+            .padding(horizontal = 16.dp)
     ) {
         Column(
             modifier = Modifier

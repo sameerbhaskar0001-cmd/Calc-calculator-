@@ -1,20 +1,12 @@
 package com.example
 
 import android.graphics.Bitmap
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.ui.text.withStyle
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -165,10 +157,6 @@ fun SecureDocumentViewer(
     val file = remember(path) { File(path) }
     val extension = file.extension.lowercase()
     
-    var isFullScreen by remember { mutableStateOf(false) }
-    var searchText by remember { mutableStateOf("") }
-    var isSearching by remember { mutableStateOf(false) }
-    
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -176,18 +164,12 @@ fun SecureDocumentViewer(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header / Top Bar
-            AnimatedVisibility(
-                visible = !isFullScreen,
-                enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Top),
-                exit = androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Top)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
                 IconButton(
                     onClick = {
                         viewModel.triggerKeypressEffects(viewModel.getApplication())
@@ -225,19 +207,6 @@ fun SecureDocumentViewer(
                 
                 Spacer(modifier = Modifier.width(8.dp))
                 
-                if (mimeType == "text/plain" || extension in listOf("txt", "log", "csv", "ini", "json")) {
-                    IconButton(
-                        onClick = { isSearching = !isSearching },
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.05f))
-                    ) {
-                        Icon(imageVector = Icons.Default.Search, contentDescription = "Search", tint = Color.White)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                
                 IconButton(
                     onClick = {
                         viewModel.triggerKeypressEffects(viewModel.getApplication())
@@ -256,32 +225,8 @@ fun SecureDocumentViewer(
                     )
                 }
             }
-            if (isSearching) {
-                OutlinedTextField(
-                    value = searchText,
-                    onValueChange = { searchText = it },
-                    placeholder = { Text("Search document...", color = Color.White.copy(alpha = 0.5f)) },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF42A5F5),
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    singleLine = true,
-                    trailingIcon = {
-                        if (searchText.isNotEmpty()) {
-                            IconButton(onClick = { searchText = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.White.copy(alpha=0.7f))
-                            }
-                        }
-                    }
-                )
-            }
-        }
-    }
             
-    // Document Display Content
+            // Document Display Content
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -362,36 +307,12 @@ fun SecureDocumentViewer(
                                         .verticalScroll(rememberScrollState())
                                         .padding(16.dp)
                                 ) {
-                                    if (searchText.isNotEmpty() && textContent.contains(searchText, ignoreCase = true)) {
-                                        val parts = textContent.split(Regex("(?i)${Regex.escape(searchText)}"))
-                                        val annotatedString = androidx.compose.ui.text.buildAnnotatedString {
-                                            var currentIndex = 0
-                                            parts.forEachIndexed { index, part ->
-                                                append(part)
-                                                currentIndex += part.length
-                                                if (index < parts.size - 1) {
-                                                    val match = textContent.substring(currentIndex, currentIndex + searchText.length)
-                                                    withStyle(style = androidx.compose.ui.text.SpanStyle(background = Color(0xFF42A5F5).copy(alpha = 0.5f), color = Color.White)) {
-                                                        append(match)
-                                                    }
-                                                    currentIndex += searchText.length
-                                                }
-                                            }
-                                        }
-                                        Text(
-                                            text = annotatedString,
-                                            color = Color.White.copy(alpha = 0.9f),
-                                            fontSize = 14.sp,
-                                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                                        )
-                                    } else {
-                                        Text(
-                                            text = textContent,
-                                            color = Color.White.copy(alpha = 0.9f),
-                                            fontSize = 14.sp,
-                                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                                        )
-                                    }
+                                    Text(
+                                        text = textContent,
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        fontSize = 14.sp,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                    )
                                 }
                             }
                             else -> {
@@ -405,17 +326,6 @@ fun SecureDocumentViewer(
                             }
                         }
                     }
-                }
-            }
-        }
-            
-        if (isFullScreen) {
-            Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.TopEnd) {
-                IconButton(
-                    onClick = { isFullScreen = false },
-                    modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha=0.5f))
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Exit Fullscreen", tint = Color.White)
                 }
             }
         }

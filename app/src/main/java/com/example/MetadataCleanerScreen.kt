@@ -93,13 +93,12 @@ fun MetadataCleanerScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
             .navigationBarsPadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp).padding(top = 16.dp)
+                .padding(horizontal = 16.dp)
         ) {
             // Header Row
             Row(

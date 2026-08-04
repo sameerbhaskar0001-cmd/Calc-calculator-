@@ -136,6 +136,74 @@ fun formatFileSize(bytes: Long): String {
     return String.format(Locale.US, "%.1f MB", mb)
 }
 
+fun shareVoiceNote(context: Context, note: VoiceNote) {
+    try {
+        val originalFile = File(note.filePath)
+        if (!originalFile.exists()) {
+            android.widget.Toast.makeText(context, "Voice recording file is missing.", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Copy to a temporary file in cacheDir so it remains private and doesn't get shown in public File Manager
+        val tempDir = File(context.cacheDir, "shared_voice_notes")
+        if (!tempDir.exists()) {
+            tempDir.mkdirs()
+        }
+        
+        // Clean up old shared voice notes to save space
+        tempDir.listFiles()?.forEach { file ->
+            try {
+                file.delete()
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
+
+        val safeDisplayName = note.displayName.replace(Regex("[^a-zA-Z0-9_\\- ]"), "").trim()
+        val shareFileName = if (safeDisplayName.isNotEmpty()) {
+            "$safeDisplayName.m4a"
+        } else {
+            "voice_note_${note.id}.m4a"
+        }
+        
+        val tempFile = File(tempDir, shareFileName)
+        
+        originalFile.inputStream().use { input ->
+            java.io.FileOutputStream(tempFile).use { output ->
+                input.copyTo(output)
+            }
+        }
+
+        val shareUri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            tempFile
+        )
+
+        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "audio/mp4"
+            putExtra(android.content.Intent.EXTRA_STREAM, shareUri)
+            clipData = android.content.ClipData.newRawUri("Share Secure Voice Note", shareUri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        val chooserIntent = android.content.Intent.createChooser(shareIntent, "Share Secure Voice Note")
+        chooserIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        chooserIntent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        
+        val resInfoList = context.packageManager.queryIntentActivities(shareIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+        for (resolveInfo in resInfoList) {
+            val packageName = resolveInfo.activityInfo.packageName
+            context.grantUriPermission(packageName, shareUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        context.startActivity(chooserIntent)
+    } catch (e: Exception) {
+        android.util.Log.e("SecureVoiceNote", "Failed to share voice note", e)
+        android.widget.Toast.makeText(context, "Failed to share: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+    }
+}
+
 @Composable
 fun AudioWaveformVisualizer(
     amplitudes: List<Float>,
@@ -469,9 +537,7 @@ fun SecureVoiceNoteScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
             .padding(horizontal = 16.dp)
-            .padding(top = 16.dp)
     ) {
         Column(
             modifier = Modifier
@@ -795,36 +861,15 @@ fun SecureVoiceNoteScreen(
 
                     // Lazy list of secure recordings
                     if (filteredNotes.isEmpty()) {
-                        Column(
+                        PremiumVaultEmptyState(
+                            emptyIcon = if (searchQuery.isNotEmpty()) Icons.Default.SearchOff else Icons.Default.Mic,
+                            emptyTitle = if (searchQuery.isNotEmpty()) "No matching recordings" else "No secure voice notes saved yet",
+                            emptySubtitle = if (searchQuery.isNotEmpty()) "Try searching a different name" else "Your voice notes are kept fully local and encrypted",
+                            searchQuery = searchQuery,
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxWidth()
-                                .padding(vertical = 32.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = if (searchQuery.isNotEmpty()) Icons.Default.SearchOff else Icons.Default.AudioFile,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.2f),
-                                modifier = Modifier.size(56.dp)
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = if (searchQuery.isNotEmpty()) "No matching recordings" else "No secure voice notes saved yet",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White.copy(alpha = 0.4f),
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                text = if (searchQuery.isNotEmpty()) "Try searching a different name" else "Your voice notes are kept fully local and encrypted",
-                                fontSize = 11.sp,
-                                color = Color.White.copy(alpha = 0.3f),
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
-                        }
+                        )
                     } else {
                         LazyColumn(
                             modifier = Modifier
@@ -923,6 +968,20 @@ fun SecureVoiceNoteScreen(
                                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
+                                                IconButton(
+                                                    onClick = {
+                                                        shareVoiceNote(context, note)
+                                                    },
+                                                    modifier = Modifier.size(36.dp).testTag("share_note_button_${note.id}")
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Share,
+                                                        contentDescription = "Share",
+                                                        tint = Color.White.copy(alpha = 0.5f),
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+
                                                 IconButton(
                                                     onClick = {
                                                         noteToRename = note

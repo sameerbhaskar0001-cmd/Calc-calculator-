@@ -19,8 +19,7 @@ enum class AppTheme(val id: String, val displayName: String, val previewColor: C
     MIDNIGHT_BLUE("midnight_blue", "Midnight Blue", Color(0xFF3B82F6)),
     GRAPHITE("graphite", "Graphite", Color(0xFFFFFFFF)),
     LAVENDER_MIST("lavender_mist", "Lavender Mist", Color(0xFF8B5CF6)),
-    LUXURY_GOLD("luxury_gold", "Luxury Gold", Color(0xFFD4AF37)),
-    QUANTUM_CYAN("quantum_cyan", "Quantum Cyan", Color(0xFF00FFCC))
+    QUANTUM_CYAN("quantum_cyan", "Quantum Cyan", Color(0xFF00E5FF))
 }
 
 data class AppThemeColors(
@@ -111,31 +110,19 @@ val LavenderMistColors = AppThemeColors(
     digitBg = Color(0xFF2B2342)
 )
 
-
-val LuxuryGoldColors = AppThemeColors(
-    brandBg = Color(0xFF0A0A0A),
-    textDark = Color(0xFFFFFFFF),
-    textMedium = Color(0xFFA0A0A0),
-    themePurple = Color(0xFFD4AF37),
-    themeLightPurple = Color(0xFF2A230B),
-    themeContainerBorder = Color(0xFF3A3115),
-    keypadBg = Color(0xFF111111),
-    digitBg = Color(0xFF1A1A1A)
-)
-
-
 val QuantumCyanColors = AppThemeColors(
-    brandBg = Color(0xFF09090B),
+    brandBg = Color(0xFF081418),
     textDark = Color(0xFFFFFFFF),
-    textMedium = Color(0xFFA1A1AA),
-    themePurple = Color(0xFF00FFCC),
-    themeLightPurple = Color(0xFF003329),
-    themeContainerBorder = Color(0xFF004D3D),
-    keypadBg = Color(0xFF101014),
-    digitBg = Color(0xFF18181E)
+    textMedium = Color(0xFF00E5FF),
+    themePurple = Color(0xFF00E5FF),
+    themeLightPurple = Color(0xFF0F242A),
+    themeContainerBorder = Color(0xFF16373F),
+    keypadBg = Color(0xFF0D1C21),
+    digitBg = Color(0xFF0D1C21)
 )
 
 val LocalAppThemeColors = androidx.compose.runtime.staticCompositionLocalOf { GraphiteColors }
+val LocalAppTheme = androidx.compose.runtime.staticCompositionLocalOf { AppTheme.GRAPHITE }
 
 @Composable
 fun MyApplicationTheme(
@@ -150,7 +137,6 @@ fun MyApplicationTheme(
     AppTheme.MIDNIGHT_BLUE -> MidnightBlueColors
     AppTheme.GRAPHITE -> GraphiteColors
     AppTheme.LAVENDER_MIST -> LavenderMistColors
-    AppTheme.LUXURY_GOLD -> LuxuryGoldColors
     AppTheme.QUANTUM_CYAN -> QuantumCyanColors
   }
 
@@ -162,7 +148,10 @@ fun MyApplicationTheme(
     surface = colors.brandBg
   )
 
-  androidx.compose.runtime.CompositionLocalProvider(LocalAppThemeColors provides colors) {
+  androidx.compose.runtime.CompositionLocalProvider(
+    LocalAppThemeColors provides colors,
+    LocalAppTheme provides theme
+  ) {
     MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
   }
 }

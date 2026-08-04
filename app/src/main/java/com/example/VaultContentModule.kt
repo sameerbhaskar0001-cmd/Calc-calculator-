@@ -227,7 +227,7 @@ fun VaultContentScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 8.dp),
+                            .padding(horizontal = 24.dp, vertical = 20.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -274,8 +274,7 @@ fun VaultContentScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 12.dp),
+                        .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
@@ -439,82 +438,16 @@ fun VaultContentScreen(
             // Main Content Area
             Box(modifier = Modifier.fillMaxSize().weight(1f)) {
                 if (filteredItems.isEmpty()) {
-                    // Premium Empty State
-                    val infiniteTransition = rememberInfiniteTransition(label = "emptyStatePulse")
-                    val pulseScale by infiniteTransition.animateFloat(
-                        initialValue = 0.8f,
-                        targetValue = 1.2f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(2000, easing = LinearOutSlowInEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "pulseScale"
+                    PremiumVaultEmptyState(
+                        emptyIcon = emptyIcon,
+                        emptyTitle = emptyTitle,
+                        emptySubtitle = emptySubtitle,
+                        searchQuery = searchQuery,
+                        modifier = Modifier.fillMaxSize()
                     )
-                    val pulseAlpha by infiniteTransition.animateFloat(
-                        initialValue = 0.5f,
-                        targetValue = 0f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(2000, easing = LinearOutSlowInEasing),
-                            repeatMode = RepeatMode.Restart
-                        ),
-                        label = "pulseAlpha"
-                    )
-                    
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Box(
-                            modifier = Modifier.size(180.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Outer ring
-                            Box(
-                                modifier = Modifier
-                                    .size(160.dp)
-                                    .scale(pulseScale)
-                                    .clip(CircleShape)
-                                    .background(ThemePurple.copy(alpha = pulseAlpha * 0.2f))
-                                    .border(1.dp, ThemePurple.copy(alpha = pulseAlpha * 0.5f), CircleShape)
-                            )
-                            // Inner circle
-                            Box(
-                                modifier = Modifier
-                                    .size(100.dp)
-                                    .clip(CircleShape)
-                                    .background(Brush.radialGradient(listOf(ThemePurple.copy(alpha = 0.2f), Color.Transparent)))
-                                    .border(1.dp, ThemePurple.copy(alpha = 0.3f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(emptyIcon, contentDescription = null, modifier = Modifier.size(42.dp), tint = ThemePurple)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Text(
-                            text = if (searchQuery.isNotEmpty()) "No results found" else emptyTitle, 
-                            color = Color.White, 
-                            fontSize = 22.sp, 
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-0.5).sp,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = if (searchQuery.isNotEmpty()) "Try adjusting your search terms." else emptySubtitle,
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 15.sp,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 22.sp
-                        )
-                        if (searchQuery.isEmpty()) {
-                            Spacer(modifier = Modifier.height(32.dp))
-                            Box(modifier = Modifier.width(60.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(ThemePurple.copy(alpha = 0.4f)))
-                        }
-                    }
                 } else {
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 110.dp),
+                        columns = GridCells.Adaptive(minSize = 150.dp),
                         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -861,10 +794,12 @@ fun VaultItemCard(
     val borderWidth by animateDpAsState(if (isSelected) 3.dp else 1.dp)
     val cornerRadius = 24.dp
 
+    val cardAspectRatio = if (item.type == "image" || item.type == "video") 1f else 0.82f
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
+            .aspectRatio(cardAspectRatio)
             .shadow(elevation = 8.dp, shape = RoundedCornerShape(cornerRadius), ambientColor = Color.Black.copy(alpha=0.6f), spotColor = Color.Black.copy(alpha=0.6f))
             .clip(RoundedCornerShape(cornerRadius))
             .background(Color(0xFF1C2235))
@@ -919,11 +854,78 @@ fun VaultItemCard(
                 }
             }
             "audio" -> {
-                Box(modifier = Modifier.fillMaxSize().background(Brush.radialGradient(listOf(themePurple.copy(alpha = 0.2f), Color.Transparent))), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(8.dp)) {
-                        Icon(Icons.Default.AudioFile, contentDescription = "Audio", tint = themePurple.copy(alpha = 0.8f), modifier = Modifier.size(42.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(item.title, color = Color.White, fontSize = 11.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = 14.sp)
+                val parts = item.rawString.split("|||")
+                val dateStr = if (parts.size >= 2) parts[1].substringBefore(",") else ""
+                val sizeStr = if (parts.size >= 6) parts[5] else ""
+                val ext = item.title.substringAfterLast('.').lowercase()
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(themePurple.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MusicNote,
+                                contentDescription = null,
+                                tint = themePurple,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color.White.copy(alpha = 0.05f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = ext.uppercase().take(4),
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = item.cleanTitle,
+                            color = Color.White.copy(alpha = 0.95f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        
+                        val metaParts = listOfNotNull(
+                            sizeStr.takeIf { it.isNotEmpty() },
+                            dateStr.takeIf { it.isNotEmpty() }
+                        )
+                        Text(
+                            text = metaParts.joinToString(" • "),
+                            color = Color.White.copy(alpha = 0.45f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
@@ -996,28 +998,19 @@ fun VaultItemCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (sizeStr.isNotEmpty()) {
-                                Text(
-                                    text = sizeStr,
-                                    color = Color.White.copy(alpha = 0.45f),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            if (dateStr.isNotEmpty()) {
-                                Text(
-                                    text = dateStr,
-                                    color = Color.White.copy(alpha = 0.45f),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                        val metaParts = listOfNotNull(
+                            sizeStr.takeIf { it.isNotEmpty() },
+                            dateStr.takeIf { it.isNotEmpty() }
+                        )
+                        Text(
+                            text = metaParts.joinToString(" • "),
+                            color = Color.White.copy(alpha = 0.45f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
@@ -1205,6 +1198,156 @@ fun SelectionActionButton(icon: ImageVector, label: String, color: Color, onClic
         Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(26.dp))
         Spacer(modifier = Modifier.height(6.dp))
         Text(label, color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+fun PremiumVaultEmptyState(
+    emptyIcon: ImageVector,
+    emptyTitle: String,
+    emptySubtitle: String,
+    searchQuery: String,
+    modifier: Modifier = Modifier
+) {
+    val ThemePurple = LocalAppThemeColors.current.themePurple
+    val infiniteTransition = rememberInfiniteTransition(label = "PremiumPulse")
+
+    // Ripple wave 1: expands and fades
+    val rippleScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2200, easing = LinearOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "RippleScale"
+    )
+    val rippleAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2200, easing = LinearOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "RippleAlpha"
+    )
+
+    // Breathing middle ring
+    val middleScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "MiddleScale"
+    )
+
+    // Core pulsing button
+    val coreScale by infiniteTransition.animateFloat(
+        initialValue = 0.97f,
+        targetValue = 1.03f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "CoreScale"
+    )
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier.size(260.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            // 1. Ripple wave ring
+            Box(
+                modifier = Modifier
+                    .size(220.dp)
+                    .scale(rippleScale)
+                    .clip(CircleShape)
+                    .background(ThemePurple.copy(alpha = rippleAlpha * 0.08f))
+                    .border(1.dp, ThemePurple.copy(alpha = rippleAlpha * 0.25f), CircleShape)
+            )
+
+            // 2. Middle breathing ring
+            Box(
+                modifier = Modifier
+                    .size(170.dp)
+                    .scale(middleScale)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(
+                                ThemePurple.copy(alpha = 0.15f),
+                                ThemePurple.copy(alpha = 0.04f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+                    .border(1.dp, ThemePurple.copy(alpha = 0.08f), CircleShape)
+            )
+
+            // 3. Inner core solid button
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .scale(coreScale)
+                    .clip(CircleShape)
+                    .background(Color(0xFF141A29))
+                    .border(1.5.dp, ThemePurple.copy(alpha = 0.35f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                // Glow accent behind the icon inside the inner core
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.radialGradient(
+                                listOf(
+                                    ThemePurple.copy(alpha = 0.25f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+                Icon(
+                    imageVector = emptyIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(46.dp),
+                    tint = ThemePurple
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // Title text
+        Text(
+            text = if (searchQuery.isNotEmpty()) "No results found" else emptyTitle,
+            color = Color.White,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = (-0.5).sp,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Subtitle text
+        Text(
+            text = if (searchQuery.isNotEmpty()) "Try adjusting your search terms." else emptySubtitle,
+            color = Color.White.copy(alpha = 0.6f),
+            fontSize = 15.sp,
+            textAlign = TextAlign.Center,
+            lineHeight = 22.sp,
+            fontWeight = FontWeight.Normal
+        )
     }
 }
 

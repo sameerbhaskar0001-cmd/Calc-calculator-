@@ -74,10 +74,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private var currentAudioPath: String? = null
     
     private val _isAudioPlaying = MutableStateFlow(false)
-    val isAudioPlaying: StateFlow<Boolean> = _isAudioPlaying
-    
-    private val _audioPlaybackSpeed = MutableStateFlow(1.0f)
-    val audioPlaybackSpeed: StateFlow<Float> = _audioPlaybackSpeed.asStateFlow()
+    val isAudioPlaying: StateFlow<Boolean> = _isAudioPlaying.asStateFlow()
     
     private val _audioPosition = MutableStateFlow(0f)
     val audioPosition: StateFlow<Float> = _audioPosition.asStateFlow()
@@ -85,9 +82,30 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _audioDuration = MutableStateFlow(1f)
     val audioDuration: StateFlow<Float> = _audioDuration.asStateFlow()
     
+    private val _audioSpeed = MutableStateFlow(1.0f)
+    val audioSpeed: StateFlow<Float> = _audioSpeed.asStateFlow()
+    
     private var audioPositionJob: kotlinx.coroutines.Job? = null
     
     val currentAudioPlayingPath: String? get() = currentAudioPath
+
+    fun setAudioSpeed(speed: Float) {
+        _audioSpeed.value = speed
+        try {
+            mediaPlayer?.let { mp ->
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    try {
+                        val params = mp.playbackParams.setSpeed(speed)
+                        mp.playbackParams = params
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 
     fun playOrToggleAudio(path: String, context: android.content.Context) {
         if (currentAudioPath == path && mediaPlayer != null) {
@@ -120,7 +138,10 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             }
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                 try {
-                    mediaPlayer?.playbackParams = android.media.PlaybackParams().setSpeed(_audioPlaybackSpeed.value)
+                    val params = mediaPlayer?.playbackParams?.setSpeed(_audioSpeed.value)
+                    if (params != null) {
+                        mediaPlayer?.playbackParams = params
+                    }
                 } catch (e: Exception) {}
             }
             mediaPlayer?.start()
@@ -169,15 +190,6 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         try {
             mediaPlayer?.seekTo(position.toInt())
             _audioPosition.value = position
-        } catch (e: Exception) {}
-    }
-    
-    fun setAudioPlaybackSpeed(speed: Float) {
-        _audioPlaybackSpeed.value = speed
-        try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                mediaPlayer?.playbackParams = mediaPlayer?.playbackParams?.setSpeed(speed) ?: android.media.PlaybackParams().setSpeed(speed)
-            }
         } catch (e: Exception) {}
     }
     
@@ -3112,25 +3124,28 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun emptyBin() {
-        val isDecoy = _decoyActive.value
-        val recentKey = if (isDecoy) "recently_deleted_decoy_files" else "recently_deleted_files"
-
-        // Delete physical files
-        _recentlyDeletedFiles.value.forEach { recentSerialized ->
-            val parts = recentSerialized.split("|||")
-            if (parts.size >= 5) {
-                val absolutePath = parts[4]
-                val file = File(absolutePath)
-                if (file.exists()) {
-                    file.delete()
+    fun emptyRecentlyDeleted(): Boolean {
+        return try {
+            val isDecoy = _decoyActive.value
+            val recentKey = if (isDecoy) "recently_deleted_decoy_files" else "recently_deleted_files"
+            val savedRecent = prefs.getStringSet(recentKey, emptySet()) ?: emptySet()
+            for (recentSerialized in savedRecent) {
+                val parts = recentSerialized.split("|||")
+                if (parts.size >= 5) {
+                    val absolutePath = parts[4]
+                    val file = File(absolutePath)
+                    if (file.exists()) {
+                        file.delete()
+                    }
                 }
             }
+            prefs.edit().putStringSet(recentKey, emptySet()).apply()
+            _recentlyDeletedFiles.value = emptyList()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
-
-        // Clear references
-        prefs.edit().remove(recentKey).apply()
-        _recentlyDeletedFiles.value = emptyList()
     }
 
     fun permanentlyDeleteVaultFile(fileSerialized: String): Boolean {
