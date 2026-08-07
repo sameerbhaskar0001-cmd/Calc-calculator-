@@ -4091,6 +4091,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _clearHistoryOnExit = MutableStateFlow(prefs.getBoolean("browser_clear_history", false))
     val clearHistoryOnExit: StateFlow<Boolean> = _clearHistoryOnExit.asStateFlow()
 
+    private val _useGeckoView = MutableStateFlow(prefs.getBoolean("browser_use_geckoview", true))
+    val useGeckoView: StateFlow<Boolean> = _useGeckoView.asStateFlow()
+
     fun addBrowserBookmark(title: String, url: String) {
         val current = _browserBookmarks.value.toMutableList()
         if (!current.any { it.url == url }) {
@@ -4143,6 +4146,11 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     fun setClearHistoryOnExit(clear: Boolean) {
         _clearHistoryOnExit.value = clear
         prefs.edit().putBoolean("browser_clear_history", clear).apply()
+    }
+
+    fun setUseGeckoView(use: Boolean) {
+        _useGeckoView.value = use
+        prefs.edit().putBoolean("browser_use_geckoview", use).apply()
     }
 
     private fun saveBrowserBookmarks(list: List<BrowserBookmark>) {
@@ -4783,6 +4791,7 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     _searchEngine.value = prefs.getString("browser_search_engine", "DuckDuckGo") ?: "DuckDuckGo"
                     _savePasswords.value = prefs.getBoolean("browser_save_passwords", true)
                     _clearHistoryOnExit.value = prefs.getBoolean("browser_clear_history", false)
+                    _useGeckoView.value = prefs.getBoolean("browser_use_geckoview", true)
                     _vaultPin.value = prefs.getString("vault_pin", "7777") ?: "7777"
                     _decoyPin.value = prefs.getString("decoy_pin", "1111") ?: "1111"
                     _panicExitAction.value = prefs.getString("panic_exit_action", "close") ?: "close"

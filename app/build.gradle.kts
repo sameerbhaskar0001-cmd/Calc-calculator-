@@ -90,6 +90,7 @@ googleServices {
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation("androidx.webkit:webkit:1.11.0")
+  implementation(libs.geckoview.beta)
   implementation(platform(libs.firebase.bom))
   implementation("androidx.biometric:biometric:1.1.0")
   implementation(libs.accompanist.permissions)

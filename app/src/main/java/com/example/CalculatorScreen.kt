@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.material.icons.filled.FormatColorText
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.filled.DesktopMac
 import androidx.compose.material.icons.filled.Laptop
@@ -3115,7 +3116,7 @@ fun VaultTabUnlockedContent(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             val totalVaultItems = vaultFiles.size + vaultNotes.size
                             val currentHour = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).get(java.util.Calendar.HOUR_OF_DAY)
@@ -3135,20 +3136,20 @@ fun VaultTabUnlockedContent(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = greeting,
-                                    fontSize = 24.sp,
+                                    fontSize = 21.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
                                     letterSpacing = 0.5.sp,
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                Spacer(modifier = Modifier.height(2.dp))
+                                Spacer(modifier = Modifier.height(1.dp))
                                 Text(
                                     text = vaultStatusText,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     color = Color.White.copy(alpha = 0.5f)
                                 )
                             }
@@ -3156,10 +3157,10 @@ fun VaultTabUnlockedContent(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(Brush.verticalGradient(listOf(Color(0xFF1E2640), Color(0xFF161B2B))))
-                                    .border(1.dp, ThemePurple.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
-                                    .padding(12.dp)
+                                    .border(1.dp, ThemePurple.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                    .padding(10.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -3167,13 +3168,13 @@ fun VaultTabUnlockedContent(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(40.dp)
+                                            .size(34.dp)
                                             .clip(CircleShape)
                                             .background(ThemePurple.copy(alpha = 0.15f))
                                             .border(1.dp, ThemePurple.copy(alpha = 0.3f), CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(Icons.Default.Home, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(20.dp))
+                                        Icon(Icons.Default.Home, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(16.dp))
                                     }
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
@@ -3187,24 +3188,23 @@ fun VaultTabUnlockedContent(
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
                                                 text = "${vaultFiles.size + vaultNotes.size} items stored",
-                                                fontSize = 14.sp,
+                                                fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color.White
                                             )
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(13.dp))
+                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(11.dp))
                                         }
                                     }
                                 }
                             }
-
                             Text(
                                 text = "STORAGE",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White.copy(alpha = 0.5f),
                                 letterSpacing = 2.sp,
-                                modifier = Modifier.padding(top = 8.dp)
+                                modifier = Modifier.padding(top = 4.dp)
                             )
                             Card(
                                 modifier = Modifier
@@ -3212,41 +3212,41 @@ fun VaultTabUnlockedContent(
                                     .clickable { 
                                          viewModel.triggerKeypressEffects(context)
                                          activeSection = "Storage" 
-                                    },
+                                     },
                                 colors = CardDefaults.cardColors(containerColor = Color(0xFF161B2B).copy(alpha = 0.95f)),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(10.dp),
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
                             ) {
-                                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                                Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Folder, contentDescription = "Storage", tint = ThemePurple, modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.Folder, contentDescription = "Storage", tint = ThemePurple, modifier = Modifier.size(14.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Vault Storage", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                            Text("Vault Storage", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                         }
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("View Details", color = ThemePurple, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                            Icon(Icons.Default.ChevronRight, contentDescription = "View Details", tint = ThemePurple, modifier = Modifier.size(12.dp))
+                                            Text("View Details", color = ThemePurple, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                            Icon(Icons.Default.ChevronRight, contentDescription = "View Details", tint = ThemePurple, modifier = Modifier.size(10.dp))
                                         }
                                     }
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     val storageInfo by viewModel.storageInfo.collectAsStateWithLifecycle()
                                     val maxStorage = 15L * 1024 * 1024 * 1024 // 15 GB
                                     val progress = if (maxStorage > 0) (storageInfo.totalBytes.toFloat() / maxStorage.toFloat()).coerceIn(0f, 1f) else 0f
                                     LinearProgressIndicator(
                                         progress = { progress },
-                                        modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                                        modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)),
                                         color = ThemePurple,
                                         trackColor = Color(0xFF090D1A),
                                         strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
                                     )
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Spacer(modifier = Modifier.height(3.dp))
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text("${storageInfo.totalUsedFormatted} Used", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                        Text("${storageInfo.totalUsedFormatted} Used", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                                         val freeBytes = maxStorage - storageInfo.totalBytes
                                         val freeFormatted = if (freeBytes <= 0) "0 B" else {
                                             val units = arrayOf("B", "KB", "MB", "GB", "TB")
@@ -3255,7 +3255,7 @@ fun VaultTabUnlockedContent(
                                             val num = freeBytes / Math.pow(1024.0, index.toDouble())
                                             String.format(java.util.Locale.US, "%.1f %s", num, units[index])
                                         }
-                                        Text("$freeFormatted Free", color = TextMedium, fontSize = 11.sp)
+                                        Text("$freeFormatted Free", color = TextMedium, fontSize = 10.sp)
                                     }
                                 }
                             }
@@ -3266,9 +3266,9 @@ fun VaultTabUnlockedContent(
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White.copy(alpha = 0.5f),
                                 letterSpacing = 2.sp,
-                                modifier = Modifier.padding(top = 16.dp)
+                                modifier = Modifier.padding(top = 8.dp)
                             ) 
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 EnhancedVaultCard(
                                     title = "Photos", 
                                     count = let { val c = vaultFiles.count { it.contains("|||image/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
@@ -3351,7 +3351,7 @@ fun VaultTabUnlockedContent(
                                     }
                                 )
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 EnhancedVaultCard(
                                     title = "Documents", 
                                     count = let { val c = vaultFiles.count { val parts = it.split("|||"); parts.size >= 4 && !parts[3].startsWith("image/") && !parts[3].startsWith("video/") && !parts[3].startsWith("audio/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
@@ -3473,12 +3473,12 @@ fun VaultTabUnlockedContent(
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .clip(RoundedCornerShape(16.dp))
+                                                .clip(RoundedCornerShape(12.dp))
                                                 .background(Color(0xFF161B2B).copy(alpha = 0.5f))
-                                                .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(16.dp))
-                                                .padding(16.dp),
+                                                .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(12.dp))
+                                                .padding(10.dp),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                                         ) {
                                             val parts = file.split("|||")
                                             val isMedia = parts.size >= 4 && (parts[3].startsWith("image/") || parts[3].startsWith("video/")) || file.lowercase().endsWith(".jpg") || file.lowercase().endsWith(".png") || file.lowercase().endsWith(".mp4")
@@ -3518,7 +3518,7 @@ fun VaultTabUnlockedContent(
                                             Column(modifier = Modifier.weight(1f)) {
                                                 val title = if (parts.size >= 3) parts[2] else file.split("|||")[0].substringAfterLast('/')
                                                 val cleanTitle = cleanDisplayName(title)
-                                                Text(cleanTitle, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                                Text(cleanTitle, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                                 val timestamp = parts.getOrNull(0)?.toLongOrNull() ?: 0L
                                                 val timeStr = if (timestamp > 0) {
                                                     val diff = System.currentTimeMillis() - timestamp
@@ -3531,7 +3531,7 @@ fun VaultTabUnlockedContent(
                                                         else -> java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
                                                     }
                                                 } else ""
-                                                Text(timeStr, color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
+                                                Text(timeStr, color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
                                             }
                                         }
                                     }
@@ -3558,18 +3558,18 @@ fun VaultTabUnlockedContent(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(Color(0xFF161B2B).copy(alpha = 0.5f))
-                                    .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(16.dp))
+                                    .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(12.dp))
                                     .clickable { activeSection = "Recently Deleted" }
-                                    .padding(16.dp),
+                                    .padding(10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(6.dp))
                                         .background(Color(0xFFEF5350).copy(alpha = 0.1f)),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -3577,19 +3577,19 @@ fun VaultTabUnlockedContent(
                                         imageVector = Icons.Default.Delete,
                                         contentDescription = "Recycle Bin",
                                         tint = Color(0xFFEF5350),
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text("Recycle Bin", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Recycle Bin", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                     val recentlyDeleted by viewModel.recentlyDeletedFiles.collectAsStateWithLifecycle()
                                     Text(
                                         text = if (recentlyDeleted.isEmpty()) "Empty" else "${recentlyDeleted.size} items", 
                                         color = Color.White.copy(alpha = 0.4f), 
-                                        fontSize = 12.sp
+                                        fontSize = 11.sp
                                     )
                                 }
-                                Icon(Icons.Default.ArrowForward, contentDescription = "Open", tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.ArrowForward, contentDescription = "Open", tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(14.dp))
                             }
                             Spacer(modifier = Modifier.height(100.dp))
                         }
@@ -10503,6 +10503,16 @@ fun setSystemBarsVisibility(activity: android.app.Activity?, visible: Boolean) {
     }
 }
 
+fun createPrivateGeckoSession(
+    ctx: android.content.Context,
+    tabId: String,
+    initialUrl: String,
+    isDesktopMode: Boolean = false,
+    onUpdate: ((TabState) -> TabState) -> Unit
+): org.mozilla.geckoview.GeckoSession {
+    return GeckoSessionManager.getOrCreateSession(ctx, tabId, initialUrl, isDesktopMode, onUpdate)
+}
+
 fun createPrivateWebView(
     ctx: android.content.Context,
     tabId: String,
@@ -10670,9 +10680,20 @@ fun createPrivateWebView(
                     android.webkit.CookieManager.getInstance().flush()
                 } catch (e: Exception) {}
                 onUpdate { tab ->
+                    val rawTitle = view?.title ?: ""
+                    val fallbackTitle = if (rawTitle.isEmpty() || rawTitle == "about:blank") {
+                        try {
+                            val host = java.net.URL(url ?: "").host.removePrefix("www.")
+                            if (host.isNotEmpty()) host else "Private Tab"
+                        } catch (e: Exception) {
+                            "Private Tab"
+                        }
+                    } else {
+                        rawTitle
+                    }
                     tab.copy(
                         url = url ?: tab.url,
-                        title = view?.title?.ifEmpty { null } ?: "Private Tab",
+                        title = fallbackTitle,
                         isLoading = false,
                         canGoBack = view?.canGoBack() ?: false,
                         canGoForward = view?.canGoForward() ?: false
@@ -10705,6 +10726,54 @@ fun createPrivateWebView(
             }
             override fun onReceivedSslError(view: android.webkit.WebView?, handler: android.webkit.SslErrorHandler?, error: android.net.http.SslError?) {
                 handler?.proceed()
+            }
+            override fun onReceivedError(
+                view: android.webkit.WebView?,
+                request: android.webkit.WebResourceRequest?,
+                error: android.webkit.WebResourceError?
+            ) {
+                if (request?.isForMainFrame == true) {
+                    val failingUrl = request.url?.toString() ?: ""
+                    val description = error?.description?.toString() ?: "Connection failed"
+                    showCustomWebViewError(view, failingUrl, description)
+                }
+            }
+            @Deprecated("Deprecated in Java")
+            override fun onReceivedError(
+                view: android.webkit.WebView?,
+                errorCode: Int,
+                description: String?,
+                failingUrl: String?
+            ) {
+                showCustomWebViewError(view, failingUrl ?: "", description ?: "Connection failed")
+            }
+            private fun showCustomWebViewError(webView: android.webkit.WebView?, url: String, errorMessage: String) {
+                val html = """
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Failed to load page</title>
+                        <style>
+                            body { font-family: -apple-system, sans-serif; padding: 24px; text-align: center; color: #333; background-color: #f7f9fa; }
+                            .container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1.5px solid #eee; }
+                            h1 { color: #d9534f; font-size: 20px; margin-top: 0; }
+                            p { color: #666; font-size: 14px; line-height: 1.5; }
+                            .btn { display: inline-block; background-color: #6200EE; color: white; padding: 10px 20px; border-radius: 20px; text-decoration: none; font-weight: bold; margin-top: 15px; font-size: 14px; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <h1>Unable to connect</h1>
+                            <p>We can't load the page. Check your internet connection or the URL address you entered.</p>
+                            <p style="font-size: 12px; color: #999; word-break: break-all;">Error: $errorMessage</p>
+                            <a class="btn" href="$url">Try Again</a>
+                        </div>
+                    </body>
+                    </html>
+                """.trimIndent()
+                val base64 = android.util.Base64.encodeToString(html.toByteArray(), android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)
+                webView?.loadUrl("data:text/html;base64,$base64")
             }
         }
         webChromeClient = object : android.webkit.WebChromeClient() {
@@ -10928,7 +10997,7 @@ data class PendingDownloadData(
 )
 
 @Composable
-fun PrivateBrowserSection(
+fun OldPrivateBrowserSection(
     modifier: Modifier = Modifier,
     viewModel: CalculatorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     onExit: () -> Unit = {},
@@ -10937,6 +11006,7 @@ fun PrivateBrowserSection(
     val context = LocalContext.current
     val tabs = viewModel.browserTabs
     val webViews = remember { mutableStateMapOf<String, android.webkit.WebView>() }
+    val geckoSessions = remember { mutableStateMapOf<String, org.mozilla.geckoview.GeckoSession>() }
     var activeTabId: String? by remember { mutableStateOf(viewModel.activeTabId) }
     
     // Sync local activeTabId back to viewModel
@@ -10958,68 +11028,89 @@ fun PrivateBrowserSection(
     val searchEngine by viewModel.searchEngine.collectAsStateWithLifecycle()
     val savePasswords by viewModel.savePasswords.collectAsStateWithLifecycle()
     val clearHistoryOnExit by viewModel.clearHistoryOnExit.collectAsStateWithLifecycle()
+    val useGeckoView by viewModel.useGeckoView.collectAsStateWithLifecycle()
 
     var showSearchEngineDialog by remember { mutableStateOf(false) }
     var activePopupWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
     var pendingDownload by remember { mutableStateOf<PendingDownloadData?>(null) }
 
-    // Restore WebViews for existing tabs
+    // Restore WebViews / GeckoSessions for existing tabs
     androidx.compose.runtime.LaunchedEffect(tabs.toList()) {
         tabs.forEach { tab ->
-            if (!webViews.containsKey(tab.id)) {
-                val webView = createPrivateWebView(
-                    ctx = context,
-                    tabId = tab.id,
-                    initialUrl = tab.url,
-                    savePasswords = savePasswords,
-                    isDesktopMode = tab.isDesktopMode,
-                    onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-                        pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
-                    },
-                    onCreatePopup = { activePopupWebView = it },
-                    onShowCustomView = { view, callback ->
-                        val activity = context as? android.app.Activity
-                        if (activity != null) {
-                            val decor = activity.window.decorView as? android.widget.FrameLayout
-                            if (decor != null) {
-                                try { (view.parent as? android.view.ViewGroup)?.removeView(view) } catch(e: Exception) {}
-                                view.setBackgroundColor(android.graphics.Color.BLACK)
-                                view.layoutParams = android.widget.FrameLayout.LayoutParams(
-                                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
-                                )
-                                decor.addView(view)
-                                view.requestFocus()
-                                viewModel.browserCustomView = view
-                                viewModel.browserCustomViewCallback = callback
-                                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
-                                setSystemBarsVisibility(activity, false)
+            if (!webViews.containsKey(tab.id) && !geckoSessions.containsKey(tab.id)) {
+                if (useGeckoView) {
+                    val session = createPrivateGeckoSession(
+                        ctx = context,
+                        tabId = tab.id,
+                        initialUrl = tab.url,
+                        isDesktopMode = tab.isDesktopMode
+                    ) { transform ->
+                        val index = tabs.indexOfFirst { it.id == tab.id }
+                        if (index != -1) {
+                            tabs[index] = transform(tabs[index])
+                            val currentUrl = tabs[index].url
+                            val currentTitle = tabs[index].title
+                            if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty()) {
+                                viewModel.addBrowserHistory(currentTitle, currentUrl)
                             }
                         }
-                    },
-                    onHideCustomView = {
-                        val viewToRemove = viewModel.browserCustomView
-                        if (viewToRemove != null) {
-                            try { (viewToRemove.parent as? android.view.ViewGroup)?.removeView(viewToRemove) } catch(e: Exception) {}
-                        }
-                        viewModel.browserCustomView = null
-                        viewModel.browserCustomViewCallback = null
-                        val activity = context as? android.app.Activity
-                        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                        setSystemBarsVisibility(activity, true)
                     }
-                ) { transform ->
-                    val index = tabs.indexOfFirst { it.id == tab.id }
-                    if (index != -1) {
-                        tabs[index] = transform(tabs[index])
-                        val currentUrl = tabs[index].url
-                        val currentTitle = tabs[index].title
-                        if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty()) {
-                            viewModel.addBrowserHistory(currentTitle, currentUrl)
+                    geckoSessions[tab.id] = session
+                } else {
+                    val webView = createPrivateWebView(
+                        ctx = context,
+                        tabId = tab.id,
+                        initialUrl = tab.url,
+                        savePasswords = savePasswords,
+                        isDesktopMode = tab.isDesktopMode,
+                        onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+                            pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                        },
+                        onCreatePopup = { activePopupWebView = it },
+                        onShowCustomView = { view, callback ->
+                            val activity = context as? android.app.Activity
+                            if (activity != null) {
+                                val decor = activity.window.decorView as? android.widget.FrameLayout
+                                if (decor != null) {
+                                    try { (view.parent as? android.view.ViewGroup)?.removeView(view) } catch(e: Exception) {}
+                                    view.setBackgroundColor(android.graphics.Color.BLACK)
+                                    view.layoutParams = android.widget.FrameLayout.LayoutParams(
+                                        android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                                        android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                                    )
+                                    decor.addView(view)
+                                    view.requestFocus()
+                                    viewModel.browserCustomView = view
+                                    viewModel.browserCustomViewCallback = callback
+                                    activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                                    setSystemBarsVisibility(activity, false)
+                                }
+                            }
+                        },
+                        onHideCustomView = {
+                            val viewToRemove = viewModel.browserCustomView
+                            if (viewToRemove != null) {
+                                try { (viewToRemove.parent as? android.view.ViewGroup)?.removeView(viewToRemove) } catch(e: Exception) {}
+                            }
+                            viewModel.browserCustomView = null
+                            viewModel.browserCustomViewCallback = null
+                            val activity = context as? android.app.Activity
+                            activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                            setSystemBarsVisibility(activity, true)
+                        }
+                    ) { transform ->
+                        val index = tabs.indexOfFirst { it.id == tab.id }
+                        if (index != -1) {
+                            tabs[index] = transform(tabs[index])
+                            val currentUrl = tabs[index].url
+                            val currentTitle = tabs[index].title
+                            if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty()) {
+                                viewModel.addBrowserHistory(currentTitle, currentUrl)
+                            }
                         }
                     }
+                    webViews[tab.id] = webView
                 }
-                webViews[tab.id] = webView
             }
         }
     }
@@ -11029,58 +11120,78 @@ fun PrivateBrowserSection(
         val newTab = TabState(id = tabId, url = url, title = "New Tab")
         tabs.add(newTab)
         
-        val webView = createPrivateWebView(
-            ctx = context,
-            tabId = tabId,
-            initialUrl = url,
-            savePasswords = savePasswords,
-            onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-                pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
-            },
-            onCreatePopup = { activePopupWebView = it },
-            onShowCustomView = { view, callback ->
-                val activity = context as? android.app.Activity
-                if (activity != null) {
-                    val decor = activity.window.decorView as? android.widget.FrameLayout
-                    if (decor != null) {
-                        try { (view.parent as? android.view.ViewGroup)?.removeView(view) } catch(e: Exception) {}
-                        view.setBackgroundColor(android.graphics.Color.BLACK)
-                        view.layoutParams = android.widget.FrameLayout.LayoutParams(
-                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT
-                        )
-                        decor.addView(view)
-                        view.requestFocus()
-                        viewModel.browserCustomView = view
-                        viewModel.browserCustomViewCallback = callback
-                        activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
-                        setSystemBarsVisibility(activity, false)
+        if (useGeckoView) {
+            val session = createPrivateGeckoSession(
+                ctx = context,
+                tabId = tabId,
+                initialUrl = url,
+                isDesktopMode = false
+            ) { transform ->
+                val index = tabs.indexOfFirst { it.id == tabId }
+                if (index != -1) {
+                    tabs[index] = transform(tabs[index])
+                    val currentUrl = tabs[index].url
+                    val currentTitle = tabs[index].title
+                    if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty()) {
+                        viewModel.addBrowserHistory(currentTitle, currentUrl)
                     }
                 }
-            },
-            onHideCustomView = {
-                val viewToRemove = viewModel.browserCustomView
-                if (viewToRemove != null) {
-                    try { (viewToRemove.parent as? android.view.ViewGroup)?.removeView(viewToRemove) } catch(e: Exception) {}
-                }
-                viewModel.browserCustomView = null
-                viewModel.browserCustomViewCallback = null
-                val activity = context as? android.app.Activity
-                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                setSystemBarsVisibility(activity, true)
             }
-        ) { transform ->
-            val index = tabs.indexOfFirst { it.id == tabId }
-            if (index != -1) {
-                tabs[index] = transform(tabs[index])
-                val currentUrl = tabs[index].url
-                val currentTitle = tabs[index].title
-                if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty()) {
-                    viewModel.addBrowserHistory(currentTitle, currentUrl)
+            geckoSessions[tabId] = session
+        } else {
+            val webView = createPrivateWebView(
+                ctx = context,
+                tabId = tabId,
+                initialUrl = url,
+                savePasswords = savePasswords,
+                onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+                    pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                },
+                onCreatePopup = { activePopupWebView = it },
+                onShowCustomView = { view, callback ->
+                    val activity = context as? android.app.Activity
+                    if (activity != null) {
+                        val decor = activity.window.decorView as? android.widget.FrameLayout
+                        if (decor != null) {
+                            try { (view.parent as? android.view.ViewGroup)?.removeView(view) } catch(e: Exception) {}
+                            view.setBackgroundColor(android.graphics.Color.BLACK)
+                            view.layoutParams = android.widget.FrameLayout.LayoutParams(
+                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                            )
+                            decor.addView(view)
+                            view.requestFocus()
+                            viewModel.browserCustomView = view
+                            viewModel.browserCustomViewCallback = callback
+                            activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                            setSystemBarsVisibility(activity, false)
+                        }
+                    }
+                },
+                onHideCustomView = {
+                    val viewToRemove = viewModel.browserCustomView
+                    if (viewToRemove != null) {
+                        try { (viewToRemove.parent as? android.view.ViewGroup)?.removeView(viewToRemove) } catch(e: Exception) {}
+                    }
+                    viewModel.browserCustomView = null
+                    viewModel.browserCustomViewCallback = null
+                    val activity = context as? android.app.Activity
+                    activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    setSystemBarsVisibility(activity, true)
+                }
+            ) { transform ->
+                val index = tabs.indexOfFirst { it.id == tabId }
+                if (index != -1) {
+                    tabs[index] = transform(tabs[index])
+                    val currentUrl = tabs[index].url
+                    val currentTitle = tabs[index].title
+                    if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty()) {
+                        viewModel.addBrowserHistory(currentTitle, currentUrl)
+                    }
                 }
             }
+            webViews[tabId] = webView
         }
-        webViews[tabId] = webView
         activeTabId = tabId
     }
 
@@ -11097,11 +11208,43 @@ fun PrivateBrowserSection(
                 viewModel.clearBrowserHistory()
                 clearAllBrowsingData(context, tabs, webViews)
             }
+            GeckoSessionManager.destroyAllSessions()
+            geckoSessions.clear()
         }
     }
 
     val activeTab = tabs.find { it.id == activeTabId }
     val activeWebView = webViews[activeTabId]
+    val activeGeckoSession = geckoSessions[activeTabId]
+
+    val loadUrl: (String) -> Unit = { target ->
+        if (activeGeckoSession != null) {
+            activeGeckoSession.loadUri(target)
+        } else {
+            activeWebView?.loadUrl(target)
+        }
+    }
+    val reload: () -> Unit = {
+        if (activeGeckoSession != null) {
+            activeGeckoSession.reload()
+        } else {
+            activeWebView?.reload()
+        }
+    }
+    val goBack: () -> Unit = {
+        if (activeGeckoSession != null) {
+            activeGeckoSession.goBack()
+        } else {
+            activeWebView?.goBack()
+        }
+    }
+    val goForward: () -> Unit = {
+        if (activeGeckoSession != null) {
+            activeGeckoSession.goForward()
+        } else {
+            activeWebView?.goForward()
+        }
+    }
 
     val goBackOrExit = {
         if (showSearchEngineDialog) {
@@ -11116,10 +11259,12 @@ fun PrivateBrowserSection(
             showHistory = false
         } else if (showTabSwitcher) {
             showTabSwitcher = false
+        } else if (activeGeckoSession != null && activeTab?.canGoBack == true && activeTab?.url != "home") {
+            activeGeckoSession.goBack()
         } else if (activeWebView != null && activeWebView.canGoBack() && activeTab?.url != "home") {
             activeWebView.goBack()
         } else if (activeTab?.url != "home") {
-            activeWebView?.loadUrl("about:blank")
+            loadUrl("about:blank")
             val index = tabs.indexOfFirst { it.id == activeTabId }
             if (index != -1) {
                 tabs[index] = tabs[index].copy(url = "home", title = "New Tab")
@@ -11232,113 +11377,426 @@ fun PrivateBrowserSection(
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .background(Color(0xFF0A0C16))
+                .background(Color(0xFF0C0C0E))
                 .statusBarsPadding()
                 .navigationBarsPadding()
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { showSettings = false }) {
                     Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
                 }
-                Text("Settings", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+                Column(modifier = Modifier.padding(start = 8.dp)) {
+                    Text("Secret Browser", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("Configuration Panel", color = Color.Gray, fontSize = 12.sp)
+                }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Row(
+
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showSearchEngineDialog = true }
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(24.dp).background(Color.White, CircleShape), contentAlignment = Alignment.Center) {
-                        Text("G", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold) // A generic icon representing search engine
+                // SECTION 1: GENERAL
+                SettingsCategoryHeader("General")
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF121214)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showSearchEngineDialog = true }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFFFF5F1F).copy(alpha = 0.12f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Search, "Search", tint = Color(0xFFFF5F1F), modifier = Modifier.size(16.dp))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("Search Engine", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text(searchEngine, color = Color(0xFFFF5F1F), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                        Icon(Icons.Default.ArrowDropDown, "Dropdown", tint = Color.Gray)
                     }
-                    Spacer(modifier = Modifier.width(16.dp))
+                }
+
+                // SECTION 2: PRIVACY
+                SettingsCategoryHeader("Privacy")
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF121214)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
                     Column {
-                        Text("Search engine", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text(searchEngine, color = Color(0xFF5E8AFF), fontSize = 14.sp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(Color.White.copy(alpha = 0.05f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Lock, "Lock", tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text("Save Passwords", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Offer to save passwords in browser form states", color = Color.Gray, fontSize = 11.sp)
+                                }
+                            }
+                            Switch(
+                                checked = savePasswords,
+                                onCheckedChange = { viewModel.setSavePasswords(it) },
+                                colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFFFF5F1F))
+                            )
+                        }
+
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(Color.White.copy(alpha = 0.05f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.History, "History", tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text("Clear History on Exit", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Delete historical logs upon exiting", color = Color.Gray, fontSize = 11.sp)
+                                }
+                            }
+                            Switch(
+                                checked = clearHistoryOnExit,
+                                onCheckedChange = { viewModel.setClearHistoryOnExit(it) },
+                                colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFFFF5F1F))
+                            )
+                        }
+
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { 
+                                    android.webkit.WebStorage.getInstance().deleteAllData()
+                                    android.widget.Toast.makeText(context, "Cache cleared successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFFE57373).copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFE57373), modifier = Modifier.size(16.dp))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("Clear Browser Cache", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Wipes temporary rendering files and assets", color = Color.Gray, fontSize = 11.sp)
+                            }
+                        }
+
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { 
+                                    android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                                    android.widget.Toast.makeText(context, "Cookies wiped successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFFE57373).copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.DeleteForever, "Delete cookies", tint = Color(0xFFE57373), modifier = Modifier.size(16.dp))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("Clear Local Cookies", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Signs out of active browser web sessions", color = Color.Gray, fontSize = 11.sp)
+                            }
+                        }
                     }
                 }
-                Icon(Icons.Default.ArrowDropDown, "Dropdown", tint = Color.Gray)
-            }
-            
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF5E8AFF), modifier = Modifier.size(24.dp)) 
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text("Save passwords", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                }
-                Switch(
-                    checked = savePasswords,
-                    onCheckedChange = { viewModel.setSavePasswords(it) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF5E8AFF))
-                )
-            }
-            
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.History, contentDescription = null, tint = Color(0xFFE0E0E0), modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text("Clear history on exit", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                }
-                Switch(
-                    checked = clearHistoryOnExit,
-                    onCheckedChange = { viewModel.setClearHistoryOnExit(it) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF5E8AFF))
-                )
-            }
-            
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { 
-                        android.webkit.WebStorage.getInstance().deleteAllData()
-                        android.widget.Toast.makeText(context, "Cache cleared", android.widget.Toast.LENGTH_SHORT).show()
+
+                // SECTION 3: APPEARANCE
+                SettingsCategoryHeader("Appearance")
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF121214)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color.White.copy(alpha = 0.02f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Palette, "Theme", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("Custom Theme Colors", color = Color.Gray, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Follow vault custom styling dynamic settings", color = Color.DarkGray, fontSize = 11.sp)
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("Coming Soon", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE0E0E0), modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(16.dp))
-                Text("Clear cache", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            }
-            
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { 
-                        android.webkit.CookieManager.getInstance().removeAllCookies(null)
-                        android.widget.Toast.makeText(context, "Cookies cleared", android.widget.Toast.LENGTH_SHORT).show()
+                }
+
+                // SECTION 4: DOWNLOADS
+                SettingsCategoryHeader("Downloads")
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF121214)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { 
+                                showSettings = false
+                                showDownloads = true 
+                            }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color.White.copy(alpha = 0.05f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Download, "Downloads", tint = Color.White, modifier = Modifier.size(16.dp))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("Downloads History", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("View securely downloaded files", color = Color.Gray, fontSize = 11.sp)
+                            }
+                        }
+                        Icon(Icons.Default.ArrowForward, "Open", tint = Color.Gray, modifier = Modifier.size(14.dp))
                     }
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.DeleteForever, contentDescription = null, tint = Color(0xFFE0E0E0), modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(16.dp))
-                Text("Clear cookies", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                // SECTION 5: SECURITY
+                SettingsCategoryHeader("Security")
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF121214)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(Color(0xFF4CAF50).copy(alpha = 0.1f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Security, "Engine", tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text("Gecko Engine", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("GeckoView active sandbox isolation mode", color = Color.Gray, fontSize = 11.sp)
+                                }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .background(Color(0xFF4CAF50).copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text("ACTIVE", color = Color(0xFF4CAF50), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(Color.White.copy(alpha = 0.02f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Security, "Shield", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text("Anti-Fingerprinting protection", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Prevent device information extraction", color = Color.Gray, fontSize = 11.sp)
+                                }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .background(Color(0xFF4CAF50).copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text("ACTIVE", color = Color(0xFF4CAF50), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                // SECTION 6: ADVANCED
+                SettingsCategoryHeader("Advanced")
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF121214)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
+                    Column {
+                        DisabledSettingsRow(
+                            icon = Icons.Default.Shield,
+                            title = "Tracking Protection",
+                            subtitle = "Block ads and tracking scripts in real-time"
+                        )
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f))
+                        DisabledSettingsRow(
+                            icon = Icons.Default.Fingerprint,
+                            title = "Fingerprint Protection",
+                            subtitle = "Disguise hardware characteristics"
+                        )
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f))
+                        DisabledSettingsRow(
+                            icon = Icons.Default.Language,
+                            title = "DNS over HTTPS",
+                            subtitle = "Encrypt domain resolution requests"
+                        )
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f))
+                        DisabledSettingsRow(
+                            icon = Icons.Default.Extension,
+                            title = "Extension Support",
+                            subtitle = "Load custom web extension add-ons"
+                        )
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f))
+                        DisabledSettingsRow(
+                            icon = Icons.Default.Refresh,
+                            title = "Sync",
+                            subtitle = "Synchronize bookmarks across other devices"
+                        )
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f))
+                        DisabledSettingsRow(
+                            icon = Icons.Default.VpnKey,
+                            title = "Password Manager",
+                            subtitle = "Secure local credential manager vault"
+                        )
+                    }
+                }
+
+                // SECTION 7: ABOUT
+                SettingsCategoryHeader("About")
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF121214)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Security,
+                            contentDescription = "Shield logo",
+                            tint = Color(0xFFFF5F1F),
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Secret Browser", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text("Secure. Independent. Minimal.", color = Color.Gray, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "A fully sandboxed privacy engine built exclusively for high-confidentiality operations. Uses complete kernel-level separation with custom-compiled GeckoView components.",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 11.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            lineHeight = 16.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Version 2.5-GeckoStable", color = Color.White.copy(alpha = 0.3f), fontSize = 10.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
-        
+
         if (showSearchEngineDialog) {
             androidx.compose.ui.window.Dialog(onDismissRequest = { showSearchEngineDialog = false }) {
                 Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E202B))) {
@@ -11362,7 +11820,7 @@ fun PrivateBrowserSection(
                                         viewModel.setSearchEngine(engine)
                                         showSearchEngineDialog = false
                                     },
-                                    colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF5E8AFF), unselectedColor = Color.Gray)
+                                    colors = RadioButtonDefaults.colors(selectedColor = ThemePurple, unselectedColor = Color.Gray)
                                 )
                                 Text(engine, color = Color.White, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
                             }
@@ -11395,8 +11853,29 @@ fun PrivateBrowserSection(
             }
             Spacer(modifier = Modifier.height(8.dp))
             if (browserBookmarks.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No bookmarks yet", color = Color.Gray, fontSize = 16.sp)
+                Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .background(ThemePurple.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Star, "No bookmarks", tint = ThemePurple, modifier = Modifier.size(36.dp))
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("No bookmarks yet", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Bookmark your favorite pages to access them quickly from here.",
+                            color = Color.Gray,
+                            fontSize = 13.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
                 }
             } else {
                 LazyColumn {
@@ -11406,7 +11885,7 @@ fun PrivateBrowserSection(
                                 .fillMaxWidth()
                                 .clickable {
                                     showBookmarks = false
-                                    activeWebView?.loadUrl(bookmark.url)
+                                    loadUrl(bookmark.url)
                                 }
                                 .padding(horizontal = 24.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -11456,8 +11935,29 @@ fun PrivateBrowserSection(
             }
             Spacer(modifier = Modifier.height(8.dp))
             if (browserHistory.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No history yet", color = Color.Gray, fontSize = 16.sp)
+                Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .background(ThemePurple.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.History, "No history", tint = ThemePurple, modifier = Modifier.size(36.dp))
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("No history yet", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Pages you visit during your session will appear here unless self-destruct is active.",
+                            color = Color.Gray,
+                            fontSize = 13.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
                 }
             } else {
                 LazyColumn {
@@ -11469,7 +11969,7 @@ fun PrivateBrowserSection(
                                 .fillMaxWidth()
                                 .clickable {
                                     showHistory = false
-                                    activeWebView?.loadUrl(historyItem.url)
+                                    loadUrl(historyItem.url)
                                 }
                                 .padding(horizontal = 24.dp, vertical = 12.dp)
                         ) {
@@ -11486,18 +11986,18 @@ fun PrivateBrowserSection(
         return
     }
 
-    Box(modifier = modifier.fillMaxSize().background(Color(0xFF0A0C16))) {
+    Box(modifier = modifier.fillMaxSize().background(Color(0xFF000000))) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             val isHome = activeTab?.url == "home" || activeTab?.url == "about:blank" || activeTab?.url?.isEmpty() == true
             
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF161B2B))
+                    .background(Color(0xFF08080C))
                     .padding(horizontal = 12.dp, vertical = 8.dp)
                     .drawBehind {
                         drawLine(
-                            color = Color.White.copy(alpha = 0.08f),
+                            color = Color.White.copy(alpha = 0.05f),
                             start = androidx.compose.ui.geometry.Offset(0f, size.height),
                             end = androidx.compose.ui.geometry.Offset(size.width, size.height),
                             strokeWidth = 1.dp.toPx()
@@ -11521,14 +12021,14 @@ fun PrivateBrowserSection(
                         modifier = Modifier
                             .weight(1f)
                             .padding(horizontal = 4.dp)
-                            .height(36.dp),
-                        shape = RoundedCornerShape(18.dp),
+                            .height(38.dp),
+                        shape = RoundedCornerShape(19.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color(0xFF1C1F2D),
-                            unfocusedContainerColor = Color(0xFF1C1F2D),
-                            focusedBorderColor = Color(0xFF5E8AFF),
-                            unfocusedBorderColor = Color.Transparent,
-                            cursorColor = Color.White,
+                            focusedContainerColor = Color(0xFF161618),
+                            unfocusedContainerColor = Color(0xFF161618),
+                            focusedBorderColor = Color(0xFFFF5F1F),
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.08f),
+                            cursorColor = Color(0xFFFF5F1F),
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White
                         ),
@@ -11551,7 +12051,7 @@ fun PrivateBrowserSection(
                                             }
                                         }
                                     }
-                                    activeWebView?.loadUrl(target)
+                                    loadUrl(target)
                                 }
                                 isEditingUrl = false
                             }
@@ -11576,13 +12076,13 @@ fun PrivateBrowserSection(
                                         }
                                     }
                                 }
-                                activeWebView?.loadUrl(target)
+                                loadUrl(target)
                             }
                             isEditingUrl = false
                         },
                         modifier = Modifier.size(34.dp)
                     ) {
-                        Icon(Icons.Default.Check, "Go", tint = Color(0xFF5E8AFF), modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Check, "Go", tint = Color(0xFFFF5F1F), modifier = Modifier.size(20.dp))
                     }
                 } else {
                     IconButton(
@@ -11593,171 +12093,78 @@ fun PrivateBrowserSection(
                     }
                     
                     if (isHome) {
-                        Text(
-                            text = "Private browser",
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 6.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f).padding(start = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Security, "Secret Browser", tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Secret Browser",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
                     } else {
                         Row(
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(horizontal = 4.dp)
-                                .height(32.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Color(0xFF1E202B))
+                                .padding(horizontal = 8.dp)
+                                .height(38.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(Color(0xFF161618))
+                                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
                                 .clickable {
                                     editingUrlText = activeTab?.url ?: ""
                                     isEditingUrl = true
                                 }
-                                .padding(horizontal = 10.dp),
+                                .padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = "Secure Connection",
-                                tint = Color(0xFF4CAF50),
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            val displayUrl = try {
-                                java.net.URL(activeTab?.url).host.removePrefix("www.")
-                            } catch(e: Exception) {
-                                activeTab?.title ?: "Website"
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "Secure Connection",
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                val displayUrl = try {
+                                    java.net.URL(activeTab?.url).host.removePrefix("www.")
+                                } catch(e: Exception) {
+                                    activeTab?.title ?: "Website"
+                                }
+                                Text(
+                                    text = displayUrl,
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
-                            Text(
-                                text = displayUrl,
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
                             IconButton(
-                                onClick = { activeWebView?.reload() },
-                                modifier = Modifier.size(20.dp)
+                                onClick = { reload() },
+                                modifier = Modifier.size(24.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Refresh,
                                     contentDescription = "Refresh",
                                     tint = Color.Gray,
-                                    modifier = Modifier.size(12.dp)
+                                    modifier = Modifier.size(14.dp)
                                 )
                             }
                         }
                     }
                     
-                    Box {
-                        IconButton(
-                            onClick = { showMenu = true },
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Icon(Icons.Default.MoreVert, "More Options", tint = Color.White, modifier = Modifier.size(20.dp))
-                        }
-                        
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            modifier = Modifier.background(Color(0xFF1E202B), RoundedCornerShape(8.dp))
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Bookmarks", color = Color.White) },
-                                onClick = { 
-                                    showMenu = false
-                                    showBookmarks = true
-                                },
-                                leadingIcon = { Icon(Icons.Default.Star, "Bookmarks", tint = Color.White) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("History", color = Color.White) },
-                                onClick = { 
-                                    showMenu = false
-                                    showHistory = true
-                                },
-                                leadingIcon = { Icon(Icons.Default.History, "History", tint = Color.White) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Downloads", color = Color.White) },
-                                onClick = { 
-                                    showMenu = false
-                                    showDownloads = true
-                                },
-                                leadingIcon = { Icon(Icons.Default.Download, "Downloads", tint = Color.White) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Desktop site", color = Color.White) },
-                                onClick = { 
-                                    showMenu = false
-                                    val webView = webViews[activeTabId]
-                                    if (webView != null && activeTab != null) {
-                                        val newMode = !activeTab.isDesktopMode
-                                        val index = tabs.indexOfFirst { it.id == activeTabId }
-                                        if (index != -1) {
-                                            tabs[index] = tabs[index].copy(isDesktopMode = newMode)
-                                        }
-                                        if (newMode) {
-                                            webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                                            webView.settings.loadWithOverviewMode = true
-                                            webView.settings.useWideViewPort = true
-                                            webView.settings.setSupportZoom(true)
-                                            webView.settings.builtInZoomControls = true
-                                            webView.settings.displayZoomControls = false
-                                        } else {
-                                            webView.settings.userAgentString = android.webkit.WebSettings.getDefaultUserAgent(context)
-                                            webView.settings.loadWithOverviewMode = true
-                                            webView.settings.useWideViewPort = true
-                                            webView.settings.setSupportZoom(true)
-                                            webView.settings.builtInZoomControls = true
-                                            webView.settings.displayZoomControls = false
-                                        }
-                                        webView.clearCache(true)
-                                        webView.reload()
-                                    }
-                                },
-                                leadingIcon = { 
-                                    Icon(
-                                        if (activeTab?.isDesktopMode == true) Icons.Default.DesktopMac else Icons.Default.Laptop, 
-                                        "Desktop site", 
-                                        tint = if (activeTab?.isDesktopMode == true) Color(0xFF5E8AFF) else Color.White
-                                    ) 
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Settings", color = Color.White) },
-                                onClick = { 
-                                    showMenu = false
-                                    showSettings = true
-                                },
-                                leadingIcon = { Icon(Icons.Default.Settings, "Settings", tint = Color.White) }
-                            )
-                            androidx.compose.material3.HorizontalDivider(color = Color.DarkGray)
-                            DropdownMenuItem(
-                                text = { Text("Return to Vault", color = Color.White) },
-                                onClick = { 
-                                    showMenu = false
-                                    onExit()
-                                },
-                                leadingIcon = { Icon(Icons.Default.Lock, "Return to Vault", tint = Color.White) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Panic Mode", color = Color(0xFFFF5252)) },
-                                onClick = { 
-                                    showMenu = false
-                                    if (clearHistoryOnExit) {
-                                        viewModel.clearBrowserHistory()
-                                    }
-                                    clearAllBrowsingData(context, tabs, webViews)
-                                    onPanic()
-                                },
-                                leadingIcon = { Icon(Icons.Default.Warning, "Panic Mode", tint = Color(0xFFFF5252)) }
-                            )
-                        }
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(Icons.Default.MoreVert, "More Options", tint = Color.White, modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -11768,76 +12175,89 @@ fun PrivateBrowserSection(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(
-                                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                    colors = listOf(Color(0xFF0A0C16), Color(0xFF11142A))
-                                )
-                            )
+                            .background(Color(0xFF0C0C0E))
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = 24.dp)
                     ) {
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(32.dp))
 
-                        // Secret Vault Shield Hero Section
-                        Box(
+                        // Premium Standalone Welcome Area
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center
+                                .padding(vertical = 32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .background(Color(0xFF161618), RoundedCornerShape(18.dp))
+                                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Security,
+                                    contentDescription = "Secret Browser Logo",
+                                    tint = Color(0xFFFF5F1F),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(18.dp))
+                            Text(
+                                text = "Secret Browser",
+                                color = Color.White,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = (-0.5).sp
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Private. Independent. Minimal.",
+                                color = Color.White.copy(alpha = 0.4f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(16.dp))
+                                    .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(64.dp)
-                                        .background(ThemePurple.copy(alpha = 0.15f), CircleShape)
-                                        .border(1.dp, ThemePurple.copy(alpha = 0.3f), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Security,
-                                        contentDescription = "Shield",
-                                        tint = ThemePurple,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(
-                                    text = "SECRET VAULT",
-                                    color = Color.White,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 2.sp
+                                        .size(6.dp)
+                                        .background(Color(0xFF4CAF50), CircleShape)
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .background(Color(0xFF4CAF50), CircleShape)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Incognito Session Active",
-                                        color = Color(0xFF4CAF50),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Isolated Sandbox Active",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                        // Premium Search Field
+                        // Floating Capsule Premium Search Field
                         OutlinedTextField(
                             value = searchInput,
                             onValueChange = { searchInput = it },
-                            placeholder = { Text("Search or enter URL", color = Color.Gray, fontSize = 15.sp) },
+                            placeholder = { Text("Search or enter URL", color = Color.White.copy(alpha = 0.3f), fontSize = 14.sp) },
                             leadingIcon = {
-                                IconButton(onClick = { showSearchEngineDialog = true }) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .padding(start = 12.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(Color.White.copy(alpha = 0.04f))
+                                        .clickable { showSearchEngineDialog = true }
+                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
                                     Icon(
                                         imageVector = when (searchEngine) {
                                             "DuckDuckGo" -> Icons.Default.Shield
@@ -11845,43 +12265,61 @@ fun PrivateBrowserSection(
                                             "Yahoo" -> Icons.Default.Language
                                             else -> Icons.Default.Search
                                         },
-                                        contentDescription = "Engine",
-                                        tint = ThemePurple,
-                                        modifier = Modifier.size(20.dp)
+                                        contentDescription = "Search Engine",
+                                        tint = Color.White.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = searchEngine,
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             },
                             trailingIcon = {
-                                IconButton(onClick = {
-                                    var target = searchInput.trim()
-                                    if (target.isNotEmpty()) {
-                                        if (!target.startsWith("http://") && !target.startsWith("https://")) {
-                                            if (target.contains(".") && !target.contains(" ")) {
-                                                target = "https://$target"
-                                            } else {
-                                                val q = java.net.URLEncoder.encode(target, "UTF-8")
-                                                target = when (searchEngine) {
-                                                    "DuckDuckGo" -> "https://duckduckgo.com/?q=$q&kl=us-en"
-                                                    "Bing" -> "https://www.bing.com/search?q=$q&setlang=en&cc=US"
-                                                    "Yahoo" -> "https://search.yahoo.com/search?p=$q&ei=UTF-8&vc=US&vl=en"
-                                                    else -> "https://www.google.com/search?q=$q&hl=en&gl=US"
-                                                }
-                                            }
-                                        }
-                                        activeWebView?.loadUrl(target)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = {}) {
+                                        Icon(Icons.Default.Mic, contentDescription = "Voice Input Placeholder", tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
                                     }
-                                }) {
-                                    Icon(Icons.Default.ArrowForward, contentDescription = "Search", tint = Color.White, modifier = Modifier.size(20.dp))
+                                    IconButton(
+                                        onClick = {
+                                            var target = searchInput.trim()
+                                            if (target.isNotEmpty()) {
+                                                if (!target.startsWith("http://") && !target.startsWith("https://")) {
+                                                    if (target.contains(".") && !target.contains(" ")) {
+                                                        target = "https://$target"
+                                                    } else {
+                                                        val q = java.net.URLEncoder.encode(target, "UTF-8")
+                                                        target = when (searchEngine) {
+                                                            "DuckDuckGo" -> "https://duckduckgo.com/?q=$q&kl=us-en"
+                                                            "Bing" -> "https://www.bing.com/search?q=$q&setlang=en&cc=US"
+                                                            "Yahoo" -> "https://search.yahoo.com/search?p=$q&ei=UTF-8&vc=US&vl=en"
+                                                            else -> "https://www.google.com/search?q=$q&hl=en&gl=US"
+                                                        }
+                                                    }
+                                                }
+                                                loadUrl(target)
+                                            }
+                                        },
+                                        modifier = Modifier.padding(end = 4.dp)
+                                    ) {
+                                        Icon(Icons.Default.ArrowForward, contentDescription = "Search", tint = Color(0xFFFF5F1F), modifier = Modifier.size(18.dp))
+                                    }
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            shape = RoundedCornerShape(26.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .shadow(8.dp, RoundedCornerShape(28.dp), ambientColor = Color.Black, spotColor = Color.Black),
+                            shape = RoundedCornerShape(28.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFF161925),
-                                unfocusedContainerColor = Color(0xFF161925),
-                                focusedBorderColor = ThemePurple.copy(alpha = 0.4f),
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.05f),
-                                cursorColor = Color.White,
+                                focusedContainerColor = Color(0xFF161618),
+                                unfocusedContainerColor = Color(0xFF161618),
+                                focusedBorderColor = Color(0xFFFF5F1F),
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.08f),
+                                cursorColor = Color(0xFFFF5F1F),
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White
                             ),
@@ -11904,126 +12342,361 @@ fun PrivateBrowserSection(
                                                 }
                                             }
                                         }
-                                        activeWebView?.loadUrl(target)
+                                        loadUrl(target)
                                     }
                                 }
                             )
                         )
 
-                        Spacer(modifier = Modifier.height(28.dp))
+                        Spacer(modifier = Modifier.height(36.dp))
 
-                        // Quick Access Grid
+                        // Quick Access Grid Section
                         Text(
                             text = "QUICK ACCESS",
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.3f),
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.2.sp
+                            letterSpacing = 2.sp
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            QuickAccessItem(url = "https://www.google.com/?hl=en&gl=US", label = "Google", onClick = { activeWebView?.loadUrl("https://www.google.com/?hl=en&gl=US") })
-                            QuickAccessItem(url = "https://www.youtube.com", label = "YouTube", onClick = { activeWebView?.loadUrl("https://duckduckgo.com/?q=youtube&kl=us-en") })
-                            QuickAccessItem(url = "https://duckduckgo.com/?kl=us-en", label = "DuckDuckGo", onClick = { activeWebView?.loadUrl("https://duckduckgo.com/?kl=us-en") })
-                            QuickAccessItem(url = "https://en.wikipedia.org", label = "Wikipedia", onClick = { activeWebView?.loadUrl("https://en.wikipedia.org") })
-                        }
-
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            QuickAccessItem(url = "https://www.reddit.com", label = "Reddit", onClick = { activeWebView?.loadUrl("https://www.reddit.com") })
-                            QuickAccessItem(url = "https://x.com", label = "X / Twitter", onClick = { activeWebView?.loadUrl("https://x.com") })
-                            QuickAccessItem(url = "https://web.telegram.org", label = "Telegram", onClick = { activeWebView?.loadUrl("https://web.telegram.org") })
-                            QuickAccessItem(url = "https://www.quora.com", label = "Quora", onClick = { activeWebView?.loadUrl("https://www.quora.com") })
+                            QuickAccessItem(url = "https://www.google.com/?hl=en&gl=US", label = "Google", onClick = { loadUrl("https://www.google.com/?hl=en&gl=US") })
+                            QuickAccessItem(url = "https://www.youtube.com", label = "YouTube", onClick = { loadUrl("https://duckduckgo.com/?q=youtube&kl=us-en") })
+                            QuickAccessItem(url = "https://duckduckgo.com/?kl=us-en", label = "DuckDuckGo", onClick = { loadUrl("https://duckduckgo.com/?kl=us-en") })
+                            QuickAccessItem(url = "https://en.wikipedia.org", label = "Wikipedia", onClick = { loadUrl("https://en.wikipedia.org") })
                         }
 
-                        Spacer(modifier = Modifier.height(28.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
 
-                        // Security Checklist Panel
-                        Text(
-                            text = "SECURITY PANEL",
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.2.sp
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Card(
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF161925).copy(alpha = 0.6f)),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                            QuickAccessItem(url = "https://www.reddit.com", label = "Reddit", onClick = { loadUrl("https://www.reddit.com") })
+                            QuickAccessItem(url = "https://x.com", label = "X / Twitter", onClick = { loadUrl("https://x.com") })
+                            QuickAccessItem(url = "https://web.telegram.org", label = "Telegram", onClick = { loadUrl("https://web.telegram.org") })
+                            QuickAccessItem(url = "https://www.quora.com", label = "Quora", onClick = { loadUrl("https://www.quora.com") })
+                        }
+
+                        Spacer(modifier = Modifier.height(36.dp))
+
+                        // Recent Tabs Section
+                        Text(
+                            text = "RECENT TABS",
+                            color = Color.White.copy(alpha = 0.3f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        val recentOpenTabs = tabs.filter { it.id != activeTabId }
+                        if (recentOpenTabs.isEmpty()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF121214)),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = "Active",
-                                        tint = Color(0xFF4CAF50),
-                                        modifier = Modifier.size(16.dp)
+                                        imageVector = Icons.Default.Language,
+                                        contentDescription = "No recent tabs",
+                                        tint = Color.White.copy(alpha = 0.15f),
+                                        modifier = Modifier.size(40.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
-                                        Text("Isolated Cookies", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                        Text("Cookies and site data remain separate.", color = Color.Gray, fontSize = 10.sp)
-                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "No recent tabs",
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Tabs you open in the background will appear here for quick access.",
+                                        color = Color.Gray,
+                                        fontSize = 11.sp,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
                                 }
-
-                                androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f), modifier = Modifier.padding(vertical = 4.dp))
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = "Active",
-                                        tint = Color(0xFF4CAF50),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
-                                        Text("Self-Destruct Session", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                        Text("All cache, storage, and history clear instantly on exit.", color = Color.Gray, fontSize = 10.sp)
-                                    }
-                                }
-
-                                androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f), modifier = Modifier.padding(vertical = 4.dp))
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = "Active",
-                                        tint = Color(0xFF4CAF50),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
-                                        Text("Local File Sandboxing", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                        Text("Vault data cannot leak to other system apps.", color = Color.Gray, fontSize = 10.sp)
+                            }
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                recentOpenTabs.forEach { tab ->
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { activeTabId = tab.id },
+                                        shape = RoundedCornerShape(20.dp),
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFF121214)),
+                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1.0f)) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(36.dp)
+                                                        .background(Color.White.copy(alpha = 0.06f), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Language,
+                                                        contentDescription = "Tab icon",
+                                                        tint = Color.White.copy(alpha = 0.7f),
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Column {
+                                                    Text(
+                                                        text = if (tab.url == "home") "New Tab" else tab.title,
+                                                        color = Color.White,
+                                                        fontSize = 13.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Text(
+                                                        text = if (tab.url == "home") "Internal start page" else tab.url,
+                                                        color = Color.Gray,
+                                                        fontSize = 11.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
+                                            IconButton(
+                                                onClick = {
+                                                    GeckoSessionManager.removeAndDestroySession(tab.id)
+                                                    geckoSessions.remove(tab.id)
+                                                    val wv = webViews[tab.id]
+                                                    if (wv != null) {
+                                                        try {
+                                                            wv.stopLoading()
+                                                            (wv.parent as? android.view.ViewGroup)?.removeView(wv)
+                                                            wv.clearHistory()
+                                                            wv.clearCache(true)
+                                                            wv.loadUrl("about:blank")
+                                                            wv.destroy()
+                                                        } catch (e: Exception) {}
+                                                        webViews.remove(tab.id)
+                                                    }
+                                                    tabs.remove(tab)
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Close tab",
+                                                    tint = Color.White.copy(alpha = 0.6f),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(32.dp))
+                        Spacer(modifier = Modifier.height(36.dp))
+
+                        // Security Checklist Panel
+                        Text(
+                            text = "SECURITY PANEL",
+                            color = Color.White.copy(alpha = 0.3f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF121214)),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Active",
+                                        tint = Color(0xFF4CAF50),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text("Isolated Cookies & Sandbox", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("Gecko sandboxing keeps your data completely secure.", color = Color.Gray, fontSize = 10.sp)
+                                    }
+                                }
+
+                                androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f), modifier = Modifier.padding(vertical = 6.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Active",
+                                        tint = Color(0xFF4CAF50),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text("Self-Destruct Storage", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("All cache, storage, and history clear instantly on exit.", color = Color.Gray, fontSize = 10.sp)
+                                    }
+                                }
+
+                                androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f), modifier = Modifier.padding(vertical = 6.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Active",
+                                        tint = Color(0xFF4CAF50),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text("Zero-Leak Architecture", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("Vault files cannot leak to other external apps.", color = Color.Gray, fontSize = 10.sp)
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(36.dp))
+
+                        // Next Gen Capabilities (Coming Soon)
+                        Text(
+                            text = "NEXT-GEN PROTECTION",
+                            color = Color.White.copy(alpha = 0.3f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF121214)),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .background(Color(0xFFFF5F1F).copy(alpha = 0.12f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Shield,
+                                            contentDescription = "Shield",
+                                            tint = Color(0xFFFF5F1F),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Decentralized Onion Routing", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("Multi-hop encrypted proxy relays inside your tabs.", color = Color.Gray, fontSize = 10.sp)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .background(Color(0xFFFF5F1F).copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("COMING SOON", color = Color(0xFFFF5F1F), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.04f), modifier = Modifier.padding(vertical = 8.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .background(Color(0xFFFF5F1F).copy(alpha = 0.12f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Lock,
+                                            contentDescription = "Lock",
+                                            tint = Color(0xFFFF5F1F),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("AI Fingerprint Shield", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("Neural traffic blocks preventing advanced data extraction.", color = Color.Gray, fontSize = 10.sp)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .background(Color(0xFFFF5F1F).copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("COMING SOON", color = Color(0xFFFF5F1F), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(36.dp))
                     }
                 } else {
-                    if (activeWebView != null) {
+                    if (activeGeckoSession != null) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            androidx.compose.runtime.key(activeGeckoSession.hashCode()) {
+                                AndroidView(
+                                    factory = { ctx ->
+                                        org.mozilla.geckoview.GeckoView(ctx).apply {
+                                            setSession(activeGeckoSession)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            if (activeTab?.isLoading == true) {
+                                LinearProgressIndicator(
+                                    progress = { (activeTab.progress) / 100f },
+                                    modifier = Modifier.fillMaxWidth().height(2.dp).align(Alignment.TopCenter),
+                                    color = ThemePurple,
+                                    trackColor = Color.Transparent
+                                )
+                            }
+                        }
+                    } else if (activeWebView != null) {
                         Box(modifier = Modifier.fillMaxSize()) {
                             androidx.compose.runtime.key(activeWebView.hashCode()) {
                                 AndroidView(
@@ -12038,7 +12711,7 @@ fun PrivateBrowserSection(
                                 LinearProgressIndicator(
                                     progress = { (activeTab.progress) / 100f },
                                     modifier = Modifier.fillMaxWidth().height(2.dp).align(Alignment.TopCenter),
-                                    color = Color(0xFF5E8AFF),
+                                    color = ThemePurple,
                                     trackColor = Color.Transparent
                                 )
                             }
@@ -12090,7 +12763,7 @@ fun PrivateBrowserSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = { activeWebView?.goBack() },
+                    onClick = { goBack() },
                     enabled = activeTab?.canGoBack == true,
                     modifier = Modifier.size(32.dp)
                 ) {
@@ -12103,7 +12776,7 @@ fun PrivateBrowserSection(
                 }
                 
                 IconButton(
-                    onClick = { activeWebView?.goForward() },
+                    onClick = { goForward() },
                     enabled = activeTab?.canGoForward == true,
                     modifier = Modifier.size(32.dp)
                 ) {
@@ -12117,7 +12790,7 @@ fun PrivateBrowserSection(
                 
                 IconButton(
                     onClick = {
-                        activeWebView?.loadUrl("about:blank")
+                        loadUrl("about:blank")
                         val index = tabs.indexOfFirst { it.id == activeTabId }
                         if (index != -1) {
                             tabs[index] = tabs[index].copy(url = "home", title = "New Tab")
@@ -12248,6 +12921,8 @@ fun PrivateBrowserSection(
                                         }
                                         IconButton(
                                             onClick = {
+                                                GeckoSessionManager.removeAndDestroySession(tab.id)
+                                                geckoSessions.remove(tab.id)
                                                 val wv = webViews[tab.id]
                                                 if (wv != null) {
                                                     try {
@@ -12283,6 +12958,201 @@ fun PrivateBrowserSection(
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        if (showMenu) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.7f))
+                    .clickable { showMenu = false }
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .clickable(enabled = false) {},
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0C0C0E)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(horizontal = 24.dp, vertical = 20.dp)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(36.dp)
+                                .height(4.dp)
+                                .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        
+                        Text(
+                            text = "BROWSER MENU",
+                            color = Color.White.copy(alpha = 0.35f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp,
+                            modifier = Modifier.align(Alignment.Start)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        val itemsList = listOf(
+                            Triple(Icons.Default.Star, "Bookmarks") {
+                                showMenu = false
+                                showBookmarks = true
+                            },
+                            Triple(Icons.Default.History, "History") {
+                                showMenu = false
+                                showHistory = true
+                            },
+                            Triple(Icons.Default.Download, "Downloads") {
+                                showMenu = false
+                                showDownloads = true
+                            },
+                            Triple(
+                                if (activeTab?.isDesktopMode == true) Icons.Default.DesktopMac else Icons.Default.Laptop, 
+                                if (activeTab?.isDesktopMode == true) "Mobile View" else "Desktop Site"
+                            ) {
+                                showMenu = false
+                                if (activeGeckoSession != null && activeTab != null) {
+                                    val newMode = !activeTab.isDesktopMode
+                                    val index = tabs.indexOfFirst { it.id == activeTabId }
+                                    if (index != -1) {
+                                        tabs[index] = tabs[index].copy(isDesktopMode = newMode)
+                                    }
+                                    GeckoSessionManager.removeAndDestroySession(activeTab.id)
+                                    val newSession = createPrivateGeckoSession(
+                                        ctx = context,
+                                        tabId = activeTab.id,
+                                        initialUrl = activeTab.url,
+                                        isDesktopMode = newMode
+                                    ) { transform ->
+                                        val idx = tabs.indexOfFirst { it.id == activeTab.id }
+                                        if (idx != -1) {
+                                            tabs[idx] = transform(tabs[idx])
+                                        }
+                                    }
+                                    geckoSessions[activeTab.id] = newSession
+                                } else {
+                                    val webView = webViews[activeTabId]
+                                    if (webView != null && activeTab != null) {
+                                        val newMode = !activeTab.isDesktopMode
+                                        val index = tabs.indexOfFirst { it.id == activeTabId }
+                                        if (index != -1) {
+                                            tabs[index] = tabs[index].copy(isDesktopMode = newMode)
+                                        }
+                                        if (newMode) {
+                                            webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                            webView.settings.loadWithOverviewMode = true
+                                            webView.settings.useWideViewPort = true
+                                            webView.settings.setSupportZoom(true)
+                                            webView.settings.builtInZoomControls = true
+                                            webView.settings.displayZoomControls = false
+                                        } else {
+                                            webView.settings.userAgentString = android.webkit.WebSettings.getDefaultUserAgent(context)
+                                            webView.settings.loadWithOverviewMode = true
+                                            webView.settings.useWideViewPort = true
+                                            webView.settings.setSupportZoom(true)
+                                            webView.settings.builtInZoomControls = true
+                                            webView.settings.displayZoomControls = false
+                                        }
+                                        webView.clearCache(true)
+                                        webView.reload()
+                                    }
+                                }
+                            },
+                            Triple(Icons.Default.Settings, "Settings") {
+                                showMenu = false
+                                showSettings = true
+                            },
+                            Triple(Icons.Default.Lock, "Exit Vault") {
+                                showMenu = false
+                                onExit()
+                            }
+                        )
+
+                        val chunked = itemsList.chunked(2)
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            chunked.forEach { rowItems ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    rowItems.forEach { (icon, label, onClickAction) ->
+                                        Card(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(56.dp)
+                                                .clickable { onClickAction() },
+                                            shape = RoundedCornerShape(14.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF161618)),
+                                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = icon,
+                                                    contentDescription = label,
+                                                    tint = Color(0xFFFF5F1F),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(10.dp))
+                                                Text(
+                                                    text = label,
+                                                    color = Color.White,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                    }
+                                    if (rowItems.size == 1) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Button(
+                            onClick = {
+                                showMenu = false
+                                if (clearHistoryOnExit) {
+                                    viewModel.clearBrowserHistory()
+                                }
+                                clearAllBrowsingData(context, tabs, webViews)
+                                onPanic()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252).copy(alpha = 0.12f)),
+                            border = BorderStroke(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f))
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(Icons.Default.Warning, "Panic Mode", tint = Color(0xFFFF5252), modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("ACTIVATE PANIC MODE", color = Color(0xFFFF5252), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }
@@ -12368,8 +13238,9 @@ fun QuickAccessItem(url: String, label: String, onClick: () -> Unit) {
     ) {
         Box(
             modifier = Modifier
-                .size(60.dp)
-                .background(Color.White, RoundedCornerShape(16.dp)),
+                .size(64.dp)
+                .background(Color(0xFF161618), RoundedCornerShape(20.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp)),
             contentAlignment = Alignment.Center
         ) {
             val domain = try {
@@ -12378,12 +13249,114 @@ fun QuickAccessItem(url: String, label: String, onClick: () -> Unit) {
             coil.compose.AsyncImage(
                 model = "https://www.google.com/s2/favicons?domain=$domain&sz=128",
                 contentDescription = label,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(label, color = Color.White, fontSize = 12.sp)
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = label,
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.2.sp
+        )
     }
+}
+
+@Composable
+fun BottomSheetGridItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    isActive: Boolean = false,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .height(72.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isActive) Color(0xFFFF5F1F).copy(alpha = 0.12f) else Color(0xFF161618)
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isActive) Color(0xFFFF5F1F).copy(alpha = 0.3f) else Color.White.copy(alpha = 0.08f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = if (isActive) Color(0xFFFF5F1F) else Color.White.copy(alpha = 0.8f),
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = title,
+                color = if (isActive) Color(0xFFFF5F1F) else Color.White.copy(alpha = 0.8f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+fun DisabledSettingsRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(Color.White.copy(alpha = 0.02f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, title, tint = Color.Gray.copy(alpha = 0.5f), modifier = Modifier.size(16.dp))
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(title, color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, color = Color.Gray.copy(alpha = 0.4f), fontSize = 11.sp)
+            }
+        }
+        Box(
+            modifier = Modifier
+                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Text("Coming Soon", color = Color.Gray.copy(alpha = 0.7f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+fun SettingsCategoryHeader(title: String) {
+    Text(
+        text = title.uppercase(),
+        color = Color.White.copy(alpha = 0.35f),
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 2.sp,
+        modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 8.dp)
+    )
 }
 
 @Composable
@@ -12726,13 +13699,13 @@ fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.gr
     val themePurple = LocalAppThemeColors.current.themePurple
     UnifiedGlassCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(14.dp),
         bgColor = Color(0xFF161B2B).copy(alpha = 0.95f),
-        elevation = 6.dp,
+        elevation = 4.dp,
         onClick = onClick
     ) {
         Column(
-            modifier = Modifier.padding(14.dp).fillMaxWidth()
+            modifier = Modifier.padding(10.dp).fillMaxWidth()
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -12741,8 +13714,8 @@ fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.gr
             ) {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .size(30.dp)
+                        .clip(RoundedCornerShape(8.dp))
                         .background(
                             androidx.compose.ui.graphics.Brush.linearGradient(
                                 colors = listOf(
@@ -12751,10 +13724,10 @@ fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.gr
                                 )
                             )
                         )
-                        .border(1.dp, themePurple.copy(alpha = 0.2f), RoundedCornerShape(10.dp)),
+                        .border(1.dp, themePurple.copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(icon, contentDescription = null, tint = themePurple, modifier = Modifier.size(18.dp))
+                    Icon(icon, contentDescription = null, tint = themePurple, modifier = Modifier.size(15.dp))
                 }
                 
                 Icon(
@@ -12765,20 +13738,20 @@ fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.gr
                 )
             }
             
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             
-            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(count, color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
+            Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(1.dp))
+            Text(count, color = Color.White.copy(alpha = 0.4f), fontSize = 10.sp)
             
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             
             // Frosted Glass Mini-Preview Container
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .height(34.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(
                         androidx.compose.ui.graphics.Brush.linearGradient(
                             colors = listOf(
@@ -12790,7 +13763,7 @@ fun EnhancedVaultCard(title: String, count: String, icon: androidx.compose.ui.gr
                     .border(
                         width = 0.5.dp,
                         color = Color.White.copy(alpha = 0.08f),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(8.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -13679,8 +14652,29 @@ fun DownloadsScreen(
         }
 
         if (filteredDownloads.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No ${tabs[selectedTab].lowercase()} downloads", color = Color.White.copy(alpha = 0.5f))
+            Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(ThemePurple.copy(alpha = 0.1f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Download, "No downloads", tint = ThemePurple, modifier = Modifier.size(36.dp))
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("No ${tabs[selectedTab].lowercase()} downloads", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Your secure sandbox downloads will appear here with encrypted offline protection.",
+                        color = Color.Gray,
+                        fontSize = 13.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
             }
         } else {
             LazyColumn(
