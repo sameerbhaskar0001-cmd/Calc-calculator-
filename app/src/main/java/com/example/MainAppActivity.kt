@@ -148,6 +148,14 @@ class MainAppActivity : FragmentActivity() {
     super.onDestroy()
   }
 
+  override fun onTrimMemory(level: Int) {
+      super.onTrimMemory(level)
+      Log.d("ActivityLifecycle", "onTrimMemory called with level: $level")
+      // Broadcast memory pressure to view model or handle here.
+      // E.g., if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) { ... }
+      viewModel?.handleMemoryPressure(level)
+  }
+
   override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
     super.onConfigurationChanged(newConfig)
     Log.d("ActivityLifecycle", "onConfigurationChanged called - orientation: ${newConfig.orientation}")

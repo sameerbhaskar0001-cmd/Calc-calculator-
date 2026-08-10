@@ -4391,6 +4391,16 @@ fun VaultTabUnlockedContent(
                                 onCheckedChange = { viewModel.setBlurThumbnails(it) }
                             )
                             Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                            val trackingProtectionEnabled by viewModel.trackingProtectionEnabled.collectAsStateWithLifecycle()
+                            SettingsSwitchRow(
+                                title = "Tracking Protection",
+                                subtitle = "Blocks tracking scripts and advertising beacons in the browser",
+                                icon = Icons.Default.Security,
+                                iconTint = Color(0xFFFF5252),
+                                checked = trackingProtectionEnabled,
+                                onCheckedChange = { viewModel.setTrackingProtectionEnabled(it) }
+                            )
+                            Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
                             val autoLockDuration by viewModel.autoLockDuration.collectAsStateWithLifecycle()
                             var showAutoLockDialog by remember { mutableStateOf(false) }
                             val currentDurationLabel = when (autoLockDuration) {
@@ -10456,7 +10466,8 @@ data class TabState(
     val isLoading: Boolean = false,
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false,
-    val isDesktopMode: Boolean = false
+    val isDesktopMode: Boolean = false,
+    val blockedCount: Int = 0
 )
 
 class ChromeContextWrapper(base: android.content.Context) : android.content.ContextWrapper(base) {
@@ -10508,9 +10519,11 @@ fun createPrivateGeckoSession(
     tabId: String,
     initialUrl: String,
     isDesktopMode: Boolean = false,
+    onDownloadRequested: ((url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long) -> Unit)? = null,
+    onCrash: (() -> Unit)? = null,
     onUpdate: ((TabState) -> TabState) -> Unit
 ): org.mozilla.geckoview.GeckoSession {
-    return GeckoSessionManager.getOrCreateSession(ctx, tabId, initialUrl, isDesktopMode, onUpdate)
+    return GeckoSessionManager.getOrCreateSession(ctx, tabId, initialUrl, isDesktopMode, onDownloadRequested, onCrash, onUpdate)
 }
 
 fun createPrivateWebView(
@@ -10523,6 +10536,7 @@ fun createPrivateWebView(
     onCreatePopup: (android.webkit.WebView?) -> Unit,
     onShowCustomView: (android.view.View, android.webkit.WebChromeClient.CustomViewCallback) -> Unit,
     onHideCustomView: () -> Unit,
+    onCrash: (() -> Unit)? = null,
     onUpdate: ((TabState) -> TabState) -> Unit
 ): android.webkit.WebView {
     val cleanMobileUa = "Mozilla/5.0 (Linux; Android 13; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
@@ -10661,6 +10675,10 @@ fun createPrivateWebView(
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(this, true)
         webViewClient = object : android.webkit.WebViewClient() {
+            override fun onRenderProcessGone(view: android.webkit.WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+                onCrash?.invoke()
+                return true
+            }
             override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 if (checkAndRedirectSocialLogin(view, url)) return
                 super.onPageStarted(view, url, favicon)
@@ -10701,6 +10719,21 @@ fun createPrivateWebView(
                 }
             }
             override fun shouldInterceptRequest(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
+                try {
+                    val url = request?.url?.toString()
+                    val isMainFrame = request?.isForMainFrame == true
+                    val currentSiteUrl = view?.url
+                    if (SecretBrowserTrackingProtection.shouldBlock(url, isMainFrame, currentSiteUrl)) {
+                        SecretBrowserTrackingProtection.onTrackerBlocked?.invoke(tabId, currentSiteUrl)
+                        return android.webkit.WebResourceResponse(
+                            "text/plain",
+                            "UTF-8",
+                            java.io.ByteArrayInputStream(ByteArray(0))
+                        )
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("WebViewTracking", "Fail-open exception in shouldInterceptRequest", e)
+                }
                 return super.shouldInterceptRequest(view, request)
             }
             override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): Boolean {
@@ -10777,6 +10810,30 @@ fun createPrivateWebView(
             }
         }
         webChromeClient = object : android.webkit.WebChromeClient() {
+            override fun onShowFileChooser(
+                webView: android.webkit.WebView?,
+                filePathCallback: android.webkit.ValueCallback<Array<android.net.Uri>>?,
+                fileChooserParams: android.webkit.WebChromeClient.FileChooserParams?
+            ): Boolean {
+                if (filePathCallback == null) return false
+                val mimes = fileChooserParams?.acceptTypes?.toList() ?: emptyList()
+                val isMultiple = fileChooserParams?.mode == android.webkit.WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE
+                val uploadType = VaultBrowserIntegration.determineUploadType(mimes)
+                
+                VaultBrowserIntegration.activeUploadRequest = BrowserUploadRequest(
+                    mimeTypes = mimes,
+                    isMultiple = isMultiple,
+                    uploadType = uploadType,
+                    onResult = { uris ->
+                        if (uris != null && uris.isNotEmpty()) {
+                            filePathCallback.onReceiveValue(uris.toTypedArray())
+                        } else {
+                            filePathCallback.onReceiveValue(null)
+                        }
+                    }
+                )
+                return true
+            }
             override fun onShowCustomView(view: android.view.View?, callback: android.webkit.WebChromeClient.CustomViewCallback?) {
                 if (view != null && callback != null) {
                     onShowCustomView(view, callback)
@@ -10849,6 +10906,11 @@ fun createPrivateWebView(
                     popupCookieManager.setAcceptThirdPartyCookies(this, true)
                     
                     webViewClient = object : android.webkit.WebViewClient() {
+                        override fun onRenderProcessGone(view: android.webkit.WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+                            // If popup crashes, just close it
+                            onCreatePopup(null)
+                            return true
+                        }
                         override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                             if (checkAndRedirectSocialLogin(view, url)) return
                             super.onPageStarted(view, url, favicon)
@@ -10964,9 +11026,18 @@ fun clearAllBrowsingData(
     webViews.clear()
     tabs.clear()
     try {
-        val cookieManager = android.webkit.CookieManager.getInstance()
-        cookieManager.removeAllCookies(null)
-        cookieManager.flush()
+        GeckoSessionManager.destroyAllSessions()
+    } catch (e: Exception) {}
+    try {
+        SecretBrowserPrivacyHelper.clearBrowsingData(
+            context = context,
+            clearHistory = false,
+            clearCookies = true,
+            clearCache = true,
+            clearSiteData = true,
+            viewModel = null,
+            onResult = {}
+        )
         android.webkit.WebStorage.getInstance().deleteAllData()
     } catch (e: Exception) {}
     try {
@@ -11043,7 +11114,10 @@ fun OldPrivateBrowserSection(
                         ctx = context,
                         tabId = tab.id,
                         initialUrl = tab.url,
-                        isDesktopMode = tab.isDesktopMode
+                        isDesktopMode = tab.isDesktopMode,
+                        onCrash = {
+                            geckoSessions.remove(tab.id)
+                        }
                     ) { transform ->
                         val index = tabs.indexOfFirst { it.id == tab.id }
                         if (index != -1) {
@@ -11097,6 +11171,9 @@ fun OldPrivateBrowserSection(
                             val activity = context as? android.app.Activity
                             activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                             setSystemBarsVisibility(activity, true)
+                        },
+                        onCrash = {
+                            webViews.remove(tab.id)
                         }
                     ) { transform ->
                         val index = tabs.indexOfFirst { it.id == tab.id }
@@ -11125,7 +11202,10 @@ fun OldPrivateBrowserSection(
                 ctx = context,
                 tabId = tabId,
                 initialUrl = url,
-                isDesktopMode = false
+                isDesktopMode = false,
+                onCrash = {
+                    geckoSessions.remove(tabId)
+                }
             ) { transform ->
                 val index = tabs.indexOfFirst { it.id == tabId }
                 if (index != -1) {
@@ -11178,6 +11258,9 @@ fun OldPrivateBrowserSection(
                     val activity = context as? android.app.Activity
                     activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                     setSystemBarsVisibility(activity, true)
+                },
+                onCrash = {
+                    webViews.remove(tabId)
                 }
             ) { transform ->
                 val index = tabs.indexOfFirst { it.id == tabId }
@@ -11539,8 +11622,13 @@ fun OldPrivateBrowserSection(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { 
-                                    android.webkit.CookieManager.getInstance().removeAllCookies(null)
-                                    android.widget.Toast.makeText(context, "Cookies wiped successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                    SecretBrowserPrivacyHelper.clearCookies(context) { success ->
+                                        if (success) {
+                                            android.widget.Toast.makeText(context, "Cookies wiped successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            android.widget.Toast.makeText(context, "Failed to wipe some cookies", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
                                 }
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -13033,7 +13121,10 @@ fun OldPrivateBrowserSection(
                                         ctx = context,
                                         tabId = activeTab.id,
                                         initialUrl = activeTab.url,
-                                        isDesktopMode = newMode
+                                        isDesktopMode = newMode,
+                                        onCrash = {
+                                            geckoSessions.remove(activeTab.id)
+                                        }
                                     ) { transform ->
                                         val idx = tabs.indexOfFirst { it.id == activeTab.id }
                                         if (idx != -1) {
@@ -14687,7 +14778,8 @@ fun DownloadsScreen(
                         task = task,
                         onOpen = { viewModel.openDownload(context, task) },
                         onDelete = { viewModel.deleteDownload(task) },
-                        onRetry = { viewModel.retryDownload(context, task) }
+                        onRetry = { viewModel.retryDownload(context, task) },
+                        onCancel = { viewModel.cancelDownload(task) }
                     )
                 }
             }
@@ -14700,7 +14792,8 @@ fun DownloadItem(
     task: DownloadTask,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onCancel: () -> Unit
 ) {
     androidx.compose.material3.Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -14807,8 +14900,14 @@ fun DownloadItem(
                         Icon(Icons.Default.Refresh, "Retry", tint = Color.White.copy(alpha = 0.7f))
                     }
                 }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, "Delete", tint = Color.White.copy(alpha = 0.4f))
+                if (task.status == "Downloading") {
+                    IconButton(onClick = onCancel) {
+                        Icon(Icons.Default.Close, "Cancel", tint = Color.White.copy(alpha = 0.7f))
+                    }
+                } else {
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, "Delete", tint = Color.White.copy(alpha = 0.4f))
+                    }
                 }
             }
         }

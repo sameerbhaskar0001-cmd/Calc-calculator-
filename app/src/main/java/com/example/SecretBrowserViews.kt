@@ -1,6 +1,11 @@
 package com.example
 
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -31,9 +36,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.animation.core.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.interaction.*
 import androidx.compose.material3.ripple
 import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.flow.collectLatest
 
 // BRAND & COLORS CONSTANTS
 val LightBg = Color(0xFFF8F9FA)
@@ -583,15 +591,244 @@ fun SecretBrowserSettingsDashboard(
     searchEngine: String,
     savePasswords: Boolean,
     clearHistoryOnExit: Boolean,
+    clearTempOnExit: Boolean,
     useGeckoView: Boolean,
+    trackingProtectionEnabled: Boolean,
+    onSetTrackingProtectionEnabled: (Boolean) -> Unit,
+    totalTrackersBlocked: Int,
     onBack: () -> Unit,
     onShowSearchEngineDialog: () -> Unit,
     onSetSavePasswords: (Boolean) -> Unit,
     onSetClearHistoryOnExit: (Boolean) -> Unit,
-    onClearCache: () -> Unit,
-    onClearCookies: () -> Unit,
+    onSetClearTempOnExit: (Boolean) -> Unit,
+    onClearBrowsingData: (clearHistory: Boolean, clearCookies: Boolean, clearCache: Boolean, clearSiteData: Boolean, onResult: (Boolean) -> Unit) -> Unit,
     onShowDownloads: () -> Unit
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var showClearTempFilesDialog by remember { mutableStateOf(false) }
+    var showClearBrowsingDataDialog by remember { mutableStateOf(false) }
+    var clearHist by remember { mutableStateOf(true) }
+    var clearCooks by remember { mutableStateOf(true) }
+    var clearCach by remember { mutableStateOf(true) }
+    var clearSite by remember { mutableStateOf(true) }
+
+    if (showClearBrowsingDataDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearBrowsingDataDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteForever,
+                        contentDescription = null,
+                        tint = DangerColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text("Clear browsing data?", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Selected browsing data will be permanently removed.",
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    // Checkbox for History
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { clearHist = !clearHist }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = clearHist,
+                            onCheckedChange = { clearHist = it },
+                            colors = CheckboxDefaults.colors(checkedColor = AccentColor)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text("History", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Clear saved browser activity logs", color = TextSecondary, fontSize = 11.sp)
+                        }
+                    }
+
+                    // Checkbox for Cookies
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { clearCooks = !clearCooks }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = clearCooks,
+                            onCheckedChange = { clearCooks = it },
+                            colors = CheckboxDefaults.colors(checkedColor = AccentColor)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text("Cookies", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Sign out of active web sessions", color = TextSecondary, fontSize = 11.sp)
+                        }
+                    }
+
+                    // Checkbox for Cache
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { clearCach = !clearCach }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = clearCach,
+                            onCheckedChange = { clearCach = it },
+                            colors = CheckboxDefaults.colors(checkedColor = AccentColor)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text("Cache", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Clear rendering files and temp assets", color = TextSecondary, fontSize = 11.sp)
+                        }
+                    }
+
+                    // Checkbox for Site Data
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { clearSite = !clearSite }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = clearSite,
+                            onCheckedChange = { clearSite = it },
+                            colors = CheckboxDefaults.colors(checkedColor = AccentColor)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text("Site Data", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Clear local storage and site settings", color = TextSecondary, fontSize = 11.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = {
+                            onClearBrowsingData(true, true, true, true) { success ->
+                                if (success) {
+                                    Toast.makeText(context, "All browsing data cleared successfully", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Some browsing data failed to clear", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            showClearBrowsingDataDialog = false
+                        }
+                    ) {
+                        Text("Clear All", color = TextSecondary)
+                    }
+
+                    Button(
+                        onClick = {
+                            if (!clearHist && !clearCooks && !clearCach && !clearSite) {
+                                Toast.makeText(context, "No categories selected", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            onClearBrowsingData(clearHist, clearCooks, clearCach, clearSite) { success ->
+                                if (success) {
+                                    Toast.makeText(context, "Selected data cleared successfully", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Failed to clear some selected data", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            showClearBrowsingDataDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = DangerColor)
+                    ) {
+                        Text("Clear", color = Color.White)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearBrowsingDataDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = LightCard,
+            tonalElevation = 6.dp
+        )
+    }
+
+    if (showClearTempFilesDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearTempFilesDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteForever,
+                        contentDescription = null,
+                        tint = DangerColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text("Clear Temporary Files?", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Text(
+                    "Are you sure you want to securely clear all temporary, incomplete-download, and upload files from the browser? This action is permanent.",
+                    color = TextSecondary,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showClearTempFilesDialog = false
+                        coroutineScope.launch(Dispatchers.IO) {
+                            val ok1 = SecretBrowserSecureDelete.cleanTemporaryUploadsDirectory(context, secure = true)
+                            val ok2 = SecretBrowserSecureDelete.cleanStaleTemporaryRemnants(context, secure = true)
+                            withContext(Dispatchers.Main) {
+                                if (ok1 && ok2) {
+                                    Toast.makeText(context, "Temporary files securely cleared successfully", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Temporary files cleared (some active/locked files skipped)", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerColor)
+                ) {
+                    Text("Clear Securely", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearTempFilesDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = LightCard,
+            tonalElevation = 6.dp
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -657,6 +894,11 @@ fun SecretBrowserSettingsDashboard(
                             Text(text = browserHistory.size.toString(), color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                             Text(text = "History Logs", color = TextSecondary, fontSize = 11.sp)
                         }
+                        Box(modifier = Modifier.width(1.dp).height(32.dp).background(BorderColor))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = totalTrackersBlocked.toString(), color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            Text(text = "Blocked", color = TextSecondary, fontSize = 11.sp)
+                        }
                     }
                 }
             }
@@ -699,6 +941,20 @@ fun SecretBrowserSettingsDashboard(
                         Column {
                             Text("Kernel Separation Sandbox", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             Text("Local files and OS layers completely hidden from renderers", color = TextSecondary, fontSize = 11.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val activeColor = if (trackingProtectionEnabled) SuccessColor else TextSecondary.copy(alpha = 0.5f)
+                        val activeText = if (trackingProtectionEnabled) "Active Shielding" else "Shielding Disabled"
+                        Icon(if (trackingProtectionEnabled) Icons.Default.CheckCircle else Icons.Default.Cancel, "Status", tint = activeColor, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Real-Time $activeText", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Block tracking networks, cross-site beacons, and ads", color = TextSecondary, fontSize = 11.sp)
                         }
                     }
                 }
@@ -777,6 +1033,37 @@ fun SecretBrowserSettingsDashboard(
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
+                                    .background(SuccessColor.copy(alpha = 0.08f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Security, "Shield", tint = SuccessColor, modifier = Modifier.size(16.dp))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("Tracking Protection", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Block scripts, beacons, and trackers", color = TextSecondary, fontSize = 11.sp)
+                            }
+                        }
+                        Switch(
+                            checked = trackingProtectionEnabled,
+                            onCheckedChange = onSetTrackingProtectionEnabled,
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = SuccessColor)
+                        )
+                    }
+
+                    HorizontalDivider(color = BorderColor)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
                                     .background(TextSecondary.copy(alpha = 0.08f), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -831,23 +1118,30 @@ fun SecretBrowserSettingsDashboard(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .premiumPressClick { onClearCache() }
-                            .padding(16.dp),
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(DangerColor.copy(alpha = 0.08f), CircleShape),
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(TextSecondary.copy(alpha = 0.08f), CircleShape),
                                 contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Delete, "Delete", tint = DangerColor, modifier = Modifier.size(16.dp))
+                            ) {
+                                Icon(Icons.Default.Delete, "Delete", tint = TextSecondary, modifier = Modifier.size(16.dp))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("Clear Temporary Browser Files on Exit", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Automatically purge temporary uploads and partial downloads on exit", color = TextSecondary, fontSize = 11.sp)
+                            }
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            Text("Clear Browser Cache", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Wipe rendering files and temporary assets", color = TextSecondary, fontSize = 11.sp)
-                        }
+                        Switch(
+                            checked = clearTempOnExit,
+                            onCheckedChange = onSetClearTempOnExit,
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = AccentColor)
+                        )
                     }
 
                     HorizontalDivider(color = BorderColor)
@@ -855,7 +1149,7 @@ fun SecretBrowserSettingsDashboard(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .premiumPressClick { onClearCookies() }
+                            .clickable { showClearBrowsingDataDialog = true }
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -863,16 +1157,53 @@ fun SecretBrowserSettingsDashboard(
                             modifier = Modifier
                                 .size(32.dp)
                                 .background(DangerColor.copy(alpha = 0.08f), CircleShape),
-                                contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.DeleteForever, "Delete cookies", tint = DangerColor, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.DeleteForever, "Clear Browsing Data", tint = DangerColor, modifier = Modifier.size(16.dp))
                         }
                         Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            Text("Clear Local Cookies", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Sign out of active browser web sessions", color = TextSecondary, fontSize = 11.sp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Clear Browsing Data", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("History, cookies, cache, and site storage", color = TextSecondary, fontSize = 11.sp)
                         }
+                        Text(
+                            text = "Clear",
+                            color = DangerColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
+
+                    HorizontalDivider(color = BorderColor)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showClearTempFilesDialog = true }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(DangerColor.copy(alpha = 0.08f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.DeleteForever, "Clear Temp", tint = DangerColor, modifier = Modifier.size(16.dp))
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Clear Temporary Browser Files", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Securely clear upload, download remnants, and browser cache files", color = TextSecondary, fontSize = 11.sp)
+                        }
+                        Text(
+                            text = "Clear",
+                            color = DangerColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
                 }
             }
 
@@ -1105,7 +1436,8 @@ fun SecretBrowserHistoryScreen(
     browserHistory: List<BrowserHistory>,
     onBack: () -> Unit,
     onSelectHistoryItem: (String) -> Unit,
-    onClearHistory: () -> Unit
+    onClearHistory: () -> Unit,
+    onDeleteHistoryItem: (BrowserHistory) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -1173,17 +1505,26 @@ fun SecretBrowserHistoryScreen(
                         colors = CardDefaults.cardColors(containerColor = LightCard),
                         border = BorderStroke(1.dp, BorderColor)
                     ) {
-                        Column(
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onSelectHistoryItem(historyItem.url) }
-                                .padding(16.dp)
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(historyItem.title, color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(historyItem.url, color = TextSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                Text(formatter.format(date), color = TextSecondary, fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp))
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(historyItem.title, color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(historyItem.url, color = TextSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                    Text(formatter.format(date), color = TextSecondary, fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp))
+                                }
+                            }
+                            IconButton(onClick = { onDeleteHistoryItem(historyItem) }) {
+                                Icon(Icons.Default.Delete, "Delete", tint = DangerColor)
                             }
                         }
                     }
@@ -1204,11 +1545,25 @@ fun PrivateBrowserSection(
     val context = LocalContext.current
     val tabs = viewModel.browserTabs
     val webViews = remember { mutableStateMapOf<String, android.webkit.WebView>() }
-    val geckoSessions = remember { mutableStateMapOf<String, org.mozilla.geckoview.GeckoSession>() }
+    val geckoSessions = remember { 
+        mutableStateMapOf<String, org.mozilla.geckoview.GeckoSession>().apply {
+            putAll(GeckoSessionManager.getActiveSessions())
+        }
+    }
     var activeTabId by remember { mutableStateOf<String?>(viewModel.activeTabId) }
+
+    var showFindInPage by remember { mutableStateOf(false) }
+    var findInPageText by remember { mutableStateOf("") }
+    var findInPageMatchCurrent by remember { mutableStateOf(0) }
+    var findInPageMatchTotal by remember { mutableStateOf(0) }
 
     LaunchedEffect(activeTabId) {
         viewModel.activeTabId = activeTabId
+        // Clear Find in Page highlights and close search when tab switches
+        showFindInPage = false
+        findInPageText = ""
+        findInPageMatchCurrent = 0
+        findInPageMatchTotal = 0
     }
 
     var showTabSwitcher by remember { mutableStateOf(false) }
@@ -1225,34 +1580,141 @@ fun PrivateBrowserSection(
     val searchEngine by viewModel.searchEngine.collectAsStateWithLifecycle()
     val savePasswords by viewModel.savePasswords.collectAsStateWithLifecycle()
     val clearHistoryOnExit by viewModel.clearHistoryOnExit.collectAsStateWithLifecycle()
+    val clearTempOnExit by viewModel.clearTempOnExit.collectAsStateWithLifecycle()
     val useGeckoView by viewModel.useGeckoView.collectAsStateWithLifecycle()
+    val trackingProtectionEnabled by viewModel.trackingProtectionEnabled.collectAsStateWithLifecycle()
+    val trackingSiteEnabled by viewModel.trackingSiteEnabled.collectAsStateWithLifecycle()
+    val trackingSiteDisabled by viewModel.trackingSiteDisabled.collectAsStateWithLifecycle()
+    val totalTrackersBlocked by viewModel.totalTrackersBlocked.collectAsStateWithLifecycle()
 
     var showSearchEngineDialog by remember { mutableStateOf(false) }
     var activePopupWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
     var pendingDownload by remember { mutableStateOf<PendingDownloadData?>(null) }
+    var showSiteSecurityDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(tabs.toList()) {
-        tabs.forEach { tab ->
-            if (!webViews.containsKey(tab.id) && !geckoSessions.containsKey(tab.id)) {
-                if (useGeckoView) {
+    LaunchedEffect(Unit) {
+        viewModel.memoryPressureEvent.collectLatest { level ->
+            if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+                // Free up RAM memory for WebView fallback instances (leaves disk cache intact)
+                webViews.values.forEach { webView ->
+                    try {
+                        webView.clearCache(false)
+                    } catch (e: Exception) {
+                        android.util.Log.e("SecretBrowser", "Failed to clear WebView memory", e)
+                    }
+                }
+                
+                try {
+                    activePopupWebView?.clearCache(false)
+                } catch (e: Exception) {
+                    android.util.Log.e("SecretBrowser", "Failed to clear popup WebView memory", e)
+                }
+                
+                // GeckoRuntime internally registers its ComponentCallbacks2 to manage its memory safely.
+                // We do not force-close GeckoSessions as that destroys user navigation state.
+                android.util.Log.i("SecretBrowser", "Low memory signal received (level $level). Cleared WebView RAM caches safely. Preserved GeckoSessions.")
+            }
+        }
+    }
+
+    LaunchedEffect(activeTabId, geckoSessions.size) {
+        geckoSessions.forEach { (id, session) ->
+            try {
+                session.setActive(id == activeTabId)
+            } catch (e: Exception) {
+                android.util.Log.e("GeckoActiveState", "Failed to set active state for $id", e)
+            }
+        }
+    }
+
+    LaunchedEffect(activeTabId, webViews.size) {
+        webViews.forEach { (id, webView) ->
+            try {
+                if (id == activeTabId) {
+                    webView.onResume()
+                } else {
+                    webView.onPause()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("WebViewActiveState", "Failed to set active state for $id", e)
+            }
+        }
+    }
+
+    LaunchedEffect(tabs.map { it.id }, activeTabId, useGeckoView) {
+        val currentTabIds = tabs.map { it.id }.toSet()
+
+        if (useGeckoView) {
+            // Safe clean up of fallback WebView resources on transition
+            webViews.values.forEach { webView ->
+                try {
+                    webView.stopLoading()
+                    (webView.parent as? android.view.ViewGroup)?.removeView(webView)
+                    webView.webViewClient = android.webkit.WebViewClient()
+                    webView.webChromeClient = android.webkit.WebChromeClient()
+                    webView.setDownloadListener(null)
+                    webView.clearHistory()
+                    webView.clearCache(true)
+                    webView.loadUrl("about:blank")
+                    webView.destroy()
+                } catch (e: Exception) {}
+            }
+            webViews.clear()
+        } else {
+            // Safe clean up of primary GeckoView resources on transition
+            geckoSessions.keys.forEach { tabId ->
+                GeckoSessionManager.removeAndDestroySession(tabId)
+            }
+            geckoSessions.clear()
+        }
+
+        // Clean up closed tabs
+        val removedGecko = geckoSessions.keys.filter { it !in currentTabIds }
+        removedGecko.forEach { GeckoSessionManager.removeAndDestroySession(it) }
+        geckoSessions.keys.retainAll(currentTabIds)
+        
+        val removedWebViews = webViews.keys.filter { it !in currentTabIds }
+        removedWebViews.forEach { webViews[it]?.destroy() }
+        webViews.keys.retainAll(currentTabIds)
+
+        // Only initialize the active tab to optimize startup and memory
+        val activeTab = tabs.find { it.id == activeTabId }
+        if (activeTab != null) {
+            val tab = activeTab
+            if (useGeckoView) {
+                if (!geckoSessions.containsKey(tab.id)) {
                     val session = createPrivateGeckoSession(
                         ctx = context,
                         tabId = tab.id,
                         initialUrl = tab.url,
-                        isDesktopMode = tab.isDesktopMode
+                        isDesktopMode = tab.isDesktopMode,
+                        onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+                            pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                        },
+                        onCrash = {
+                            // Remove session from compose map to trigger recreation in next composition
+                            geckoSessions.remove(tab.id)
+                        }
                     ) { transform ->
                         val index = tabs.indexOfFirst { it.id == tab.id }
                         if (index != -1) {
-                            tabs[index] = transform(tabs[index])
-                            val currentUrl = tabs[index].url
-                            val currentTitle = tabs[index].title
-                            if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty()) {
-                                viewModel.addBrowserHistory(currentTitle, currentUrl)
+                            val oldTab = tabs[index]
+                            val newTab = transform(oldTab)
+                            tabs[index] = newTab
+                            val currentUrl = newTab.url
+                            val currentTitle = newTab.title
+                            if (!newTab.isLoading && oldTab.isLoading) {
+                                if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty() &&
+                                    !currentUrl.startsWith("data:") && !currentUrl.startsWith("file:") && !currentUrl.startsWith("about:")) {
+                                    viewModel.addBrowserHistory(currentTitle, currentUrl)
+                                }
                             }
                         }
                     }
                     geckoSessions[tab.id] = session
-                } else {
+                }
+            } else {
+                if (!webViews.containsKey(tab.id)) {
                     val webView = createPrivateWebView(
                         ctx = context,
                         tabId = tab.id,
@@ -1293,15 +1755,23 @@ fun PrivateBrowserSection(
                             val activity = context as? android.app.Activity
                             activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                             setSystemBarsVisibility(activity, true)
+                        },
+                        onCrash = {
+                            webViews.remove(tab.id)
                         }
                     ) { transform ->
                         val index = tabs.indexOfFirst { it.id == tab.id }
                         if (index != -1) {
-                            tabs[index] = transform(tabs[index])
-                            val currentUrl = tabs[index].url
-                            val currentTitle = tabs[index].title
-                            if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty()) {
-                                viewModel.addBrowserHistory(currentTitle, currentUrl)
+                            val oldTab = tabs[index]
+                            val newTab = transform(oldTab)
+                            tabs[index] = newTab
+                            val currentUrl = newTab.url
+                            val currentTitle = newTab.title
+                            if (!newTab.isLoading && oldTab.isLoading) {
+                                if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty() &&
+                                    !currentUrl.startsWith("data:") && !currentUrl.startsWith("file:") && !currentUrl.startsWith("about:")) {
+                                    viewModel.addBrowserHistory(currentTitle, currentUrl)
+                                }
                             }
                         }
                     }
@@ -1326,6 +1796,9 @@ fun PrivateBrowserSection(
             try {
                 wv.stopLoading()
                 (wv.parent as? android.view.ViewGroup)?.removeView(wv)
+                wv.webViewClient = android.webkit.WebViewClient()
+                wv.webChromeClient = android.webkit.WebChromeClient()
+                wv.setDownloadListener(null)
                 wv.clearHistory()
                 wv.clearCache(true)
                 wv.loadUrl("about:blank")
@@ -1353,13 +1826,43 @@ fun PrivateBrowserSection(
     }
 
     val currentClearHistoryOnExit by androidx.compose.runtime.rememberUpdatedState(clearHistoryOnExit)
+    val currentClearTempOnExit by androidx.compose.runtime.rememberUpdatedState(clearTempOnExit)
     DisposableEffect(Unit) {
         onDispose {
+            if (currentClearTempOnExit) {
+                try {
+                    SecretBrowserSecureDelete.cleanTemporaryUploadsDirectory(context, secure = true)
+                    SecretBrowserSecureDelete.cleanStaleTemporaryRemnants(context, secure = true)
+                } catch (e: Exception) {
+                    android.util.Log.e("SecureDelete", "Exit cleanup failed", e)
+                }
+            }
             if (currentClearHistoryOnExit) {
                 viewModel.clearBrowserHistory()
                 clearAllBrowsingData(context, tabs, webViews)
+            } else {
+                webViews.values.forEach { webView ->
+                    try {
+                        webView.stopLoading()
+                        (webView.parent as? android.view.ViewGroup)?.removeView(webView)
+                        webView.webViewClient = android.webkit.WebViewClient()
+                        webView.webChromeClient = android.webkit.WebChromeClient()
+                        webView.setDownloadListener(null)
+                        webView.clearHistory()
+                        webView.clearCache(true)
+                        webView.loadUrl("about:blank")
+                        webView.destroy()
+                    } catch (e: Exception) {}
+                }
+                webViews.clear()
+                // Do NOT destroy GeckoSessions on screen exit to preserve tab state and history.
+                // GeckoSessions will be reused via GeckoSessionManager when the user returns.
+                // We only clear the local composition map.
+                geckoSessions.values.forEach { it.setActive(false) }
             }
-            GeckoSessionManager.destroyAllSessions()
+            if (currentClearHistoryOnExit) {
+                GeckoSessionManager.destroyAllSessions()
+            }
             geckoSessions.clear()
         }
     }
@@ -1367,6 +1870,132 @@ fun PrivateBrowserSection(
     val activeTab = tabs.find { it.id == activeTabId }
     val activeWebView = webViews[activeTabId]
     val activeGeckoSession = geckoSessions[activeTabId]
+    val isHome = activeTab?.url == "home" || activeTab?.url == "about:blank" || activeTab?.url?.isEmpty() == true
+
+    val currentUrl = activeTab?.url ?: ""
+    val currentHost = remember(currentUrl) {
+        if (currentUrl.isNotEmpty() && currentUrl != "home" && currentUrl != "about:blank") {
+            try {
+                val uri = android.net.Uri.parse(currentUrl)
+                uri.host
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+    val siteOverride = remember(currentHost, trackingSiteEnabled, trackingSiteDisabled) {
+        currentHost?.let { host ->
+            val norm = host.lowercase().trim()
+            if (trackingSiteEnabled.contains(norm)) {
+                true
+            } else if (trackingSiteDisabled.contains(norm)) {
+                false
+            } else {
+                null
+            }
+        }
+    }
+    val isProtectionActive = siteOverride ?: trackingProtectionEnabled
+
+    val performFindInPage: (String, Boolean) -> Unit = { query, forward ->
+        if (activeGeckoSession != null) {
+            val finder = activeGeckoSession.getFinder()
+            if (query.isEmpty()) {
+                finder.clear()
+                findInPageMatchCurrent = 0
+                findInPageMatchTotal = 0
+            } else {
+                val flags = if (forward) {
+                    0
+                } else {
+                    org.mozilla.geckoview.GeckoSession.FINDER_FIND_BACKWARDS
+                }
+                finder.find(query, flags).accept { result ->
+                    if (result != null) {
+                        findInPageMatchCurrent = result.current
+                        findInPageMatchTotal = result.total
+                    } else {
+                        findInPageMatchCurrent = 0
+                        findInPageMatchTotal = 0
+                    }
+                }
+            }
+        } else if (activeWebView != null) {
+            val webView = activeWebView
+            if (query.isEmpty()) {
+                webView.clearMatches()
+                findInPageMatchCurrent = 0
+                findInPageMatchTotal = 0
+            } else {
+                webView.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
+                    if (numberOfMatches > 0) {
+                        findInPageMatchCurrent = activeMatchOrdinal + 1
+                        findInPageMatchTotal = numberOfMatches
+                    } else {
+                        findInPageMatchCurrent = 0
+                        findInPageMatchTotal = 0
+                    }
+                }
+                if (forward) {
+                    webView.findAllAsync(query)
+                } else {
+                    webView.findNext(false)
+                }
+            }
+        }
+    }
+
+    val findNextMatch: () -> Unit = {
+        val query = findInPageText
+        if (query.isNotEmpty()) {
+            if (activeGeckoSession != null) {
+                activeGeckoSession.getFinder().find(query, 0).accept { result ->
+                    if (result != null) {
+                        findInPageMatchCurrent = result.current
+                        findInPageMatchTotal = result.total
+                    } else {
+                        findInPageMatchCurrent = 0
+                        findInPageMatchTotal = 0
+                    }
+                }
+            } else if (activeWebView != null) {
+                activeWebView.findNext(true)
+            }
+        }
+    }
+
+    val findPreviousMatch: () -> Unit = {
+        val query = findInPageText
+        if (query.isNotEmpty()) {
+            if (activeGeckoSession != null) {
+                activeGeckoSession.getFinder().find(query, org.mozilla.geckoview.GeckoSession.FINDER_FIND_BACKWARDS).accept { result ->
+                    if (result != null) {
+                        findInPageMatchCurrent = result.current
+                        findInPageMatchTotal = result.total
+                    } else {
+                        findInPageMatchCurrent = 0
+                        findInPageMatchTotal = 0
+                    }
+                }
+            } else if (activeWebView != null) {
+                activeWebView.findNext(false)
+            }
+        }
+    }
+
+    val closeFindInPage: () -> Unit = {
+        showFindInPage = false
+        findInPageText = ""
+        findInPageMatchCurrent = 0
+        findInPageMatchTotal = 0
+        if (activeGeckoSession != null) {
+            activeGeckoSession.getFinder().clear()
+        } else if (activeWebView != null) {
+            activeWebView.clearMatches()
+        }
+    }
 
     val stopLoading: () -> Unit = {
         if (activeGeckoSession != null) {
@@ -1615,6 +2244,9 @@ fun PrivateBrowserSection(
             },
             onClearHistory = {
                 viewModel.clearBrowserHistory()
+            },
+            onDeleteHistoryItem = { item ->
+                viewModel.deleteBrowserHistoryItem(item)
             }
         )
         return
@@ -1628,18 +2260,26 @@ fun PrivateBrowserSection(
             searchEngine = searchEngine,
             savePasswords = savePasswords,
             clearHistoryOnExit = clearHistoryOnExit,
+            clearTempOnExit = clearTempOnExit,
             useGeckoView = useGeckoView,
+            trackingProtectionEnabled = trackingProtectionEnabled,
+            onSetTrackingProtectionEnabled = { viewModel.setTrackingProtectionEnabled(it) },
+            totalTrackersBlocked = totalTrackersBlocked,
             onBack = { showSettings = false },
             onShowSearchEngineDialog = { showSearchEngineDialog = true },
             onSetSavePasswords = { viewModel.setSavePasswords(it) },
             onSetClearHistoryOnExit = { viewModel.setClearHistoryOnExit(it) },
-            onClearCache = {
-                android.webkit.WebStorage.getInstance().deleteAllData()
-                Toast.makeText(context, "Browser Cache Purged", Toast.LENGTH_SHORT).show()
-            },
-            onClearCookies = {
-                android.webkit.CookieManager.getInstance().removeAllCookies(null)
-                Toast.makeText(context, "All Cookies Purged", Toast.LENGTH_SHORT).show()
+            onSetClearTempOnExit = { viewModel.setClearTempOnExit(it) },
+            onClearBrowsingData = { clearHistory, clearCookies, clearCache, clearSiteData, onResult ->
+                SecretBrowserPrivacyHelper.clearBrowsingData(
+                    context = context,
+                    clearHistory = clearHistory,
+                    clearCookies = clearCookies,
+                    clearCache = clearCache,
+                    clearSiteData = clearSiteData,
+                    viewModel = viewModel,
+                    onResult = onResult
+                )
             },
             onShowDownloads = {
                 showSettings = false
@@ -1686,9 +2326,187 @@ fun PrivateBrowserSection(
         }
     }
 
+    if (showSiteSecurityDialog && currentHost != null) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showSiteSecurityDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = LightCard),
+                border = BorderStroke(1.dp, BorderColor)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(if (isProtectionActive) SuccessColor.copy(alpha = 0.08f) else TextSecondary.copy(alpha = 0.08f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = null,
+                                tint = if (isProtectionActive) SuccessColor else TextSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column {
+                            Text("Site Security Info", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(currentHost, color = TextSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+
+                    androidx.compose.material3.HorizontalDivider(color = BorderColor)
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = SuccessColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Connection is encrypted & isolated",
+                            color = TextPrimary,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isProtectionActive) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                            contentDescription = null,
+                            tint = if (isProtectionActive) SuccessColor else DangerColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = if (isProtectionActive) "Tracking Protection ACTIVE" else "Tracking Protection INACTIVE",
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    val pageBlocked = activeTab?.blockedCount ?: 0
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Block,
+                            contentDescription = null,
+                            tint = if (pageBlocked > 0) DangerColor else TextSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "$pageBlocked trackers blocked on this page",
+                            color = TextPrimary,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    androidx.compose.material3.HorizontalDivider(color = BorderColor)
+
+                    Text(
+                        text = "PER-SITE OVERRIDE",
+                        color = AccentColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (siteOverride == true) SuccessColor.copy(alpha = 0.1f) else Color.Transparent)
+                                .border(1.dp, if (siteOverride == true) SuccessColor else BorderColor, RoundedCornerShape(12.dp))
+                                .clickable {
+                                    viewModel.setSiteTrackingProtection(currentHost, true)
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = siteOverride == true,
+                                onClick = { viewModel.setSiteTrackingProtection(currentHost, true) },
+                                colors = RadioButtonDefaults.colors(selectedColor = SuccessColor)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Always Enable Protection", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (siteOverride == false) DangerColor.copy(alpha = 0.1f) else Color.Transparent)
+                                .border(1.dp, if (siteOverride == false) DangerColor else BorderColor, RoundedCornerShape(12.dp))
+                                .clickable {
+                                    viewModel.setSiteTrackingProtection(currentHost, false)
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = siteOverride == false,
+                                onClick = { viewModel.setSiteTrackingProtection(currentHost, false) },
+                                colors = RadioButtonDefaults.colors(selectedColor = DangerColor)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Always Disable Protection", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (siteOverride == null) AccentColor.copy(alpha = 0.1f) else Color.Transparent)
+                                .border(1.dp, if (siteOverride == null) AccentColor else BorderColor, RoundedCornerShape(12.dp))
+                                .clickable {
+                                    viewModel.setSiteTrackingProtection(currentHost, null)
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = siteOverride == null,
+                                onClick = { viewModel.setSiteTrackingProtection(currentHost, null) },
+                                colors = RadioButtonDefaults.colors(selectedColor = AccentColor)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Use Global Default (${if (trackingProtectionEnabled) "ON" else "OFF"})", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+
+                    Button(
+                        onClick = { showSiteSecurityDialog = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Done", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize().background(LightBg)) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
-            val isHome = activeTab?.url == "home" || activeTab?.url == "about:blank" || activeTab?.url?.isEmpty() == true
 
             // TOP ADDRESS / BAR AREA
             Row(
@@ -1807,10 +2625,14 @@ fun PrivateBrowserSection(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                 Icon(
-                                    imageVector = Icons.Default.Lock,
-                                    contentDescription = "Secure Connection",
-                                    tint = SuccessColor,
-                                    modifier = Modifier.size(12.dp)
+                                    imageVector = if (isProtectionActive) Icons.Default.Security else Icons.Default.Lock,
+                                    contentDescription = "Security Info",
+                                    tint = if (isProtectionActive) SuccessColor else TextSecondary,
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clickable {
+                                            showSiteSecurityDialog = true
+                                        }
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 val displayUrl = try {
@@ -1867,6 +2689,21 @@ fun PrivateBrowserSection(
                 }
             }
 
+            if (showFindInPage && !isHome) {
+                FindInPageBar(
+                    query = findInPageText,
+                    onQueryChange = { text ->
+                        findInPageText = text
+                        performFindInPage(text, true)
+                    },
+                    currentMatch = findInPageMatchCurrent,
+                    totalMatch = findInPageMatchTotal,
+                    onPrev = { findPreviousMatch() },
+                    onNext = { findNextMatch() },
+                    onClose = { closeFindInPage() }
+                )
+            }
+
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 if (isHome) {
                     SecretBrowserHome(
@@ -1905,6 +2742,8 @@ fun PrivateBrowserSection(
                                 viewModel.clearBrowserHistory()
                             }
                             clearAllBrowsingData(context, tabs, webViews)
+                            geckoSessions.clear()
+                            openNewTab("home")
                             Toast.makeText(context, "Session Purged Successfully!", Toast.LENGTH_SHORT).show()
                         }
                     )
@@ -1970,30 +2809,36 @@ fun PrivateBrowserSection(
                         }
                     }
 
-                    val isBookmarked = browserBookmarks.any { it.url == activeTab?.url }
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(horizontal = 16.dp, vertical = 90.dp)
-                            .size(48.dp)
-                            .background(LightCard, CircleShape)
-                            .border(1.dp, BorderColor, CircleShape)
-                            .premiumPressClick {
-                                if (isBookmarked) {
-                                    viewModel.removeBrowserBookmark(activeTab?.url ?: "")
-                                    Toast.makeText(context, "Removed from Bookmarks", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    viewModel.addBrowserBookmark(activeTab?.title ?: "New Tab", activeTab?.url ?: "")
-                                    Toast.makeText(context, "Added to Bookmarks", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
-                            contentDescription = "Bookmark",
-                            tint = if (isBookmarked) Color(0xFFFFC107) else TextSecondary
-                        )
+                    val currentUrl = activeTab?.url ?: ""
+                    val canBookmark = currentUrl.isNotEmpty() && currentUrl != "home" && currentUrl != "about:blank" &&
+                            !currentUrl.startsWith("data:") && !currentUrl.startsWith("file:") && !currentUrl.startsWith("about:")
+
+                    if (canBookmark) {
+                        val isBookmarked = browserBookmarks.any { it.url == currentUrl }
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(horizontal = 16.dp, vertical = 90.dp)
+                                .size(48.dp)
+                                .background(LightCard, CircleShape)
+                                .border(1.dp, BorderColor, CircleShape)
+                                .premiumPressClick {
+                                    if (isBookmarked) {
+                                        viewModel.removeBrowserBookmark(currentUrl)
+                                        Toast.makeText(context, "Removed from Bookmarks", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        viewModel.addBrowserBookmark(activeTab?.title ?: "New Tab", currentUrl)
+                                        Toast.makeText(context, "Added to Bookmarks", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = "Bookmark",
+                                tint = if (isBookmarked) Color(0xFFFFC107) else TextSecondary
+                            )
+                        }
                     }
                 }
             }
@@ -2269,7 +3114,13 @@ fun PrivateBrowserSection(
                                                     ctx = context,
                                                     tabId = activeTab.id,
                                                     initialUrl = activeTab.url,
-                                                    isDesktopMode = newMode
+                                                    isDesktopMode = newMode,
+                                                    onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+                                                        pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                                                    },
+                                                    onCrash = {
+                                                        geckoSessions.remove(activeTab.id)
+                                                    }
                                                 ) { transform ->
                                                     val idx = tabs.indexOfFirst { it.id == activeTab.id }
                                                     if (idx != -1) {
@@ -2346,6 +3197,28 @@ fun PrivateBrowserSection(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .premiumPressClick {
+                                            showMenu = false
+                                            if (isHome) {
+                                                Toast.makeText(context, "Cannot search on Home page", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                showFindInPage = true
+                                                findInPageText = ""
+                                            }
+                                        }
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Search, null, tint = AccentColor, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Text("Find in Page", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                androidx.compose.material3.HorizontalDivider(color = BorderColor)
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
                                         .premiumPressClick { showMenu = false; showSettings = true }
                                         .padding(16.dp),
                                     verticalAlignment = Alignment.CenterVertically
@@ -2362,10 +3235,17 @@ fun PrivateBrowserSection(
                         Button(
                             onClick = {
                                 showMenu = false
+                                try {
+                                    SecretBrowserSecureDelete.cleanTemporaryUploadsDirectory(context, secure = true)
+                                    SecretBrowserSecureDelete.cleanStaleTemporaryRemnants(context, secure = true)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("SecureDelete", "Panic cleanup failed", e)
+                                }
                                 if (clearHistoryOnExit) {
                                     viewModel.clearBrowserHistory()
                                 }
                                 clearAllBrowsingData(context, tabs, webViews)
+                                geckoSessions.clear()
                                 onPanic()
                             },
                             modifier = Modifier
@@ -2388,6 +3268,124 @@ fun PrivateBrowserSection(
                     }
                 }
             }
+        }
+        BrowserUploadSourceDialog(viewModel = viewModel)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FindInPageBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    currentMatch: Int,
+    totalMatch: Int,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+    onClose: () -> Unit
+) {
+    val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(LightBg)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .drawBehind {
+                drawLine(
+                    color = BorderColor,
+                    start = androidx.compose.ui.geometry.Offset(0f, size.height),
+                    end = androidx.compose.ui.geometry.Offset(size.width, size.height),
+                    strokeWidth = 1.dp.toPx()
+                )
+            },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            placeholder = { Text("Find in page...", color = TextSecondary, fontSize = 13.sp) },
+            modifier = Modifier
+                .weight(1f)
+                .height(40.dp)
+                .focusRequester(focusRequester),
+            shape = RoundedCornerShape(20.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = LightCard,
+                unfocusedContainerColor = LightCard,
+                focusedBorderColor = AccentColor,
+                unfocusedBorderColor = BorderColor,
+                cursorColor = AccentColor,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary
+            ),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            keyboardActions = KeyboardActions(
+                onNext = {
+                    onNext()
+                }
+            ),
+            textStyle = TextStyle(fontSize = 13.sp),
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    Text(
+                        text = if (totalMatch > 0) "$currentMatch/$totalMatch" else "0/0",
+                        color = if (totalMatch > 0) AccentColor else TextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                }
+            }
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        IconButton(
+            onClick = onPrev,
+            modifier = Modifier.size(36.dp),
+            enabled = query.isNotEmpty()
+        ) {
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowUp,
+                contentDescription = "Previous Match",
+                tint = if (query.isNotEmpty()) TextPrimary else TextSecondary.copy(alpha = 0.5f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(4.dp))
+
+        IconButton(
+            onClick = onNext,
+            modifier = Modifier.size(36.dp),
+            enabled = query.isNotEmpty()
+        ) {
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = "Next Match",
+                tint = if (query.isNotEmpty()) TextPrimary else TextSecondary.copy(alpha = 0.5f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(4.dp))
+
+        IconButton(
+            onClick = onClose,
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
+                tint = TextPrimary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

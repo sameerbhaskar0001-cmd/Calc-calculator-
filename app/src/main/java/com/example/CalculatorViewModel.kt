@@ -210,6 +210,15 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         audioPositionJob = null
     }
 
+    private val _memoryPressureEvent = kotlinx.coroutines.flow.MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    val memoryPressureEvent: kotlinx.coroutines.flow.SharedFlow<Int> = _memoryPressureEvent
+
+    fun handleMemoryPressure(level: Int) {
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            _memoryPressureEvent.tryEmit(level)
+        }
+    }
+
     fun onAppBackgrounded() {
         if (!_backgroundAudioPlaybackEnabled.value) {
             pauseAudio()
@@ -342,6 +351,34 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             fetchCloudBackupInfo()
         }
         generateRecoveryCodeIfNeeded()
+
+        // Initialize Tracking Protection Engine overrides and callbacks
+        SecretBrowserTrackingProtection.isGlobalEnabled = { _trackingProtectionEnabled.value }
+        SecretBrowserTrackingProtection.getSiteOverride = { host ->
+            val norm = host.lowercase().trim()
+            if (_trackingSiteEnabled.value.contains(norm)) {
+                true
+            } else if (_trackingSiteDisabled.value.contains(norm)) {
+                false
+            } else {
+                null
+            }
+        }
+        SecretBrowserTrackingProtection.onTrackerBlocked = { tabId, currentSiteUrl ->
+            // Increment global count
+            val newTotal = _totalTrackersBlocked.value + 1
+            _totalTrackersBlocked.value = newTotal
+            prefs.edit().putInt("browser_total_trackers_blocked", newTotal).apply()
+
+            // Increment the blocked count for this tab if valid tabId is supplied
+            if (tabId != null) {
+                val index = browserTabs.indexOfFirst { it.id == tabId }
+                if (index != -1) {
+                    val oldTab = browserTabs[index]
+                    browserTabs[index] = oldTab.copy(blockedCount = oldTab.blockedCount + 1)
+                }
+            }
+        }
 
         // Cleanup secure sharing temporary files from previous sessions
         viewModelScope.launch(Dispatchers.IO) {
@@ -1457,8 +1494,11 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val currencyFormat = DecimalFormat("#.##", DecimalFormatSymbols(Locale.US))
 
     init {
-        loadBrowserBookmarks()
-        loadBrowserHistory()
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            loadBrowserBookmarks()
+            loadBrowserHistory()
+            loadDownloads()
+        }
         // Force clear old cached INR rate if it equals 95.6
         if (prefs.contains("rate_INR") && prefs.getFloat("rate_INR", 0f) == 95.6f) {
             prefs.edit().remove("rate_INR").apply()
@@ -4091,10 +4131,65 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _clearHistoryOnExit = MutableStateFlow(prefs.getBoolean("browser_clear_history", false))
     val clearHistoryOnExit: StateFlow<Boolean> = _clearHistoryOnExit.asStateFlow()
 
+    private val _clearTempOnExit = MutableStateFlow(prefs.getBoolean("browser_clear_temp_on_exit", false))
+    val clearTempOnExit: StateFlow<Boolean> = _clearTempOnExit.asStateFlow()
+
     private val _useGeckoView = MutableStateFlow(prefs.getBoolean("browser_use_geckoview", true))
     val useGeckoView: StateFlow<Boolean> = _useGeckoView.asStateFlow()
 
+    private val _trackingProtectionEnabled = MutableStateFlow(prefs.getBoolean("browser_tracking_protection_enabled", true))
+    val trackingProtectionEnabled: StateFlow<Boolean> = _trackingProtectionEnabled.asStateFlow()
+
+    private val _trackingSiteEnabled = MutableStateFlow(prefs.getStringSet("browser_tracking_site_enabled", emptySet()) ?: emptySet())
+    val trackingSiteEnabled: StateFlow<Set<String>> = _trackingSiteEnabled.asStateFlow()
+
+    private val _trackingSiteDisabled = MutableStateFlow(prefs.getStringSet("browser_tracking_site_disabled", emptySet()) ?: emptySet())
+    val trackingSiteDisabled: StateFlow<Set<String>> = _trackingSiteDisabled.asStateFlow()
+
+    private val _totalTrackersBlocked = MutableStateFlow(prefs.getInt("browser_total_trackers_blocked", 0))
+    val totalTrackersBlocked: StateFlow<Int> = _totalTrackersBlocked.asStateFlow()
+
+    fun setTrackingProtectionEnabled(enabled: Boolean) {
+        _trackingProtectionEnabled.value = enabled
+        prefs.edit().putBoolean("browser_tracking_protection_enabled", enabled).apply()
+    }
+
+    fun setSiteTrackingProtection(domain: String, enabled: Boolean?) {
+        val normDomain = domain.trim().lowercase()
+        if (normDomain.isEmpty()) return
+
+        val currentEnabled = _trackingSiteEnabled.value.toMutableSet()
+        val currentDisabled = _trackingSiteDisabled.value.toMutableSet()
+
+        when (enabled) {
+            true -> {
+                currentEnabled.add(normDomain)
+                currentDisabled.remove(normDomain)
+            }
+            false -> {
+                currentDisabled.add(normDomain)
+                currentEnabled.remove(normDomain)
+            }
+            null -> {
+                currentEnabled.remove(normDomain)
+                currentDisabled.remove(normDomain)
+            }
+        }
+
+        _trackingSiteEnabled.value = currentEnabled
+        _trackingSiteDisabled.value = currentDisabled
+
+        prefs.edit()
+            .putStringSet("browser_tracking_site_enabled", currentEnabled)
+            .putStringSet("browser_tracking_site_disabled", currentDisabled)
+            .apply()
+    }
+
     fun addBrowserBookmark(title: String, url: String) {
+        if (url == "home" || url == "about:blank" || url.isBlank() ||
+            url.startsWith("data:") || url.startsWith("file:") || url.startsWith("about:")) {
+            return
+        }
         val current = _browserBookmarks.value.toMutableList()
         if (!current.any { it.url == url }) {
             current.add(BrowserBookmark(title, url))
@@ -4133,6 +4228,13 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         saveBrowserHistory(emptyList())
     }
 
+    fun deleteBrowserHistoryItem(item: BrowserHistory) {
+        val current = _browserHistory.value.toMutableList()
+        current.remove(item)
+        _browserHistory.value = current
+        saveBrowserHistory(current)
+    }
+
     fun setSearchEngine(engine: String) {
         _searchEngine.value = engine
         prefs.edit().putString("browser_search_engine", engine).apply()
@@ -4146,6 +4248,11 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     fun setClearHistoryOnExit(clear: Boolean) {
         _clearHistoryOnExit.value = clear
         prefs.edit().putBoolean("browser_clear_history", clear).apply()
+    }
+
+    fun setClearTempOnExit(clear: Boolean) {
+        _clearTempOnExit.value = clear
+        prefs.edit().putBoolean("browser_clear_temp_on_exit", clear).apply()
     }
 
     fun setUseGeckoView(use: Boolean) {
@@ -4204,12 +4311,96 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
 val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
 
+    private val activeDownloadJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+
+    private fun saveDownloads(list: List<DownloadTask>) {
+        try {
+            val json = org.json.JSONArray()
+            for (item in list) {
+                val obj = org.json.JSONObject()
+                obj.put("id", item.id)
+                obj.put("url", item.url)
+                obj.put("filename", item.filename)
+                obj.put("progress", item.progress.toDouble())
+                obj.put("status", item.status)
+                obj.put("sizeString", item.sizeString)
+                obj.put("mimeType", item.mimeType)
+                obj.put("filePath", item.filePath)
+                json.put(obj)
+            }
+            prefs.edit().putString("browser_downloads", json.toString()).apply()
+        } catch (e: Exception) {}
+    }
+
+    private fun loadDownloads() {
+        try {
+            val jsonStr = prefs.getString("browser_downloads", "[]") ?: "[]"
+            val json = org.json.JSONArray(jsonStr)
+            val list = mutableListOf<DownloadTask>()
+            for (i in 0 until json.length()) {
+                val obj = json.getJSONObject(i)
+                list.add(
+                    DownloadTask(
+                        id = obj.getString("id"),
+                        url = obj.getString("url"),
+                        filename = obj.getString("filename"),
+                        progress = obj.getDouble("progress").toFloat(),
+                        status = obj.getString("status"),
+                        sizeString = obj.optString("sizeString", "0 B"),
+                        mimeType = obj.optString("mimeType", ""),
+                        filePath = obj.optString("filePath", "")
+                    )
+                )
+            }
+            _downloads.value = list
+        } catch (e: Exception) {}
+    }
+
     fun clearDownloads() {
+        activeDownloadJobs.values.forEach { it.cancel() }
+        activeDownloadJobs.clear()
         _downloads.value = emptyList()
+        saveDownloads(emptyList())
     }
 
     fun removeDownload(taskId: String) {
-        _downloads.value = _downloads.value.filter { it.id != taskId }
+        activeDownloadJobs.remove(taskId)?.cancel()
+        val current = _downloads.value.filter { it.id != taskId }
+        _downloads.value = current
+        saveDownloads(current)
+    }
+
+    fun cancelDownload(task: DownloadTask) {
+        val job = activeDownloadJobs.remove(task.id)
+        job?.cancel()
+        val current = _downloads.value.map { t ->
+            if (t.id == task.id) t.copy(status = "Cancelled", progress = 0f) else t
+        }
+        _downloads.value = current
+        saveDownloads(current)
+    }
+
+    fun saveDownloadedFile(context: Context, filename: String, mimeType: String, bytes: ByteArray): String? {
+        return try {
+            val downloadsDir = File(context.filesDir, "downloads")
+            if (!downloadsDir.exists()) {
+                downloadsDir.mkdirs()
+            }
+            val destFile = File(downloadsDir, filename)
+            var finalFile = destFile
+            var count = 1
+            while (finalFile.exists()) {
+                val nameWithoutExt = finalFile.nameWithoutExtension
+                val ext = finalFile.extension
+                finalFile = File(downloadsDir, if (ext.isNotEmpty()) "${nameWithoutExt}_$count.$ext" else "${nameWithoutExt}_$count")
+                count++
+            }
+            finalFile.writeBytes(bytes)
+            finalFile.absolutePath
+        } catch (e: Exception) {
+            android.util.Log.e("BrowserDownload", "Failed to save downloaded file", e)
+            null
+        }
     }
 
     fun addDownloadedFileToVault(context: Context, filename: String, mimeType: String, bytes: ByteArray): String? {
@@ -4253,14 +4444,17 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
         }
     }
 
-        fun deleteDownload(task: DownloadTask) {
+    fun deleteDownload(task: DownloadTask) {
+        cancelDownload(task)
         if (task.filePath.isNotEmpty()) {
             val file = java.io.File(task.filePath)
             if (file.exists()) {
                 file.delete()
             }
         }
-        _downloads.value = _downloads.value.filter { it.id != task.id }
+        val current = _downloads.value.filter { it.id != task.id }
+        _downloads.value = current
+        saveDownloads(current)
     }
 
     fun openDownload(context: Context, task: DownloadTask) {
@@ -4289,11 +4483,13 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
     }
 
     fun retryDownload(context: Context, task: DownloadTask) {
-        _downloads.value = _downloads.value.filter { it.id != task.id }
+        val current = _downloads.value.filter { it.id != task.id }
+        _downloads.value = current
+        saveDownloads(current)
         startVaultDownload(context, task.url, "Mozilla/5.0", "", task.mimeType, 0)
     }
 
-    fun startVaultDownload(context: Context, url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long) {
+    fun startVaultDownload(context: Context, url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long, destination: DownloadDestination = DownloadDestination.DEVICE) {
         val taskId = java.util.UUID.randomUUID().toString()
         var filename = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType)
         if (filename.isNullOrEmpty() || filename == "downloadfile.bin") {
@@ -4314,9 +4510,11 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
             sizeString = formatFileSize(contentLength),
             mimeType = mimeType
         )
-        _downloads.value = _downloads.value + newTask
+        val initialDownloads = _downloads.value + newTask
+        _downloads.value = initialDownloads
+        saveDownloads(initialDownloads)
         
-        viewModelScope.launch(Dispatchers.IO) {
+        val job = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val urlObj = java.net.URL(url)
                 val connection = urlObj.openConnection() as java.net.HttpURLConnection
@@ -4347,11 +4545,19 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     outputStream.close()
                     
                     val finalMime = connection.contentType ?: mimeType
-                    val targetFilePath = addDownloadedFileToVault(context, filename, finalMime, fileBytes)
+                    val downloadHandler = VaultDownloadHandler(context)
+                    val targetFilePath = downloadHandler.saveDownloadedFile(
+                        filename = filename,
+                        mimeType = finalMime,
+                        bytes = fileBytes,
+                        destination = destination,
+                        deviceSaver = { fname, mime, b -> saveDownloadedFile(context, fname, mime, b) },
+                        vaultSaver = { fname, mime, b -> addDownloadedFileToVault(context, fname, mime, b) }
+                    )
                     val success = targetFilePath != null
                     
                     withContext(Dispatchers.Main) {
-                        _downloads.value = _downloads.value.map { task ->
+                        val finalDownloads = _downloads.value.map { task ->
                             if (task.id == taskId) {
                                 task.copy(
                                     progress = 1f,
@@ -4361,30 +4567,39 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                                 )
                             } else task
                         }
+                        _downloads.value = finalDownloads
+                        saveDownloads(finalDownloads)
                         if (success) {
-                            android.widget.Toast.makeText(context, "$filename downloaded directly to Vault!", android.widget.Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(context, "$filename download completed!", android.widget.Toast.LENGTH_LONG).show()
                         } else {
                             android.widget.Toast.makeText(context, "Failed to save downloaded file $filename", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        _downloads.value = _downloads.value.map { task ->
+                        val finalDownloads = _downloads.value.map { task ->
                             if (task.id == taskId) task.copy(status = "Failed") else task
                         }
+                        _downloads.value = finalDownloads
+                        saveDownloads(finalDownloads)
                         android.widget.Toast.makeText(context, "HTTP error: ${connection.responseCode}", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("VaultDownload", "Error downloading file", e)
                 withContext(Dispatchers.Main) {
-                    _downloads.value = _downloads.value.map { task ->
+                    val finalDownloads = _downloads.value.map { task ->
                         if (task.id == taskId) task.copy(status = "Failed") else task
                     }
+                    _downloads.value = finalDownloads
+                    saveDownloads(finalDownloads)
                     android.widget.Toast.makeText(context, "Download error: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
                 }
+            } finally {
+                activeDownloadJobs.remove(taskId)
             }
         }
+        activeDownloadJobs[taskId] = job
     }
 
     fun registerDirectVaultFile(context: Context, file: File, originalName: String, mimeType: String) {
@@ -4791,6 +5006,7 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     _searchEngine.value = prefs.getString("browser_search_engine", "DuckDuckGo") ?: "DuckDuckGo"
                     _savePasswords.value = prefs.getBoolean("browser_save_passwords", true)
                     _clearHistoryOnExit.value = prefs.getBoolean("browser_clear_history", false)
+                    _clearTempOnExit.value = prefs.getBoolean("browser_clear_temp_on_exit", false)
                     _useGeckoView.value = prefs.getBoolean("browser_use_geckoview", true)
                     _vaultPin.value = prefs.getString("vault_pin", "7777") ?: "7777"
                     _decoyPin.value = prefs.getString("decoy_pin", "1111") ?: "1111"
