@@ -288,7 +288,8 @@ fun BrowserUploadSourceDialog(
     }
 
     val tempPhotoFile = remember {
-        File(context.cacheDir, "upload_temp_capture.jpg").apply {
+        val cacheDir = context.externalCacheDir ?: context.cacheDir
+        File(cacheDir, "upload_temp_capture.jpg").apply {
             parentFile?.mkdirs()
         }
     }
@@ -313,7 +314,8 @@ fun BrowserUploadSourceDialog(
     }
 
     val tempVideoFile = remember {
-        File(context.cacheDir, "upload_temp_capture.mp4").apply {
+        val cacheDir = context.externalCacheDir ?: context.cacheDir
+        File(cacheDir, "upload_temp_capture.mp4").apply {
             parentFile?.mkdirs()
         }
     }
@@ -404,10 +406,14 @@ fun BrowserUploadSourceDialog(
                                     viewModel.isPickingFile = true
                                     try {
                                         if (isImageAllowed) {
+                                            val parent = tempPhotoFile.parentFile
+                                            if (parent != null && !parent.exists()) parent.mkdirs()
                                             if (tempPhotoFile.exists()) tempPhotoFile.delete()
                                             tempPhotoFile.createNewFile()
                                             takePhotoLauncher.launch(tempPhotoUri)
                                         } else {
+                                            val parent = tempVideoFile.parentFile
+                                            if (parent != null && !parent.exists()) parent.mkdirs()
                                             if (tempVideoFile.exists()) tempVideoFile.delete()
                                             tempVideoFile.createNewFile()
                                             recordVideoLauncher.launch(tempVideoUri)
@@ -415,6 +421,8 @@ fun BrowserUploadSourceDialog(
                                     } catch (e: Exception) {
                                         android.util.Log.e("VaultUpload", "Failed to launch camera capture", e)
                                         viewModel.isPickingFile = false
+                                        activeUpload.onResult(null)
+                                        VaultBrowserIntegration.activeUploadRequest = null
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("upload_source_camera"),

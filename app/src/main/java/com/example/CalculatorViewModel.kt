@@ -4534,10 +4534,10 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
         val current = _downloads.value.filter { it.id != task.id }
         _downloads.value = current
         saveDownloads(current)
-        startVaultDownload(context, task.url, "Mozilla/5.0", "", task.mimeType, 0)
+        startVaultDownload(context, task.url, "Mozilla/5.0", "", task.mimeType, 0, destination = DownloadDestination.SECRET_VAULT)
     }
 
-    fun startVaultDownload(context: Context, url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long, destination: DownloadDestination = DownloadDestination.DEVICE) {
+    fun startVaultDownload(context: Context, url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long, destination: DownloadDestination = DownloadDestination.SECRET_VAULT) {
         val taskId = java.util.UUID.randomUUID().toString()
         var filename = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType)
         if (filename.isNullOrEmpty() || filename == "downloadfile.bin") {
@@ -4566,7 +4566,14 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
             try {
                 val urlObj = java.net.URL(url)
                 val connection = urlObj.openConnection() as java.net.HttpURLConnection
+                connection.instanceFollowRedirects = true
                 connection.setRequestProperty("User-Agent", userAgent)
+                try {
+                    val cookie = android.webkit.CookieManager.getInstance().getCookie(url)
+                    if (!cookie.isNullOrEmpty()) {
+                        connection.setRequestProperty("Cookie", cookie)
+                    }
+                } catch (e: Exception) {}
                 connection.connect()
                 
                 if (connection.responseCode in 200..299) {

@@ -2228,7 +2228,8 @@ fun PrivateBrowserSection(
                             download.userAgent,
                             download.contentDisposition,
                             download.mimeType,
-                            download.contentLength
+                            download.contentLength,
+                            destination = DownloadDestination.SECRET_VAULT
                         )
                         pendingDownload = null
                     },
