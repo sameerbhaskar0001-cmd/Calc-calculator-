@@ -225,6 +225,12 @@ object GeckoSessionManager {
                 onCrashCallbacks[tabId]?.invoke()
             }
 
+            override fun onFullScreen(s: GeckoSession, fullScreen: Boolean) {
+                onUpdate { tab ->
+                    tab.copy(isFullScreen = fullScreen)
+                }
+            }
+
             override fun onExternalResponse(s: GeckoSession, response: WebResponse) {
                 val url = response.uri ?: ""
                 val headers = response.headers
@@ -232,7 +238,7 @@ object GeckoSessionManager {
                 val mimeType = headers["Content-Type"] ?: headers["content-type"] ?: ""
                 val contentLength = (headers["Content-Length"] ?: headers["content-length"])?.toLongOrNull() ?: 0L
                 val userAgent = "Mozilla/5.0"
-                onDownloadCallbacks[tabId]?.invoke(url, userAgent, contentDisposition, mimeType, contentLength)
+                android.os.Handler(android.os.Looper.getMainLooper()).post { onDownloadCallbacks[tabId]?.invoke(url, userAgent, contentDisposition, mimeType, contentLength) }
             }
         }
 

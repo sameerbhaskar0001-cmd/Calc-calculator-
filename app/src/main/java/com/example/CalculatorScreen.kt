@@ -381,20 +381,30 @@ private fun dynamicSwitchColors() = androidx.compose.material3.SwitchDefaults.co
     uncheckedTrackColor = Color.White.copy(alpha = 0.12f)
 )
 
+@androidx.compose.runtime.Composable
 fun rememberBackStack(initial: String): androidx.compose.runtime.MutableState<String> {
+    val backStackState = androidx.compose.runtime.saveable.rememberSaveable(
+        saver = androidx.compose.runtime.saveable.listSaver(
+            save = { it.toList() },
+            restore = { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll(it) } }
+        )
+    ) {
+        androidx.compose.runtime.mutableStateListOf(initial)
+    }
+    
     return object : androidx.compose.runtime.MutableState<String> {
-        var backStack by androidx.compose.runtime.mutableStateOf(listOf(initial))
         override var value: String
-            get() = backStack.last()
+            get() = backStackState.lastOrNull() ?: initial
             set(v) {
                 if (v == "Home") {
-                    backStack = listOf("Home")
+                    backStackState.clear()
+                    backStackState.add("Home")
                 } else if (v == "__BACK__") {
-                    if (backStack.size > 1) {
-                        backStack = backStack.dropLast(1)
+                    if (backStackState.size > 1) {
+                        backStackState.removeAt(backStackState.lastIndex)
                     }
-                } else if (v != backStack.last()) {
-                    backStack = backStack + v
+                } else if (v != backStackState.lastOrNull()) {
+                    backStackState.add(v)
                 }
             }
         override fun component1() = value
@@ -2325,6 +2335,8 @@ fun VaultTabUnlockedContent(
     val vaultId by viewModel.vaultId.collectAsStateWithLifecycle()
     val overallSecurityRating by viewModel.overallSecurityRating.collectAsStateWithLifecycle()
     val securityItems by viewModel.securityItems.collectAsStateWithLifecycle()
+    val clearHistoryOnExit by viewModel.clearHistoryOnExit.collectAsStateWithLifecycle()
+    val clearTempOnExit by viewModel.clearTempOnExit.collectAsStateWithLifecycle()
 
     val avatarGalleryLauncher = rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia(),
@@ -2562,10 +2574,7 @@ fun VaultTabUnlockedContent(
         // Vault Unlocked Content: Advanced Private Media Hub
         val vaultFiles by viewModel.vaultFiles.collectAsStateWithLifecycle()
         val recentlyDeletedFiles by viewModel.recentlyDeletedFiles.collectAsStateWithLifecycle()
-        var activeSection by remember { rememberBackStack("Home") } // "Home", "Notes", "Photos & Videos", "Documents", "Explore", "Settings"
-        LaunchedEffect(Unit) {
-            activeSection = "Home"
-        }
+        var activeSection by rememberBackStack("Home") // "Home", "Notes", "Photos & Videos", "Documents", "Explore", "Settings"
         var selectedFileForDetails by remember { mutableStateOf<String?>(null) }
         var secureShareFileSerialized by remember { mutableStateOf<String?>(null) }
         var activeDocumentToView by remember { mutableStateOf<String?>(null) }
@@ -3119,7 +3128,7 @@ fun VaultTabUnlockedContent(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             val totalVaultItems = vaultFiles.size + vaultNotes.size
-                            val currentHour = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).get(java.util.Calendar.HOUR_OF_DAY)
+                            val currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
                             val greeting = when (currentHour) {
                                 in 5..11 -> "Good Morning 🌅"
                                 in 12..16 -> "Good Afternoon ☀️"
@@ -10467,7 +10476,8 @@ data class TabState(
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false,
     val isDesktopMode: Boolean = false,
-    val blockedCount: Int = 0
+    val blockedCount: Int = 0,
+    val isFullScreen: Boolean = false
 )
 
 class ChromeContextWrapper(base: android.content.Context) : android.content.ContextWrapper(base) {
@@ -11078,11 +11088,19 @@ fun OldPrivateBrowserSection(
     val tabs = viewModel.browserTabs
     val webViews = remember { mutableStateMapOf<String, android.webkit.WebView>() }
     val geckoSessions = remember { mutableStateMapOf<String, org.mozilla.geckoview.GeckoSession>() }
+    val clearHistoryOnExit by viewModel.clearHistoryOnExit.collectAsStateWithLifecycle()
+    val clearTempOnExit by viewModel.clearTempOnExit.collectAsStateWithLifecycle()
     var activeTabId: String? by remember { mutableStateOf(viewModel.activeTabId) }
     
     // Sync local activeTabId back to viewModel
     androidx.compose.runtime.LaunchedEffect(activeTabId) {
         viewModel.activeTabId = activeTabId
+    }
+    
+    androidx.compose.runtime.LaunchedEffect(tabs.toList(), activeTabId) {
+        if (viewModel.isBrowserTabsLoaded) {
+            viewModel.triggerSaveTabs()
+        }
     }
     
     var showTabSwitcher by remember { mutableStateOf(false) }
@@ -11098,7 +11116,6 @@ fun OldPrivateBrowserSection(
     val browserHistory by viewModel.browserHistory.collectAsStateWithLifecycle()
     val searchEngine by viewModel.searchEngine.collectAsStateWithLifecycle()
     val savePasswords by viewModel.savePasswords.collectAsStateWithLifecycle()
-    val clearHistoryOnExit by viewModel.clearHistoryOnExit.collectAsStateWithLifecycle()
     val useGeckoView by viewModel.useGeckoView.collectAsStateWithLifecycle()
 
     var showSearchEngineDialog by remember { mutableStateOf(false) }
@@ -11115,6 +11132,9 @@ fun OldPrivateBrowserSection(
                         tabId = tab.id,
                         initialUrl = tab.url,
                         isDesktopMode = tab.isDesktopMode,
+                        onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+                            pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                        },
                         onCrash = {
                             geckoSessions.remove(tab.id)
                         }
@@ -11158,6 +11178,8 @@ fun OldPrivateBrowserSection(
                                     viewModel.browserCustomViewCallback = callback
                                     activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
                                     setSystemBarsVisibility(activity, false)
+                                    val index = tabs.indexOfFirst { it.id == tab.id }
+                                    if (index != -1) tabs[index] = tabs[index].copy(isFullScreen = true)
                                 }
                             }
                         },
@@ -11171,6 +11193,8 @@ fun OldPrivateBrowserSection(
                             val activity = context as? android.app.Activity
                             activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                             setSystemBarsVisibility(activity, true)
+                            val index = tabs.indexOfFirst { it.id == tab.id }
+                            if (index != -1) tabs[index] = tabs[index].copy(isFullScreen = false)
                         },
                         onCrash = {
                             webViews.remove(tab.id)
@@ -11203,6 +11227,9 @@ fun OldPrivateBrowserSection(
                 tabId = tabId,
                 initialUrl = url,
                 isDesktopMode = false,
+                onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+                            pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                },
                 onCrash = {
                     geckoSessions.remove(tabId)
                 }
@@ -11278,21 +11305,38 @@ fun OldPrivateBrowserSection(
         activeTabId = tabId
     }
 
-    LaunchedEffect(Unit) {
-        if (tabs.isEmpty()) {
+    LaunchedEffect(viewModel.isBrowserTabsLoaded) {
+        if (viewModel.isBrowserTabsLoaded && tabs.isEmpty()) {
             openNewTab("home")
         }
     }
 
-    val currentClearHistoryOnExit by androidx.compose.runtime.rememberUpdatedState(clearHistoryOnExit)
     DisposableEffect(Unit) {
         onDispose {
-            if (currentClearHistoryOnExit) {
+            if (clearTempOnExit) {
+                try {
+                    SecretBrowserSecureDelete.cleanTemporaryUploadsDirectory(context, secure = true)
+                    SecretBrowserSecureDelete.cleanStaleTemporaryRemnants(context, secure = true)
+                } catch (e: Exception) {}
+            }
+            if (clearHistoryOnExit) {
                 viewModel.clearBrowserHistory()
                 clearAllBrowsingData(context, tabs, webViews)
+                GeckoSessionManager.destroyAllSessions()
+                geckoSessions.clear()
+            } else {
+                // Do not destroy GeckoSessionManager sessions when leaving the screen to preserve state.
+                geckoSessions.clear()
+                // WebViews cannot be persisted outside of their rendering context easily, 
+                // but we must clean up to avoid memory leaks. 
+                webViews.values.forEach { webView ->
+                    try {
+                        (webView.parent as? android.view.ViewGroup)?.removeView(webView)
+                        webView.destroy()
+                    } catch (e: Exception) {}
+                }
+                webViews.clear()
             }
-            GeckoSessionManager.destroyAllSessions()
-            geckoSessions.clear()
         }
     }
 
@@ -12833,7 +12877,7 @@ fun OldPrivateBrowserSection(
                 }
             }
             
-            Row(
+            if (activeTab?.isFullScreen != true) Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF0F1015))
@@ -13122,6 +13166,9 @@ fun OldPrivateBrowserSection(
                                         tabId = activeTab.id,
                                         initialUrl = activeTab.url,
                                         isDesktopMode = newMode,
+                                        onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+                                            pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                                        },
                                         onCrash = {
                                             geckoSessions.remove(activeTab.id)
                                         }

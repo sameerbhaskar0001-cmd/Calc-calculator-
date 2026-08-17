@@ -67,6 +67,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     val cameraTriggerFlow = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     val browserTabs = androidx.compose.runtime.mutableStateListOf<com.example.TabState>()
+    var isBrowserTabsLoaded by androidx.compose.runtime.mutableStateOf(false)
     var activeTabId by androidx.compose.runtime.mutableStateOf<String?>(null)
 
     // --- Audio Player State ---
@@ -232,7 +233,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     val initialSystemTimezone: String = java.util.TimeZone.getDefault().id
 
     // --- Preferred Time Zone State ---
-    private val _preferredTimezone = MutableStateFlow(prefs.getString("preferred_timezone", "Asia/Kolkata") ?: "Asia/Kolkata")
+    private val _preferredTimezone = MutableStateFlow(prefs.getString("preferred_timezone", "System") ?: "System")
     val preferredTimezone: StateFlow<String> = _preferredTimezone.asStateFlow()
 
     fun setPreferredTimezone(tz: String) {
@@ -1494,11 +1495,6 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val currencyFormat = DecimalFormat("#.##", DecimalFormatSymbols(Locale.US))
 
     init {
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            loadBrowserBookmarks()
-            loadBrowserHistory()
-            loadDownloads()
-        }
         // Force clear old cached INR rate if it equals 95.6
         if (prefs.contains("rate_INR") && prefs.getFloat("rate_INR", 0f) == 95.6f) {
             prefs.edit().remove("rate_INR").apply()
@@ -1526,7 +1522,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             while (true) {
                 kotlinx.coroutines.delay(2000)
-                if (isPickingFile) {
+                if (isPickingFile || VaultBrowserIntegration.activeUploadRequest != null) {
                     _lastInteractionTime.value = System.currentTimeMillis()
                     continue
                 }
@@ -4247,17 +4243,17 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setClearHistoryOnExit(clear: Boolean) {
         _clearHistoryOnExit.value = clear
-        prefs.edit().putBoolean("browser_clear_history", clear).apply()
+        prefs.edit().putBoolean("browser_clear_history", clear).commit()
     }
 
     fun setClearTempOnExit(clear: Boolean) {
         _clearTempOnExit.value = clear
-        prefs.edit().putBoolean("browser_clear_temp_on_exit", clear).apply()
+        prefs.edit().putBoolean("browser_clear_temp_on_exit", clear).commit()
     }
 
     fun setUseGeckoView(use: Boolean) {
         _useGeckoView.value = use
-        prefs.edit().putBoolean("browser_use_geckoview", use).apply()
+        prefs.edit().putBoolean("browser_use_geckoview", use).commit()
     }
 
     private fun saveBrowserBookmarks(list: List<BrowserBookmark>) {
@@ -4268,7 +4264,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             obj.put("url", it.url)
             json.put(obj)
         }
-        prefs.edit().putString("browser_bookmarks", json.toString()).apply()
+        prefs.edit().putString("browser_bookmarks", json.toString()).commit()
     }
 
     private fun loadBrowserBookmarks() {
@@ -4284,6 +4280,51 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         } catch (e: Exception) {}
     }
 
+    fun triggerSaveTabs() { saveBrowserTabs() }
+
+    private fun saveBrowserTabs() {
+        try {
+            val json = org.json.JSONArray()
+            for (tab in browserTabs) {
+                val obj = org.json.JSONObject()
+                obj.put("id", tab.id)
+                obj.put("title", tab.title)
+                obj.put("url", tab.url)
+                obj.put("isDesktopMode", tab.isDesktopMode)
+                json.put(obj)
+            }
+            prefs.edit().putString("browser_tabs", json.toString())
+                .putString("browser_active_tab_id", activeTabId)
+                .commit()
+        } catch (e: Exception) {}
+    }
+
+    private fun loadBrowserTabs() {
+        try {
+            val jsonStr = prefs.getString("browser_tabs", "[]") ?: "[]"
+            val activeId = prefs.getString("browser_active_tab_id", null)
+            val json = org.json.JSONArray(jsonStr)
+            val list = mutableListOf<com.example.TabState>()
+            for (i in 0 until json.length()) {
+                val obj = json.getJSONObject(i)
+                list.add(com.example.TabState(
+                    id = obj.getString("id"),
+                    title = obj.getString("title"),
+                    url = obj.getString("url"),
+                    isDesktopMode = obj.optBoolean("isDesktopMode", false)
+                ))
+            }
+            if (list.isNotEmpty()) {
+                browserTabs.clear()
+                browserTabs.addAll(list)
+                activeTabId = if (activeId != null && list.any { it.id == activeId }) activeId else list.first().id
+            }
+            isBrowserTabsLoaded = true
+        } catch (e: Exception) {
+            isBrowserTabsLoaded = true
+        }
+    }
+
     private fun saveBrowserHistory(list: List<BrowserHistory>) {
         val json = org.json.JSONArray()
         list.forEach { 
@@ -4293,7 +4334,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             obj.put("timestamp", it.timestamp)
             json.put(obj)
         }
-        prefs.edit().putString("browser_history", json.toString()).apply()
+        prefs.edit().putString("browser_history", json.toString()).commit()
     }
 
     private fun loadBrowserHistory() {
@@ -4328,7 +4369,7 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                 obj.put("filePath", item.filePath)
                 json.put(obj)
             }
-            prefs.edit().putString("browser_downloads", json.toString()).apply()
+            prefs.edit().putString("browser_downloads", json.toString()).commit()
         } catch (e: Exception) {}
     }
 
@@ -4354,6 +4395,13 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
             }
             _downloads.value = list
         } catch (e: Exception) {}
+    }
+
+    init {
+        loadBrowserBookmarks()
+        loadBrowserHistory()
+        loadDownloads()
+        loadBrowserTabs()
     }
 
     fun clearDownloads() {

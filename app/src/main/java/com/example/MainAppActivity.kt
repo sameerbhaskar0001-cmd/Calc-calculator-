@@ -121,7 +121,7 @@ class MainAppActivity : FragmentActivity() {
 
   override fun onPause() {
       super.onPause()
-      if (!isChangingConfigurations && viewModel?.isPickingFile != true) {
+      if (!isChangingConfigurations && viewModel?.isPickingFile != true && VaultBrowserIntegration.activeUploadRequest == null) {
           viewModel?.onAppBackgrounded()
       }
   }
@@ -129,7 +129,7 @@ class MainAppActivity : FragmentActivity() {
   override fun onStop() {
     super.onStop()
     val isStealth = viewModel?.stealthMode?.value == true
-    if (!isChangingConfigurations && viewModel?.isPickingFile != true) {
+    if (!isChangingConfigurations && viewModel?.isPickingFile != true && VaultBrowserIntegration.activeUploadRequest == null) {
       try {
           if (viewModel?.lockOnBackground?.value == true) {
               viewModel?.lockVault()

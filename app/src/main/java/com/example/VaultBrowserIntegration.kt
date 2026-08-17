@@ -264,6 +264,8 @@ fun BrowserUploadSourceDialog(
     val singleLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
+        viewModel.isPickingFile = false
+        viewModel.updateLastInteraction()
         if (uri != null) {
             activeUpload.onResult(listOf(uri))
         } else {
@@ -275,6 +277,8 @@ fun BrowserUploadSourceDialog(
     val multipleLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
+        viewModel.isPickingFile = false
+        viewModel.updateLastInteraction()
         if (uris != null && uris.isNotEmpty()) {
             activeUpload.onResult(uris)
         } else {
@@ -294,6 +298,8 @@ fun BrowserUploadSourceDialog(
     val takePhotoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
+        viewModel.isPickingFile = false
+        viewModel.updateLastInteraction()
         if (success) {
             activeUpload.onResult(listOf(tempPhotoUri))
         } else {
@@ -313,6 +319,8 @@ fun BrowserUploadSourceDialog(
     val recordVideoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CaptureVideo()
     ) { success ->
+        viewModel.isPickingFile = false
+        viewModel.updateLastInteraction()
         if (success) {
             activeUpload.onResult(listOf(tempVideoUri))
         } else {
@@ -327,6 +335,8 @@ fun BrowserUploadSourceDialog(
 
     androidx.compose.ui.window.Dialog(
         onDismissRequest = {
+            viewModel.isPickingFile = false
+            viewModel.updateLastInteraction()
             activeUpload.onResult(null)
             VaultBrowserIntegration.activeUploadRequest = null
         }
@@ -381,6 +391,7 @@ fun BrowserUploadSourceDialog(
                     if (isImageAllowed || isVideoAllowed) {
                         Button(
                             onClick = {
+                                viewModel.isPickingFile = true
                                 if (isImageAllowed) {
                                     takePhotoLauncher.launch(tempPhotoUri)
                                 } else {
@@ -411,6 +422,7 @@ fun BrowserUploadSourceDialog(
                     // Option 3: Public System Files
                     Button(
                         onClick = {
+                            viewModel.isPickingFile = true
                             if (activeUpload.isMultiple) {
                                 multipleLauncher.launch(mimeFilter)
                             } else {
@@ -439,6 +451,8 @@ fun BrowserUploadSourceDialog(
                     Spacer(modifier = Modifier.height(12.dp))
                     TextButton(
                         onClick = {
+                            viewModel.isPickingFile = false
+                            viewModel.updateLastInteraction()
                             activeUpload.onResult(null)
                             VaultBrowserIntegration.activeUploadRequest = null
                         },

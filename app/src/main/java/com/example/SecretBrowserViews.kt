@@ -1552,18 +1552,35 @@ fun PrivateBrowserSection(
     }
     var activeTabId by remember { mutableStateOf<String?>(viewModel.activeTabId) }
 
+    LaunchedEffect(viewModel.activeTabId) {
+        if (viewModel.activeTabId != null && activeTabId != viewModel.activeTabId) {
+            activeTabId = viewModel.activeTabId
+        }
+    }
+
     var showFindInPage by remember { mutableStateOf(false) }
     var findInPageText by remember { mutableStateOf("") }
     var findInPageMatchCurrent by remember { mutableStateOf(0) }
     var findInPageMatchTotal by remember { mutableStateOf(0) }
 
     LaunchedEffect(activeTabId) {
-        viewModel.activeTabId = activeTabId
+        if (activeTabId != null && viewModel.activeTabId != activeTabId) {
+            viewModel.activeTabId = activeTabId
+        }
         // Clear Find in Page highlights and close search when tab switches
         showFindInPage = false
         findInPageText = ""
         findInPageMatchCurrent = 0
         findInPageMatchTotal = 0
+    }
+    
+    LaunchedEffect(tabs.toList(), activeTabId) {
+        if (activeTabId == null && tabs.isNotEmpty()) {
+            activeTabId = viewModel.activeTabId ?: tabs.first().id
+        }
+        if (viewModel.isBrowserTabsLoaded) {
+            viewModel.triggerSaveTabs()
+        }
     }
 
     var showTabSwitcher by remember { mutableStateOf(false) }
@@ -1591,6 +1608,19 @@ fun PrivateBrowserSection(
     var activePopupWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
     var pendingDownload by remember { mutableStateOf<PendingDownloadData?>(null) }
     var showSiteSecurityDialog by remember { mutableStateOf(false) }
+
+    val activeTab = tabs.find { it.id == activeTabId } ?: tabs.find { it.id == viewModel.activeTabId } ?: tabs.firstOrNull()
+
+    LaunchedEffect(activeTab?.isFullScreen) {
+        val activity = context as? android.app.Activity ?: return@LaunchedEffect
+        if (activeTab?.isFullScreen == true) {
+            activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+            setSystemBarsVisibility(activity, false)
+        } else {
+            activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            setSystemBarsVisibility(activity, true)
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.memoryPressureEvent.collectLatest { level ->
@@ -1742,6 +1772,9 @@ fun PrivateBrowserSection(
                                     viewModel.browserCustomViewCallback = callback
                                     activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
                                     setSystemBarsVisibility(activity, false)
+                                    // Update state
+                                    val index = tabs.indexOfFirst { it.id == tab.id }
+                                    if (index != -1) tabs[index] = tabs[index].copy(isFullScreen = true)
                                 }
                             }
                         },
@@ -1755,6 +1788,9 @@ fun PrivateBrowserSection(
                             val activity = context as? android.app.Activity
                             activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                             setSystemBarsVisibility(activity, true)
+                            // Update state
+                            val index = tabs.indexOfFirst { it.id == tab.id }
+                            if (index != -1) tabs[index] = tabs[index].copy(isFullScreen = false)
                         },
                         onCrash = {
                             webViews.remove(tab.id)
@@ -1819,8 +1855,8 @@ fun PrivateBrowserSection(
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (tabs.isEmpty()) {
+    LaunchedEffect(viewModel.isBrowserTabsLoaded) {
+        if (viewModel.isBrowserTabsLoaded && tabs.isEmpty()) {
             openNewTab("home")
         }
     }
@@ -1840,34 +1876,21 @@ fun PrivateBrowserSection(
             if (currentClearHistoryOnExit) {
                 viewModel.clearBrowserHistory()
                 clearAllBrowsingData(context, tabs, webViews)
+                GeckoSessionManager.destroyAllSessions()
             } else {
                 webViews.values.forEach { webView ->
                     try {
-                        webView.stopLoading()
                         (webView.parent as? android.view.ViewGroup)?.removeView(webView)
-                        webView.webViewClient = android.webkit.WebViewClient()
-                        webView.webChromeClient = android.webkit.WebChromeClient()
-                        webView.setDownloadListener(null)
-                        webView.clearHistory()
-                        webView.clearCache(true)
-                        webView.loadUrl("about:blank")
                         webView.destroy()
                     } catch (e: Exception) {}
                 }
                 webViews.clear()
-                // Do NOT destroy GeckoSessions on screen exit to preserve tab state and history.
-                // GeckoSessions will be reused via GeckoSessionManager when the user returns.
-                // We only clear the local composition map.
                 geckoSessions.values.forEach { it.setActive(false) }
-            }
-            if (currentClearHistoryOnExit) {
-                GeckoSessionManager.destroyAllSessions()
             }
             geckoSessions.clear()
         }
     }
 
-    val activeTab = tabs.find { it.id == activeTabId }
     val activeWebView = webViews[activeTabId]
     val activeGeckoSession = geckoSessions[activeTabId]
     val isHome = activeTab?.url == "home" || activeTab?.url == "about:blank" || activeTab?.url?.isEmpty() == true
@@ -2105,6 +2128,12 @@ fun PrivateBrowserSection(
             showHistory = false
         } else if (showTabSwitcher) {
             showTabSwitcher = false
+        } else if (activeTab?.isFullScreen == true) {
+            if (activeGeckoSession != null) {
+                activeGeckoSession.exitFullScreen()
+            } else if (viewModel.browserCustomViewCallback != null) {
+                viewModel.browserCustomViewCallback?.onCustomViewHidden()
+            }
         } else if (activeTab?.url == "home") {
             if (activeGeckoSession != null && activeTab.canGoBack) {
                 activeGeckoSession.goBack()
@@ -2506,10 +2535,10 @@ fun PrivateBrowserSection(
     }
 
     Box(modifier = modifier.fillMaxSize().background(LightBg)) {
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+        Column(modifier = Modifier.fillMaxSize().let { if (activeTab?.isFullScreen == true) it else it.statusBarsPadding() }) {
 
             // TOP ADDRESS / BAR AREA
-            Row(
+            if (activeTab?.isFullScreen != true) Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(LightCard)
@@ -2844,7 +2873,7 @@ fun PrivateBrowserSection(
             }
 
             // BOTTOM DOCK NAVIGATION REBUILD
-            Box(
+            if (activeTab?.isFullScreen != true) Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 12.dp)
