@@ -1609,6 +1609,15 @@ fun PrivateBrowserSection(
     var pendingDownload by remember { mutableStateOf<PendingDownloadData?>(null) }
     var showSiteSecurityDialog by remember { mutableStateOf(false) }
 
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        GeckoSessionManager.globalDownloadCallback = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+            pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+        }
+        onDispose {
+            GeckoSessionManager.globalDownloadCallback = null
+        }
+    }
+
     val activeTab = tabs.find { it.id == activeTabId } ?: tabs.find { it.id == viewModel.activeTabId } ?: tabs.firstOrNull()
 
     LaunchedEffect(activeTab?.isFullScreen) {
@@ -2790,11 +2799,11 @@ fun PrivateBrowserSection(
                                 )
                             }
                             val progressAlpha by animateFloatAsState(
-                                targetValue = if (activeTab?.isLoading == true) 1f else 0f,
+                                targetValue = if (activeTab?.isLoading == true && activeTab?.isFullScreen != true) 1f else 0f,
                                 animationSpec = tween(durationMillis = 300),
                                 label = "GeckoProgressAlpha"
                             )
-                            if (progressAlpha > 0f) {
+                            if (progressAlpha > 0f && activeTab?.isFullScreen != true) {
                                 LinearProgressIndicator(
                                     progress = { (activeTab?.progress ?: 0) / 100f },
                                     modifier = Modifier
@@ -2819,11 +2828,11 @@ fun PrivateBrowserSection(
                                 )
                             }
                             val progressAlpha by animateFloatAsState(
-                                targetValue = if (activeTab?.isLoading == true) 1f else 0f,
+                                targetValue = if (activeTab?.isLoading == true && activeTab?.isFullScreen != true) 1f else 0f,
                                 animationSpec = tween(durationMillis = 300),
                                 label = "WebProgressAlpha"
                             )
-                            if (progressAlpha > 0f) {
+                            if (progressAlpha > 0f && activeTab?.isFullScreen != true) {
                                 LinearProgressIndicator(
                                     progress = { (activeTab?.progress ?: 0) / 100f },
                                     modifier = Modifier
@@ -2842,7 +2851,7 @@ fun PrivateBrowserSection(
                     val canBookmark = currentUrl.isNotEmpty() && currentUrl != "home" && currentUrl != "about:blank" &&
                             !currentUrl.startsWith("data:") && !currentUrl.startsWith("file:") && !currentUrl.startsWith("about:")
 
-                    if (canBookmark) {
+                    if (canBookmark && activeTab?.isFullScreen != true) {
                         val isBookmarked = browserBookmarks.any { it.url == currentUrl }
                         Box(
                             modifier = Modifier

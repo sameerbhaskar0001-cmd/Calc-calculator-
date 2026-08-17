@@ -287,7 +287,11 @@ fun BrowserUploadSourceDialog(
         VaultBrowserIntegration.activeUploadRequest = null
     }
 
-    val tempPhotoFile = remember { File(context.cacheDir, "upload_temp_capture.jpg") }
+    val tempPhotoFile = remember {
+        File(context.cacheDir, "upload_temp_capture.jpg").apply {
+            parentFile?.mkdirs()
+        }
+    }
     val tempPhotoUri = remember {
         androidx.core.content.FileProvider.getUriForFile(
             context,
@@ -308,7 +312,11 @@ fun BrowserUploadSourceDialog(
         VaultBrowserIntegration.activeUploadRequest = null
     }
 
-    val tempVideoFile = remember { File(context.cacheDir, "upload_temp_capture.mp4") }
+    val tempVideoFile = remember {
+        File(context.cacheDir, "upload_temp_capture.mp4").apply {
+            parentFile?.mkdirs()
+        }
+    }
     val tempVideoUri = remember {
         androidx.core.content.FileProvider.getUriForFile(
             context,
@@ -333,72 +341,42 @@ fun BrowserUploadSourceDialog(
     val vaultFiles by viewModel.vaultFiles.collectAsStateWithLifecycle()
     val selectedVaultFiles = remember { mutableStateListOf<String>() }
 
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = {
-            viewModel.isPickingFile = false
-            viewModel.updateLastInteraction()
-            activeUpload.onResult(null)
-            VaultBrowserIntegration.activeUploadRequest = null
-        }
-    ) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = LightCard),
-            border = BorderStroke(1.dp, BorderColor),
-            modifier = Modifier.fillMaxWidth().padding(16.dp)
+    if (!viewModel.isPickingFile) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = {
+                if (!viewModel.isPickingFile) {
+                    viewModel.updateLastInteraction()
+                    activeUpload.onResult(null)
+                    VaultBrowserIntegration.activeUploadRequest = null
+                }
+            }
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                if (dialogSubScreen == "home") {
-                    Text(
-                        text = "Choose Upload Source",
-                        color = TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Text(
-                        text = "Select a file to upload to the website.",
-                        color = TextSecondary,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = LightCard),
+                border = BorderStroke(1.dp, BorderColor),
+                modifier = Modifier.fillMaxWidth().padding(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    if (dialogSubScreen == "home") {
+                        Text(
+                            text = "Choose Upload Source",
+                            color = TextPrimary,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Text(
+                            text = "Select a file to upload to the website.",
+                            color = TextSecondary,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
 
-                    // Option 1: Vault Storage
-                    Button(
-                        onClick = { dialogSubScreen = "vault" },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("upload_source_vault"),
-                        colors = ButtonDefaults.buttonColors(containerColor = LightBg),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, BorderColor),
-                        contentPadding = PaddingValues(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Lock, null, tint = AccentColor, modifier = Modifier.size(24.dp))
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text("Secure Vault Storage", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text("Upload files currently encrypted inside vault", color = TextSecondary, fontSize = 11.sp)
-                            }
-                        }
-                    }
-
-                    // Option 2: Camera Capture (Photo/Video)
-                    val isImageAllowed = mimeFilter.contains("image") || mimeFilter == "*/*"
-                    val isVideoAllowed = mimeFilter.contains("video") || mimeFilter == "*/*"
-                    if (isImageAllowed || isVideoAllowed) {
+                        // Option 1: Vault Storage
                         Button(
-                            onClick = {
-                                viewModel.isPickingFile = true
-                                if (isImageAllowed) {
-                                    takePhotoLauncher.launch(tempPhotoUri)
-                                } else {
-                                    recordVideoLauncher.launch(tempVideoUri)
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("upload_source_camera"),
+                            onClick = { dialogSubScreen = "vault" },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("upload_source_vault"),
                             colors = ButtonDefaults.buttonColors(containerColor = LightBg),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, BorderColor),
@@ -408,59 +386,100 @@ fun BrowserUploadSourceDialog(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.PhotoCamera, null, tint = SuccessColor, modifier = Modifier.size(24.dp))
+                                Icon(Icons.Default.Lock, null, tint = AccentColor, modifier = Modifier.size(24.dp))
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
-                                    val captureText = if (isImageAllowed && isVideoAllowed) "Camera Capture (Photo/Video)" else if (isImageAllowed) "Camera Capture (Photo)" else "Camera Capture (Video)"
-                                    Text(captureText, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    Text("Capture a new photo or record video directly", color = TextSecondary, fontSize = 11.sp)
+                                    Text("Secure Vault Storage", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text("Upload files currently encrypted inside vault", color = TextSecondary, fontSize = 11.sp)
                                 }
                             }
                         }
-                    }
 
-                    // Option 3: Public System Files
-                    Button(
-                        onClick = {
-                            viewModel.isPickingFile = true
-                            if (activeUpload.isMultiple) {
-                                multipleLauncher.launch(mimeFilter)
-                            } else {
-                                singleLauncher.launch(mimeFilter)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("upload_source_public"),
-                        colors = ButtonDefaults.buttonColors(containerColor = LightBg),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, BorderColor),
-                        contentPadding = PaddingValues(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Folder, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text("Public System Files", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text("Select public files from system photo/file picker", color = TextSecondary, fontSize = 11.sp)
+                        // Option 2: Camera Capture (Photo/Video)
+                        val isImageAllowed = mimeFilter.contains("image") || mimeFilter == "*/*"
+                        val isVideoAllowed = mimeFilter.contains("video") || mimeFilter == "*/*"
+                        if (isImageAllowed || isVideoAllowed) {
+                            Button(
+                                onClick = {
+                                    viewModel.isPickingFile = true
+                                    try {
+                                        if (isImageAllowed) {
+                                            if (tempPhotoFile.exists()) tempPhotoFile.delete()
+                                            tempPhotoFile.createNewFile()
+                                            takePhotoLauncher.launch(tempPhotoUri)
+                                        } else {
+                                            if (tempVideoFile.exists()) tempVideoFile.delete()
+                                            tempVideoFile.createNewFile()
+                                            recordVideoLauncher.launch(tempVideoUri)
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("VaultUpload", "Failed to launch camera capture", e)
+                                        viewModel.isPickingFile = false
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("upload_source_camera"),
+                                colors = ButtonDefaults.buttonColors(containerColor = LightBg),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, BorderColor),
+                                contentPadding = PaddingValues(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.PhotoCamera, null, tint = SuccessColor, modifier = Modifier.size(24.dp))
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        val captureText = if (isImageAllowed && isVideoAllowed) "Camera Capture (Photo/Video)" else if (isImageAllowed) "Camera Capture (Photo)" else "Camera Capture (Video)"
+                                        Text(captureText, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text("Capture a new photo or record video directly", color = TextSecondary, fontSize = 11.sp)
+                                    }
+                                }
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-                    TextButton(
-                        onClick = {
-                            viewModel.isPickingFile = false
-                            viewModel.updateLastInteraction()
-                            activeUpload.onResult(null)
-                            VaultBrowserIntegration.activeUploadRequest = null
-                        },
-                        modifier = Modifier.align(Alignment.End).testTag("upload_source_cancel")
-                    ) {
-                        Text("Cancel", color = DangerColor)
-                    }
-                } else if (dialogSubScreen == "vault") {
+                        // Option 3: Public System Files
+                        Button(
+                            onClick = {
+                                viewModel.isPickingFile = true
+                                if (activeUpload.isMultiple) {
+                                    multipleLauncher.launch(mimeFilter)
+                                } else {
+                                    singleLauncher.launch(mimeFilter)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("upload_source_public"),
+                            colors = ButtonDefaults.buttonColors(containerColor = LightBg),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, BorderColor),
+                            contentPadding = PaddingValues(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Folder, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text("Public System Files", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text("Select public files from system photo/file picker", color = TextSecondary, fontSize = 11.sp)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        TextButton(
+                            onClick = {
+                                viewModel.isPickingFile = false
+                                viewModel.updateLastInteraction()
+                                activeUpload.onResult(null)
+                                VaultBrowserIntegration.activeUploadRequest = null
+                            },
+                            modifier = Modifier.align(Alignment.End).testTag("upload_source_cancel")
+                        ) {
+                            Text("Cancel", color = DangerColor)
+                        }
+                    } else if (dialogSubScreen == "vault") {
                     Text(
                         text = "Secure Vault Files",
                         color = TextPrimary,
@@ -611,4 +630,5 @@ fun BrowserUploadSourceDialog(
             }
         }
     }
+}
 }

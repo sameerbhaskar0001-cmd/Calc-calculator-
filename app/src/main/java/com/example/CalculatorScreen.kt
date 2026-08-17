@@ -10495,7 +10495,16 @@ fun setSystemBarsVisibility(activity: android.app.Activity?, visible: Boolean) {
     val window = activity.window ?: return
     val decorView = window.decorView
     try {
-        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, visible)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = if (visible) {
+                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                } else {
+                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
+            }
+        }
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         val controller = androidx.core.view.WindowCompat.getInsetsController(window, decorView)
         if (visible) {
             controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
@@ -10668,6 +10677,7 @@ fun createPrivateWebView(
             }
             useWideViewPort = true
             loadWithOverviewMode = true
+            textZoom = 100
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false

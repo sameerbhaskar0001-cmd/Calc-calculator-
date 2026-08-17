@@ -18,6 +18,7 @@ object GeckoSessionManager {
     // Thread-safe maps for update and download callbacks to prevent stale lambdas and memory leaks
     private val onUpdateCallbacks = ConcurrentHashMap<String, ((TabState) -> TabState) -> Unit>()
     private val onDownloadCallbacks = ConcurrentHashMap<String, ((String, String, String, String, Long) -> Unit)>()
+    var globalDownloadCallback: ((String, String, String, String, Long) -> Unit)? = null
 
     /**
      * Creates a new GeckoSession or returns an existing one for the specified tabId.
@@ -56,6 +57,10 @@ object GeckoSessionManager {
             .userAgentMode(
                 if (isDesktopMode) GeckoSessionSettings.USER_AGENT_MODE_DESKTOP 
                 else GeckoSessionSettings.USER_AGENT_MODE_MOBILE
+            )
+            .viewportMode(
+                if (isDesktopMode) GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
+                else GeckoSessionSettings.VIEWPORT_MODE_MOBILE
             )
             .useTrackingProtection(true)
             .suspendMediaWhenInactive(true)
@@ -121,6 +126,15 @@ object GeckoSessionManager {
                 onUpdate { tab ->
                     tab.copy(canGoForward = canGoForward)
                 }
+            }
+
+            override fun onNewSession(s: GeckoSession, uri: String): org.mozilla.geckoview.GeckoResult<GeckoSession>? {
+                try {
+                    s.loadUri(uri)
+                } catch (e: Exception) {
+                    android.util.Log.e("GeckoSession", "Failed to load uri in onNewSession", e)
+                }
+                return org.mozilla.geckoview.GeckoResult.fromValue(null)
             }
 
             override fun onLoadError(
@@ -234,11 +248,14 @@ object GeckoSessionManager {
             override fun onExternalResponse(s: GeckoSession, response: WebResponse) {
                 val url = response.uri ?: ""
                 val headers = response.headers
-                val contentDisposition = headers["Content-Disposition"] ?: headers["content-disposition"] ?: ""
-                val mimeType = headers["Content-Type"] ?: headers["content-type"] ?: ""
-                val contentLength = (headers["Content-Length"] ?: headers["content-length"])?.toLongOrNull() ?: 0L
-                val userAgent = "Mozilla/5.0"
-                android.os.Handler(android.os.Looper.getMainLooper()).post { onDownloadCallbacks[tabId]?.invoke(url, userAgent, contentDisposition, mimeType, contentLength) }
+                val contentDisposition = headers["Content-Disposition"] ?: headers["content-disposition"] ?: headers["Content-disposition"] ?: ""
+                val mimeType = headers["Content-Type"] ?: headers["content-type"] ?: headers["Content-type"] ?: ""
+                val contentLength = (headers["Content-Length"] ?: headers["content-length"] ?: headers["Content-length"])?.toLongOrNull() ?: 0L
+                val userAgent = if (isDesktopMode) "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" else "Mozilla/5.0 (Android 14; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0"
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    onDownloadCallbacks[tabId]?.invoke(url, userAgent, contentDisposition, mimeType, contentLength)
+                    globalDownloadCallback?.invoke(url, userAgent, contentDisposition, mimeType, contentLength)
+                }
             }
         }
 
