@@ -1623,7 +1623,7 @@ fun PrivateBrowserSection(
     LaunchedEffect(activeTab?.isFullScreen) {
         val activity = context as? android.app.Activity ?: return@LaunchedEffect
         if (activeTab?.isFullScreen == true) {
-            activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+            activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             setSystemBarsVisibility(activity, false)
         } else {
             activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED

@@ -10503,10 +10503,10 @@ fun setSystemBarsVisibility(activity: android.app.Activity?, visible: Boolean) {
             }
             if (window.attributes.layoutInDisplayCutoutMode != targetCutout) {
                 window.attributes.layoutInDisplayCutoutMode = targetCutout
-                window.attributes = window.attributes
             }
         }
         val controller = androidx.core.view.WindowCompat.getInsetsController(window, decorView)
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         if (visible) {
             controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         } else {

@@ -342,8 +342,31 @@ fun BrowserUploadSourceDialog(
     var dialogSubScreen by remember { mutableStateOf("home") }
     val vaultFiles by viewModel.vaultFiles.collectAsStateWithLifecycle()
     val selectedVaultFiles = remember { mutableStateListOf<String>() }
+    val isImageAllowed = mimeFilter.contains("image") || mimeFilter == "*/*"
+    val isVideoAllowed = mimeFilter.contains("video") || mimeFilter == "*/*"
+    val isOnlyVideo = isVideoAllowed && !isImageAllowed
 
-    if (!viewModel.isPickingFile) {
+    if (dialogSubScreen == "camera") {
+        SecureCameraView(
+            viewModel = viewModel,
+            onDismiss = {
+                dialogSubScreen = "home"
+                activeUpload.onResult(null)
+                VaultBrowserIntegration.activeUploadRequest = null
+            },
+            onMediaCaptured = { capturedFile, mimeType ->
+                dialogSubScreen = "home"
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",
+                    capturedFile
+                )
+                activeUpload.onResult(listOf(uri))
+                VaultBrowserIntegration.activeUploadRequest = null
+            },
+            initialVideoMode = isOnlyVideo
+        )
+    } else if (!viewModel.isPickingFile) {
         androidx.compose.ui.window.Dialog(
             onDismissRequest = {
                 if (!viewModel.isPickingFile) {
@@ -403,27 +426,7 @@ fun BrowserUploadSourceDialog(
                         if (isImageAllowed || isVideoAllowed) {
                             Button(
                                 onClick = {
-                                    viewModel.isPickingFile = true
-                                    try {
-                                        if (isImageAllowed) {
-                                            val parent = tempPhotoFile.parentFile
-                                            if (parent != null && !parent.exists()) parent.mkdirs()
-                                            if (tempPhotoFile.exists()) tempPhotoFile.delete()
-                                            tempPhotoFile.createNewFile()
-                                            takePhotoLauncher.launch(tempPhotoUri)
-                                        } else {
-                                            val parent = tempVideoFile.parentFile
-                                            if (parent != null && !parent.exists()) parent.mkdirs()
-                                            if (tempVideoFile.exists()) tempVideoFile.delete()
-                                            tempVideoFile.createNewFile()
-                                            recordVideoLauncher.launch(tempVideoUri)
-                                        }
-                                    } catch (e: Exception) {
-                                        android.util.Log.e("VaultUpload", "Failed to launch camera capture", e)
-                                        viewModel.isPickingFile = false
-                                        activeUpload.onResult(null)
-                                        VaultBrowserIntegration.activeUploadRequest = null
-                                    }
+                                    dialogSubScreen = "camera"
                                 },
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("upload_source_camera"),
                                 colors = ButtonDefaults.buttonColors(containerColor = LightBg),

@@ -202,14 +202,20 @@ private fun sanitizeExifMetadata(filePath: String) {
 fun SecureCameraView(
     viewModel: CalculatorViewModel,
     onDismiss: () -> Unit,
-    onViewMedia: ((String, Int, List<String>) -> Unit)? = null
+    onViewMedia: ((String, Int, List<String>) -> Unit)? = null,
+    onMediaCaptured: ((File, String) -> Unit)? = null,
+    initialVideoMode: Boolean = false
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
+    androidx.activity.compose.BackHandler(enabled = true) {
+        onDismiss()
+    }
+
     var isFrontCamera by remember { mutableStateOf(false) }
-    var isVideoMode by remember { mutableStateOf(false) }
+    var isVideoMode by remember { mutableStateOf(initialVideoMode) }
     var flashMode by remember { mutableStateOf("AUTO") } // ON, OFF, AUTO
     var isRecording by remember { mutableStateOf(false) }
     var activeRecording by remember { mutableStateOf<Recording?>(null) }
@@ -443,7 +449,11 @@ fun SecureCameraView(
                                                 "Video_$id.mp4",
                                                 "video/mp4"
                                             )
-                                            Toast.makeText(context, "Video secured directly in Vault!", Toast.LENGTH_SHORT).show()
+                                            if (onMediaCaptured != null) {
+                                                onMediaCaptured(destFile, "video/mp4")
+                                            } else {
+                                                Toast.makeText(context, "Video secured directly in Vault!", Toast.LENGTH_SHORT).show()
+                                            }
                                         } else {
                                             Toast.makeText(context, "Failed to capture video", Toast.LENGTH_SHORT).show()
                                         }
@@ -512,7 +522,11 @@ fun SecureCameraView(
                                     "Photo_$id.jpg",
                                     "image/jpeg"
                                 )
-                                Toast.makeText(context, "Photo secured directly in Vault (Metadata Stripped)!", Toast.LENGTH_SHORT).show()
+                                if (onMediaCaptured != null) {
+                                    onMediaCaptured(destFile, "image/jpeg")
+                                } else {
+                                    Toast.makeText(context, "Photo secured directly in Vault (Metadata Stripped)!", Toast.LENGTH_SHORT).show()
+                                }
                             }
 
                             override fun onError(exception: ImageCaptureException) {
