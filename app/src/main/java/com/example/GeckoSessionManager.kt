@@ -142,6 +142,9 @@ object GeckoSessionManager {
                 uri: String?,
                 error: org.mozilla.geckoview.WebRequestError
             ): org.mozilla.geckoview.GeckoResult<String>? {
+                onUpdate { tab ->
+                    tab.copy(isLoading = false, progress = 0)
+                }
                 val failingUrl = uri ?: ""
                 val html = """
                     <!DOCTYPE html>
@@ -176,13 +179,18 @@ object GeckoSessionManager {
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onProgressChange(s: GeckoSession, progress: Int) {
                 onUpdate { tab ->
-                    tab.copy(progress = progress)
+                    tab.copy(progress = progress, isLoading = progress < 100)
                 }
             }
 
             override fun onPageStart(s: GeckoSession, url: String) {
                 onUpdate { tab ->
-                    tab.copy(isLoading = true, progress = 0, blockedCount = 0)
+                    tab.copy(
+                        url = if (url != "about:blank") url else tab.url,
+                        isLoading = true,
+                        progress = if (tab.progress > 0) tab.progress else 15,
+                        blockedCount = 0
+                    )
                 }
             }
 
@@ -222,6 +230,9 @@ object GeckoSessionManager {
             }
 
             override fun onCrash(s: GeckoSession) {
+                onUpdate { tab ->
+                    tab.copy(isLoading = false, progress = 0)
+                }
                 // Safely detach/destroy the failed session
                 try {
                     s.stop()
@@ -251,7 +262,8 @@ object GeckoSessionManager {
                 val contentDisposition = headers["Content-Disposition"] ?: headers["content-disposition"] ?: headers["Content-disposition"] ?: ""
                 val mimeType = headers["Content-Type"] ?: headers["content-type"] ?: headers["Content-type"] ?: ""
                 val contentLength = (headers["Content-Length"] ?: headers["content-length"] ?: headers["Content-length"])?.toLongOrNull() ?: 0L
-                val userAgent = if (isDesktopMode) "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" else "Mozilla/5.0 (Android 14; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0"
+                val isDesktop = s.settings.userAgentMode == GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
+                val userAgent = if (isDesktop) "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" else "Mozilla/5.0 (Android 14; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0"
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                     onDownloadCallbacks[tabId]?.invoke(url, userAgent, contentDisposition, mimeType, contentLength)
                     globalDownloadCallback?.invoke(url, userAgent, contentDisposition, mimeType, contentLength)
@@ -316,6 +328,28 @@ object GeckoSessionManager {
      */
     fun hasSession(tabId: String): Boolean {
         return activeSessions.containsKey(tabId)
+    }
+
+    /**
+     * Dynamically updates desktop/mobile mode on an active session without recreating or reloading blank pages.
+     */
+    fun setDesktopMode(tabId: String, isDesktop: Boolean) {
+        val session = activeSessions[tabId] ?: return
+        try {
+            session.settings.userAgentMode = if (isDesktop) {
+                GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
+            } else {
+                GeckoSessionSettings.USER_AGENT_MODE_MOBILE
+            }
+            session.settings.viewportMode = if (isDesktop) {
+                GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
+            } else {
+                GeckoSessionSettings.VIEWPORT_MODE_MOBILE
+            }
+            session.reload()
+        } catch (e: Exception) {
+            android.util.Log.e("GeckoSessionManager", "Error toggling desktop mode", e)
+        }
     }
 
     /**

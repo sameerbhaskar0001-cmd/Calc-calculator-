@@ -10571,7 +10571,6 @@ fun createPrivateWebView(
         if (isDesktop) return cleanDesktopUa
         val isSocialOrAuth = (lowerUrl.contains("facebook") ||
                 lowerUrl.contains("instagram") ||
-                lowerUrl.contains("google") ||
                 lowerUrl.contains("oauth") ||
                 lowerUrl.contains("auth") ||
                 lowerUrl.contains("login") ||
@@ -10583,7 +10582,10 @@ fun createPrivateWebView(
                 lowerUrl.contains("apple") ||
                 lowerUrl.contains("microsoft") ||
                 lowerUrl.contains("firebase") ||
-                lowerUrl.contains("okta"))
+                lowerUrl.contains("okta")) &&
+                !lowerUrl.contains("google.") &&
+                !lowerUrl.contains("recaptcha") &&
+                !lowerUrl.contains("gstatic")
                 
         return if (isSocialOrAuth) {
             iOSMobileUa
@@ -10646,18 +10648,21 @@ fun createPrivateWebView(
     val wrappedCtx = ChromeContextWrapper(ctx)
     return object : android.webkit.WebView(wrappedCtx) {
         override fun loadUrl(url: String) {
-            settings.userAgentString = getUserAgentForUrl(url, isDesktopMode)
+            val isCurrentDesktop = (tag as? Boolean) ?: isDesktopMode
+            settings.userAgentString = getUserAgentForUrl(url, isCurrentDesktop)
             val headers = HashMap<String, String>()
             headers["X-Requested-With"] = ""
             super.loadUrl(url, headers)
         }
         override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
-            settings.userAgentString = getUserAgentForUrl(url, isDesktopMode)
+            val isCurrentDesktop = (tag as? Boolean) ?: isDesktopMode
+            settings.userAgentString = getUserAgentForUrl(url, isCurrentDesktop)
             val headers = additionalHttpHeaders.toMutableMap()
             headers["X-Requested-With"] = ""
             super.loadUrl(url, headers)
         }
     }.apply {
+        tag = isDesktopMode
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
             android.webkit.WebView.setWebContentsDebuggingEnabled(
                 (ctx.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -10703,11 +10708,13 @@ fun createPrivateWebView(
             override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 if (checkAndRedirectSocialLogin(view, url)) return
                 super.onPageStarted(view, url, favicon)
-                view?.settings?.userAgentString = getUserAgentForUrl(url, isDesktopMode)
+                val isCurrentDesktop = (view?.tag as? Boolean) ?: isDesktopMode
+                view?.settings?.userAgentString = getUserAgentForUrl(url, isCurrentDesktop)
                 onUpdate { tab ->
                     tab.copy(
                         url = url ?: tab.url,
                         isLoading = true,
+                        progress = if (tab.progress > 0) tab.progress else 15,
                         canGoBack = view?.canGoBack() ?: false,
                         canGoForward = view?.canGoForward() ?: false
                     )
@@ -10734,6 +10741,7 @@ fun createPrivateWebView(
                         url = url ?: tab.url,
                         title = fallbackTitle,
                         isLoading = false,
+                        progress = 100,
                         canGoBack = view?.canGoBack() ?: false,
                         canGoForward = view?.canGoForward() ?: false
                     )
@@ -10787,6 +10795,9 @@ fun createPrivateWebView(
                 error: android.webkit.WebResourceError?
             ) {
                 if (request?.isForMainFrame == true) {
+                    onUpdate { tab ->
+                        tab.copy(isLoading = false, progress = 0)
+                    }
                     val failingUrl = request.url?.toString() ?: ""
                     val description = error?.description?.toString() ?: "Connection failed"
                     showCustomWebViewError(view, failingUrl, description)
@@ -10799,6 +10810,9 @@ fun createPrivateWebView(
                 description: String?,
                 failingUrl: String?
             ) {
+                onUpdate { tab ->
+                    tab.copy(isLoading = false, progress = 0)
+                }
                 showCustomWebViewError(view, failingUrl ?: "", description ?: "Connection failed")
             }
             private fun showCustomWebViewError(webView: android.webkit.WebView?, url: String, errorMessage: String) {
@@ -10866,7 +10880,7 @@ fun createPrivateWebView(
             override fun onProgressChanged(view: android.webkit.WebView?, newProgress: Int) {
                 super.onProgressChanged(view, newProgress)
                 onUpdate { tab ->
-                    tab.copy(progress = newProgress)
+                    tab.copy(progress = newProgress, isLoading = newProgress < 100)
                 }
             }
             override fun onReceivedTitle(view: android.webkit.WebView?, title: String?) {
@@ -13171,25 +13185,7 @@ fun OldPrivateBrowserSection(
                                     if (index != -1) {
                                         tabs[index] = tabs[index].copy(isDesktopMode = newMode)
                                     }
-                                    GeckoSessionManager.removeAndDestroySession(activeTab.id)
-                                    val newSession = createPrivateGeckoSession(
-                                        ctx = context,
-                                        tabId = activeTab.id,
-                                        initialUrl = activeTab.url,
-                                        isDesktopMode = newMode,
-                                        onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-                                            pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
-                                        },
-                                        onCrash = {
-                                            geckoSessions.remove(activeTab.id)
-                                        }
-                                    ) { transform ->
-                                        val idx = tabs.indexOfFirst { it.id == activeTab.id }
-                                        if (idx != -1) {
-                                            tabs[idx] = transform(tabs[idx])
-                                        }
-                                    }
-                                    geckoSessions[activeTab.id] = newSession
+                                    GeckoSessionManager.setDesktopMode(activeTab.id, newMode)
                                 } else {
                                     val webView = webViews[activeTabId]
                                     if (webView != null && activeTab != null) {
@@ -13198,6 +13194,7 @@ fun OldPrivateBrowserSection(
                                         if (index != -1) {
                                             tabs[index] = tabs[index].copy(isDesktopMode = newMode)
                                         }
+                                        webView.tag = newMode
                                         if (newMode) {
                                             webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                                             webView.settings.loadWithOverviewMode = true
@@ -13206,14 +13203,13 @@ fun OldPrivateBrowserSection(
                                             webView.settings.builtInZoomControls = true
                                             webView.settings.displayZoomControls = false
                                         } else {
-                                            webView.settings.userAgentString = android.webkit.WebSettings.getDefaultUserAgent(context)
+                                            webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                                             webView.settings.loadWithOverviewMode = true
                                             webView.settings.useWideViewPort = true
                                             webView.settings.setSupportZoom(true)
                                             webView.settings.builtInZoomControls = true
                                             webView.settings.displayZoomControls = false
                                         }
-                                        webView.clearCache(true)
                                         webView.reload()
                                     }
                                 }

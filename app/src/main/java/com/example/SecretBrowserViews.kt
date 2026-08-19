@@ -19,6 +19,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -99,6 +100,15 @@ fun SecretBrowserHome(
 ) {
     val context = LocalContext.current
     var searchInput by remember { mutableStateOf("") }
+    var lastSearchSubmittedTime by remember { mutableStateOf(0L) }
+    val submitSearch = {
+        val now = System.currentTimeMillis()
+        val text = searchInput.trim()
+        if (text.isNotEmpty() && now - lastSearchSubmittedTime > 500L) {
+            lastSearchSubmittedTime = now
+            onSearch(text)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -197,24 +207,42 @@ fun SecretBrowserHome(
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    if (searchInput.isEmpty()) {
-                        Text("Search or enter URL...", color = TextSecondary, fontSize = 14.sp)
-                    }
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterStart
+                ) {
                     BasicTextField(
                         value = searchInput,
                         onValueChange = { searchInput = it },
                         singleLine = true,
-                        textStyle = TextStyle(color = TextPrimary, fontSize = 14.sp),
+                        cursorBrush = SolidColor(AccentColor),
+                        textStyle = TextStyle(
+                            color = TextPrimary,
+                            fontSize = 14.sp
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(
                             onSearch = {
-                                if (searchInput.trim().isNotEmpty()) {
-                                    onSearch(searchInput.trim())
-                                }
+                                submitSearch()
                             }
-                        )
+                        ),
+                        decorationBox = { innerTextField ->
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                if (searchInput.isEmpty()) {
+                                    Text(
+                                        text = "Search or enter URL...",
+                                        color = TextSecondary,
+                                        fontSize = 14.sp,
+                                        maxLines = 1
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
                     )
                 }
 
@@ -226,9 +254,7 @@ fun SecretBrowserHome(
                         .clip(CircleShape)
                         .background(AccentColor)
                         .premiumPressClick {
-                            if (searchInput.trim().isNotEmpty()) {
-                                onSearch(searchInput.trim())
-                            }
+                            submitSearch()
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -1591,6 +1617,15 @@ fun PrivateBrowserSection(
     var showMenu by remember { mutableStateOf(false) }
     var isEditingUrl by remember { mutableStateOf(false) }
     var editingUrlText by remember { mutableStateOf("") }
+    val urlFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(isEditingUrl) {
+        if (isEditingUrl) {
+            try {
+                urlFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
+    }
 
     val browserBookmarks by viewModel.browserBookmarks.collectAsStateWithLifecycle()
     val browserHistory by viewModel.browserHistory.collectAsStateWithLifecycle()
@@ -2035,6 +2070,10 @@ fun PrivateBrowserSection(
         } else {
             activeWebView?.stopLoading()
         }
+        val index = tabs.indexOfFirst { it.id == activeTabId }
+        if (index != -1) {
+            tabs[index] = tabs[index].copy(isLoading = false, progress = 100)
+        }
     }
 
     val loadUrl: (String) -> Unit = { target ->
@@ -2083,13 +2122,25 @@ fun PrivateBrowserSection(
             }
         } else {
             val index = tabs.indexOfFirst { it.id == activeTabId }
+            var shouldLoad = true
             if (index != -1) {
-                tabs[index] = tabs[index].copy(url = formatted)
+                val currentTab = tabs[index]
+                if (currentTab.isLoading && currentTab.url == formatted) {
+                    shouldLoad = false
+                } else {
+                    tabs[index] = tabs[index].copy(
+                        url = formatted,
+                        isLoading = true,
+                        progress = 10
+                    )
+                }
             }
-            if (activeGeckoSession != null) {
-                activeGeckoSession.loadUri(formatted)
-            } else {
-                activeWebView?.loadUrl(formatted)
+            if (shouldLoad) {
+                if (activeGeckoSession != null) {
+                    activeGeckoSession.loadUri(formatted)
+                } else {
+                    activeWebView?.loadUrl(formatted)
+                }
             }
         }
     }
@@ -2572,25 +2623,16 @@ fun PrivateBrowserSection(
                         Icon(Icons.Default.Close, "Cancel", tint = TextPrimary, modifier = Modifier.size(20.dp))
                     }
 
-                    OutlinedTextField(
+                    BasicTextField(
                         value = editingUrlText,
                         onValueChange = { editingUrlText = it },
-                        placeholder = { Text("Search or enter URL", color = TextSecondary, fontSize = 13.sp) },
+                        singleLine = true,
+                        cursorBrush = SolidColor(AccentColor),
+                        textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp),
                         modifier = Modifier
                             .weight(1f)
                             .padding(horizontal = 4.dp)
-                            .height(40.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = LightBg,
-                            unfocusedContainerColor = LightBg,
-                            focusedBorderColor = AccentColor,
-                            unfocusedBorderColor = BorderColor,
-                            cursorColor = AccentColor,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        singleLine = true,
+                            .focusRequester(urlFocusRequester),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(
                             onSearch = {
@@ -2601,7 +2643,45 @@ fun PrivateBrowserSection(
                                 isEditingUrl = false
                             }
                         ),
-                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
+                        decorationBox = { innerTextField ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(40.dp)
+                                    .background(LightBg, RoundedCornerShape(20.dp))
+                                    .border(1.dp, AccentColor, RoundedCornerShape(20.dp))
+                                    .padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier.weight(1f),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    if (editingUrlText.isEmpty()) {
+                                        Text(
+                                            text = "Search or enter URL",
+                                            color = TextSecondary,
+                                            fontSize = 13.sp,
+                                            maxLines = 1
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                                if (editingUrlText.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { editingUrlText = "" },
+                                        modifier = Modifier.size(22.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Clear",
+                                            tint = TextSecondary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     )
 
                     IconButton(
@@ -2618,7 +2698,7 @@ fun PrivateBrowserSection(
                     }
                 } else {
                     IconButton(
-                        onClick = { onExit() },
+                        onClick = { if (isHome) onExit() else goBackOrExit() },
                         modifier = Modifier.size(34.dp)
                     ) {
                         Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary, modifier = Modifier.size(20.dp))
@@ -2787,6 +2867,25 @@ fun PrivateBrowserSection(
                         }
                     )
                 } else {
+                    val targetProgress = if (activeTab?.isLoading == true) {
+                        ((activeTab?.progress ?: 0).coerceIn(12, 95)) / 100f
+                    } else {
+                        1f
+                    }
+                    val animatedProgress by animateFloatAsState(
+                        targetValue = targetProgress,
+                        animationSpec = tween(
+                            durationMillis = if (activeTab?.isLoading == true) 250 else 150,
+                            easing = FastOutSlowInEasing
+                        ),
+                        label = "BrowserAnimatedProgress"
+                    )
+                    val progressAlpha by animateFloatAsState(
+                        targetValue = if (activeTab?.isLoading == true && activeTab?.isFullScreen != true) 1f else 0f,
+                        animationSpec = tween(durationMillis = if (activeTab?.isLoading == true) 120 else 280),
+                        label = "BrowserProgressAlpha"
+                    )
+
                     if (activeGeckoSession != null) {
                         Box(modifier = Modifier.fillMaxSize()) {
                             key(activeGeckoSession.hashCode()) {
@@ -2799,21 +2898,16 @@ fun PrivateBrowserSection(
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
-                            val progressAlpha by animateFloatAsState(
-                                targetValue = if (activeTab?.isLoading == true && activeTab?.isFullScreen != true) 1f else 0f,
-                                animationSpec = tween(durationMillis = 300),
-                                label = "GeckoProgressAlpha"
-                            )
                             if (progressAlpha > 0f && activeTab?.isFullScreen != true) {
                                 LinearProgressIndicator(
-                                    progress = { (activeTab?.progress ?: 0) / 100f },
+                                    progress = { animatedProgress },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(2.dp)
+                                        .height(3.dp)
                                         .align(Alignment.TopCenter)
                                         .graphicsLayer { alpha = progressAlpha },
                                     color = AccentColor,
-                                    trackColor = Color.Transparent
+                                    trackColor = AccentColor.copy(alpha = 0.12f)
                                 )
                             }
                         }
@@ -2828,21 +2922,16 @@ fun PrivateBrowserSection(
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
-                            val progressAlpha by animateFloatAsState(
-                                targetValue = if (activeTab?.isLoading == true && activeTab?.isFullScreen != true) 1f else 0f,
-                                animationSpec = tween(durationMillis = 300),
-                                label = "WebProgressAlpha"
-                            )
                             if (progressAlpha > 0f && activeTab?.isFullScreen != true) {
                                 LinearProgressIndicator(
-                                    progress = { (activeTab?.progress ?: 0) / 100f },
+                                    progress = { animatedProgress },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(2.dp)
+                                        .height(3.dp)
                                         .align(Alignment.TopCenter)
                                         .graphicsLayer { alpha = progressAlpha },
                                     color = AccentColor,
-                                    trackColor = Color.Transparent
+                                    trackColor = AccentColor.copy(alpha = 0.12f)
                                 )
                             }
                         }
@@ -2904,15 +2993,16 @@ fun PrivateBrowserSection(
                         horizontalArrangement = Arrangement.SpaceAround,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val canNavigateBack = (activeTab?.canGoBack == true) || (!isHome && activeTab?.url != "home" && activeTab?.url?.isNotEmpty() == true)
                         IconButton(
                             onClick = { goBack() },
-                            enabled = activeTab?.canGoBack == true,
+                            enabled = canNavigateBack,
                             modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
                                 contentDescription = "Back",
-                                tint = if (activeTab?.canGoBack == true) TextPrimary else TextSecondary.copy(alpha = 0.4f),
+                                tint = if (canNavigateBack) TextPrimary else TextSecondary.copy(alpha = 0.4f),
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -3148,25 +3238,7 @@ fun PrivateBrowserSection(
                                                 if (index != -1) {
                                                     tabs[index] = tabs[index].copy(isDesktopMode = newMode)
                                                 }
-                                                GeckoSessionManager.removeAndDestroySession(activeTab.id)
-                                                val newSession = createPrivateGeckoSession(
-                                                    ctx = context,
-                                                    tabId = activeTab.id,
-                                                    initialUrl = activeTab.url,
-                                                    isDesktopMode = newMode,
-                                                    onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-                                                        pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
-                                                    },
-                                                    onCrash = {
-                                                        geckoSessions.remove(activeTab.id)
-                                                    }
-                                                ) { transform ->
-                                                    val idx = tabs.indexOfFirst { it.id == activeTab.id }
-                                                    if (idx != -1) {
-                                                        tabs[idx] = transform(tabs[idx])
-                                                    }
-                                                }
-                                                geckoSessions[activeTab.id] = newSession
+                                                GeckoSessionManager.setDesktopMode(activeTab.id, newMode)
                                             } else {
                                                 val webView = webViews[activeTabId]
                                                 if (webView != null && activeTab != null) {
@@ -3175,6 +3247,7 @@ fun PrivateBrowserSection(
                                                     if (index != -1) {
                                                         tabs[index] = tabs[index].copy(isDesktopMode = newMode)
                                                     }
+                                                    webView.tag = newMode
                                                     if (newMode) {
                                                         webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                                                         webView.settings.loadWithOverviewMode = true
@@ -3183,14 +3256,13 @@ fun PrivateBrowserSection(
                                                         webView.settings.builtInZoomControls = true
                                                         webView.settings.displayZoomControls = false
                                                     } else {
-                                                        webView.settings.userAgentString = android.webkit.WebSettings.getDefaultUserAgent(context)
+                                                        webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                                                         webView.settings.loadWithOverviewMode = true
                                                         webView.settings.useWideViewPort = true
                                                         webView.settings.setSupportZoom(true)
                                                         webView.settings.builtInZoomControls = true
                                                         webView.settings.displayZoomControls = false
                                                     }
-                                                    webView.clearCache(true)
                                                     webView.reload()
                                                 }
                                             }
@@ -3344,41 +3416,46 @@ fun FindInPageBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        OutlinedTextField(
+        BasicTextField(
             value = query,
             onValueChange = onQueryChange,
-            placeholder = { Text("Find in page...", color = TextSecondary, fontSize = 13.sp) },
+            singleLine = true,
+            cursorBrush = SolidColor(AccentColor),
+            textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp),
             modifier = Modifier
                 .weight(1f)
-                .height(40.dp)
                 .focusRequester(focusRequester),
-            shape = RoundedCornerShape(20.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = LightCard,
-                unfocusedContainerColor = LightCard,
-                focusedBorderColor = AccentColor,
-                unfocusedBorderColor = BorderColor,
-                cursorColor = AccentColor,
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary
-            ),
-            singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             keyboardActions = KeyboardActions(
                 onNext = {
                     onNext()
                 }
             ),
-            textStyle = TextStyle(fontSize = 13.sp),
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    Text(
-                        text = if (totalMatch > 0) "$currentMatch/$totalMatch" else "0/0",
-                        color = if (totalMatch > 0) AccentColor else TextSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
+            decorationBox = { innerTextField ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                        .background(LightCard, RoundedCornerShape(20.dp))
+                        .border(1.dp, AccentColor, RoundedCornerShape(20.dp))
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                        if (query.isEmpty()) {
+                            Text("Find in page...", color = TextSecondary, fontSize = 13.sp, maxLines = 1)
+                        }
+                        innerTextField()
+                    }
+                    if (query.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (totalMatch > 0) "$currentMatch/$totalMatch" else "0/0",
+                            color = if (totalMatch > 0) AccentColor else TextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         )
