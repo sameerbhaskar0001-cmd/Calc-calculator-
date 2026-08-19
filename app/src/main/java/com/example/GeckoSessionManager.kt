@@ -43,8 +43,15 @@ object GeckoSessionManager {
             onDownloadCallbacks[tabId] = onDownloadRequested
         }
 
-        // Return existing session if already created
-        activeSessions[tabId]?.let { return it }
+        // Return existing session if already created and valid
+        val existing = activeSessions[tabId]
+        if (existing != null) {
+            if (existing.isOpen) {
+                return existing
+            } else {
+                removeAndDestroySession(tabId)
+            }
+        }
 
         val onUpdate: ((TabState) -> TabState) -> Unit = { transform ->
             if (activeSessions.containsKey(tabId)) {

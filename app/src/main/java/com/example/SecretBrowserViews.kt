@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -208,7 +209,9 @@ fun SecretBrowserHome(
                 Spacer(modifier = Modifier.width(10.dp))
 
                 Box(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clipToBounds(),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     BasicTextField(
@@ -1909,6 +1912,9 @@ fun PrivateBrowserSection(
     val currentClearTempOnExit by androidx.compose.runtime.rememberUpdatedState(clearTempOnExit)
     DisposableEffect(Unit) {
         onDispose {
+            val activity = context as? android.app.Activity
+            activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            setSystemBarsVisibility(activity, true)
             if (currentClearTempOnExit) {
                 try {
                     SecretBrowserSecureDelete.cleanTemporaryUploadsDirectory(context, secure = true)
@@ -1935,8 +1941,29 @@ fun PrivateBrowserSection(
         }
     }
 
-    val activeWebView = webViews[activeTabId]
-    val activeGeckoSession = geckoSessions[activeTabId]
+    val isFullScreen = activeTab?.isFullScreen == true
+    LaunchedEffect(isFullScreen) {
+        val activity = context as? android.app.Activity
+        if (activity != null) {
+            if (isFullScreen) {
+                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                setSystemBarsVisibility(activity, false)
+            } else {
+                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                setSystemBarsVisibility(activity, true)
+            }
+        }
+    }
+
+    val currentActiveId = activeTabId
+    val activeWebView = currentActiveId?.let { webViews[it] }
+    val activeGeckoSession = if (useGeckoView && currentActiveId != null) {
+        geckoSessions[currentActiveId] ?: GeckoSessionManager.getSession(currentActiveId)?.also {
+            geckoSessions[currentActiveId] = it
+        }
+    } else {
+        null
+    }
     val isHome = activeTab?.url == "home" || activeTab?.url == "about:blank" || activeTab?.url?.isEmpty() == true
 
     val currentUrl = activeTab?.url ?: ""
@@ -2094,7 +2121,7 @@ fun PrivateBrowserSection(
                 } else {
                     val encodedQ = java.net.URLEncoder.encode(q, "UTF-8")
                     when (searchEngine) {
-                        "DuckDuckGo" -> "https://duckduckgo.com/?q=$encodedQ&kl=us-en"
+                        "DuckDuckGo" -> "https://duckduckgo.com/?q=$encodedQ&t=h_&ia=web"
                         "Bing" -> "https://www.bing.com/search?q=$encodedQ&setlang=en&cc=US"
                         "Yahoo" -> "https://search.yahoo.com/search?p=$encodedQ&ei=UTF-8&vc=US&vl=en"
                         else -> "https://www.google.com/search?q=$encodedQ&hl=en&gl=US"
@@ -2176,7 +2203,17 @@ fun PrivateBrowserSection(
     }
 
     val goBackOrExit = {
-        if (showSearchEngineDialog) {
+        if (activeTab?.isFullScreen == true) {
+            if (activeGeckoSession != null) {
+                activeGeckoSession.exitFullScreen()
+            } else if (viewModel.browserCustomViewCallback != null) {
+                viewModel.browserCustomViewCallback?.onCustomViewHidden()
+            }
+            val index = tabs.indexOfFirst { it.id == activeTabId }
+            if (index != -1) {
+                tabs[index] = tabs[index].copy(isFullScreen = false)
+            }
+        } else if (showSearchEngineDialog) {
             showSearchEngineDialog = false
         } else if (showDownloads) {
             showDownloads = false
@@ -2188,12 +2225,10 @@ fun PrivateBrowserSection(
             showHistory = false
         } else if (showTabSwitcher) {
             showTabSwitcher = false
-        } else if (activeTab?.isFullScreen == true) {
-            if (activeGeckoSession != null) {
-                activeGeckoSession.exitFullScreen()
-            } else if (viewModel.browserCustomViewCallback != null) {
-                viewModel.browserCustomViewCallback?.onCustomViewHidden()
-            }
+        } else if (showMenu) {
+            showMenu = false
+        } else if (showFindInPage) {
+            closeFindInPage()
         } else if (activeTab?.url == "home") {
             if (activeGeckoSession != null && activeTab.canGoBack) {
                 activeGeckoSession.goBack()
@@ -2654,7 +2689,9 @@ fun PrivateBrowserSection(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Box(
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clipToBounds(),
                                     contentAlignment = Alignment.CenterStart
                                 ) {
                                     if (editingUrlText.isEmpty()) {
@@ -2799,6 +2836,33 @@ fun PrivateBrowserSection(
                         }
                     }
 
+                    val currentUrl = activeTab?.url ?: ""
+                    val canBookmark = currentUrl.isNotEmpty() && currentUrl != "home" && currentUrl != "about:blank" &&
+                            !currentUrl.startsWith("data:") && !currentUrl.startsWith("file:") && !currentUrl.startsWith("about:")
+                    val isBookmarked = if (canBookmark) browserBookmarks.any { it.url == currentUrl } else false
+
+                    if (!isHome && canBookmark) {
+                        IconButton(
+                            onClick = {
+                                if (isBookmarked) {
+                                    viewModel.removeBrowserBookmark(currentUrl)
+                                    Toast.makeText(context, "Removed from Bookmarks", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    viewModel.addBrowserBookmark(activeTab?.title ?: "New Tab", currentUrl)
+                                    Toast.makeText(context, "Added to Bookmarks", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = "Bookmark",
+                                tint = if (isBookmarked) Color(0xFFFFC107) else TextPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
                     IconButton(
                         onClick = { showMenu = true },
                         modifier = Modifier.size(34.dp)
@@ -2839,7 +2903,7 @@ fun PrivateBrowserSection(
                                 } else {
                                     val q = java.net.URLEncoder.encode(target, "UTF-8")
                                     target = when (searchEngine) {
-                                        "DuckDuckGo" -> "https://duckduckgo.com/?q=$q&kl=us-en"
+                                        "DuckDuckGo" -> "https://duckduckgo.com/?q=$q&t=h_&ia=web"
                                         "Bing" -> "https://www.bing.com/search?q=$q&setlang=en&cc=US"
                                         "Yahoo" -> "https://search.yahoo.com/search?p=$q&ei=UTF-8&vc=US&vl=en"
                                         else -> "https://www.google.com/search?q=$q&hl=en&gl=US"
@@ -2892,8 +2956,26 @@ fun PrivateBrowserSection(
                                 AndroidView(
                                     factory = { ctx ->
                                         org.mozilla.geckoview.GeckoView(ctx).apply {
+                                            try {
+                                                activeGeckoSession.setActive(true)
+                                            } catch (e: Exception) {}
                                             setSession(activeGeckoSession)
                                         }
+                                    },
+                                    update = { geckoView ->
+                                        try {
+                                            activeGeckoSession.setActive(true)
+                                            if (geckoView.session != activeGeckoSession) {
+                                                geckoView.setSession(activeGeckoSession)
+                                            }
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("GeckoViewUpdate", "Failed in update", e)
+                                        }
+                                    },
+                                    onRelease = { geckoView ->
+                                        try {
+                                            geckoView.releaseSession()
+                                        } catch (e: Exception) {}
                                     },
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -2917,7 +2999,17 @@ fun PrivateBrowserSection(
                                 AndroidView(
                                     factory = { _ ->
                                         (activeWebView.parent as? android.view.ViewGroup)?.removeView(activeWebView)
+                                        try { activeWebView.onResume() } catch (e: Exception) {}
                                         activeWebView
+                                    },
+                                    update = { webView ->
+                                        try { webView.onResume() } catch (e: Exception) {}
+                                    },
+                                    onRelease = { webView ->
+                                        try {
+                                            (webView.parent as? android.view.ViewGroup)?.removeView(webView)
+                                            webView.onPause()
+                                        } catch (e: Exception) {}
                                     },
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -2934,38 +3026,6 @@ fun PrivateBrowserSection(
                                     trackColor = AccentColor.copy(alpha = 0.12f)
                                 )
                             }
-                        }
-                    }
-
-                    val currentUrl = activeTab?.url ?: ""
-                    val canBookmark = currentUrl.isNotEmpty() && currentUrl != "home" && currentUrl != "about:blank" &&
-                            !currentUrl.startsWith("data:") && !currentUrl.startsWith("file:") && !currentUrl.startsWith("about:")
-
-                    if (canBookmark && activeTab?.isFullScreen != true) {
-                        val isBookmarked = browserBookmarks.any { it.url == currentUrl }
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(horizontal = 16.dp, vertical = 90.dp)
-                                .size(48.dp)
-                                .background(LightCard, CircleShape)
-                                .border(1.dp, BorderColor, CircleShape)
-                                .premiumPressClick {
-                                    if (isBookmarked) {
-                                        viewModel.removeBrowserBookmark(currentUrl)
-                                        Toast.makeText(context, "Removed from Bookmarks", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        viewModel.addBrowserBookmark(activeTab?.title ?: "New Tab", currentUrl)
-                                        Toast.makeText(context, "Added to Bookmarks", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
-                                contentDescription = "Bookmark",
-                                tint = if (isBookmarked) Color(0xFFFFC107) else TextSecondary
-                            )
                         }
                     }
                 }

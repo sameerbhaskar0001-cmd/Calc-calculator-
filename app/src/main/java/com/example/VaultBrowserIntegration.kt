@@ -48,12 +48,21 @@ enum class BrowserUploadType {
     DOCUMENT_FILE_UPLOAD
 }
 
-data class BrowserUploadRequest(
+class BrowserUploadRequest(
     val mimeTypes: List<String>,
     val isMultiple: Boolean,
     val uploadType: BrowserUploadType,
-    val onResult: (List<android.net.Uri>?) -> Unit
-)
+    onResult: (List<android.net.Uri>?) -> Unit
+) {
+    private val isCompleted = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val callback = onResult
+
+    val onResult: (List<android.net.Uri>?) -> Unit = { uris ->
+        if (isCompleted.compareAndSet(false, true)) {
+            callback(uris)
+        }
+    }
+}
 
 /**
  * Hook for premium entitlements. Phase 11 will implement this.
@@ -203,13 +212,69 @@ fun prepareVaultFileForUpload(context: Context, originalPath: String, originalNa
             }
         }
         
-        androidx.core.content.FileProvider.getUriForFile(
+        val uri = androidx.core.content.FileProvider.getUriForFile(
             context,
             "${context.packageName}.provider",
             tempFile
         )
+        try {
+            context.grantUriPermission(
+                context.packageName,
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (e: Exception) {}
+        uri
     } catch (e: Exception) {
         android.util.Log.e("VaultUpload", "Failed to prepare vault file for upload", e)
+        null
+    }
+}
+
+/**
+ * Utility function to prepare freshly captured camera media for secure browser upload.
+ * It copies the media safely to the temp_browser_uploads directory with a standardized
+ * display name, generates the FileProvider URI, and grants temporary read permission.
+ */
+fun prepareCapturedMediaForUpload(context: Context, capturedFile: File, mimeType: String): android.net.Uri? {
+    return try {
+        if (!capturedFile.exists() || !capturedFile.canRead()) {
+            android.util.Log.e("VaultUpload", "Captured file does not exist or is unreadable: ${capturedFile.absolutePath}")
+            return null
+        }
+        val tempDir = File(context.cacheDir, "temp_browser_uploads")
+        if (!tempDir.exists()) {
+            tempDir.mkdirs()
+        }
+        val isVideo = mimeType.startsWith("video/")
+        val ext = if (isVideo) "mp4" else "jpg"
+        val prefix = if (isVideo) "Video" else "Photo"
+        val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+        val displayName = "${prefix}_$timestamp.$ext"
+        val uniqueName = "upload_${System.currentTimeMillis()}_$displayName"
+        val tempFile = File(tempDir, uniqueName)
+
+        capturedFile.inputStream().use { input ->
+            tempFile.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            tempFile
+        )
+        try {
+            context.grantUriPermission(
+                context.packageName,
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (e: Exception) {}
+        uri
+    } catch (e: Exception) {
+        android.util.Log.e("VaultUpload", "Failed to prepare captured media for upload", e)
         null
     }
 }
@@ -356,12 +421,12 @@ fun BrowserUploadSourceDialog(
             },
             onMediaCaptured = { capturedFile, mimeType ->
                 dialogSubScreen = "home"
-                val uri = androidx.core.content.FileProvider.getUriForFile(
-                    context,
-                    "${context.packageName}.provider",
-                    capturedFile
-                )
-                activeUpload.onResult(listOf(uri))
+                val uri = prepareCapturedMediaForUpload(context, capturedFile, mimeType)
+                if (uri != null) {
+                    activeUpload.onResult(listOf(uri))
+                } else {
+                    activeUpload.onResult(null)
+                }
                 VaultBrowserIntegration.activeUploadRequest = null
             },
             initialVideoMode = isOnlyVideo
