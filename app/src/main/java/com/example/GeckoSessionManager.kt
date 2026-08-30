@@ -288,20 +288,28 @@ object GeckoSessionManager {
                 val uploadType = VaultBrowserIntegration.determineUploadType(mimes)
                 
                 val result = org.mozilla.geckoview.GeckoResult<org.mozilla.geckoview.GeckoSession.PromptDelegate.PromptResponse>()
+                val promptContext = context.applicationContext ?: context
                 
                 VaultBrowserIntegration.activeUploadRequest = BrowserUploadRequest(
                     mimeTypes = mimes,
                     isMultiple = isMultiple,
                     uploadType = uploadType,
                     onResult = { uris ->
-                        if (uris != null && uris.isNotEmpty()) {
-                            if (isMultiple) {
-                                result.complete(prompt.confirm(context, uris.toTypedArray()))
+                        try {
+                            if (uris != null && uris.isNotEmpty()) {
+                                if (isMultiple) {
+                                    result.complete(prompt.confirm(promptContext, uris.toTypedArray()))
+                                } else {
+                                    result.complete(prompt.confirm(promptContext, uris[0]))
+                                }
                             } else {
-                                result.complete(prompt.confirm(context, uris[0]))
+                                result.complete(prompt.dismiss())
                             }
-                        } else {
-                            result.complete(prompt.dismiss())
+                        } catch (e: Exception) {
+                            android.util.Log.e("GeckoSessionManager", "Error completing file prompt", e)
+                            try {
+                                result.complete(prompt.dismiss())
+                            } catch (ex: Exception) {}
                         }
                     }
                 )

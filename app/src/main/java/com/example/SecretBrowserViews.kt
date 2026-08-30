@@ -211,7 +211,7 @@ fun SecretBrowserHome(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clipToBounds(),
+                        .padding(end = 4.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     BasicTextField(
@@ -1574,6 +1574,7 @@ fun PrivateBrowserSection(
     val context = LocalContext.current
     val tabs = viewModel.browserTabs
     val webViews = remember { mutableStateMapOf<String, android.webkit.WebView>() }
+    val geckoViews = remember { mutableStateMapOf<String, org.mozilla.geckoview.GeckoView>() }
     val geckoSessions = remember { 
         mutableStateMapOf<String, org.mozilla.geckoview.GeckoSession>().apply {
             putAll(GeckoSessionManager.getActiveSessions())
@@ -1739,6 +1740,13 @@ fun PrivateBrowserSection(
             webViews.clear()
         } else {
             // Safe clean up of primary GeckoView resources on transition
+            geckoViews.values.forEach { gv ->
+                try {
+                    (gv.parent as? android.view.ViewGroup)?.removeView(gv)
+                    gv.releaseSession()
+                } catch (e: Exception) {}
+            }
+            geckoViews.clear()
             geckoSessions.keys.forEach { tabId ->
                 GeckoSessionManager.removeAndDestroySession(tabId)
             }
@@ -1747,7 +1755,14 @@ fun PrivateBrowserSection(
 
         // Clean up closed tabs
         val removedGecko = geckoSessions.keys.filter { it !in currentTabIds }
-        removedGecko.forEach { GeckoSessionManager.removeAndDestroySession(it) }
+        removedGecko.forEach { tabId ->
+            val gv = geckoViews.remove(tabId)
+            try {
+                (gv?.parent as? android.view.ViewGroup)?.removeView(gv)
+                gv?.releaseSession()
+            } catch (e: Exception) {}
+            GeckoSessionManager.removeAndDestroySession(tabId)
+        }
         geckoSessions.keys.retainAll(currentTabIds)
         
         val removedWebViews = webViews.keys.filter { it !in currentTabIds }
@@ -1872,6 +1887,11 @@ fun PrivateBrowserSection(
     }
 
     val closeTab: (String) -> Unit = { tabId ->
+        val gv = geckoViews.remove(tabId)
+        try {
+            (gv?.parent as? android.view.ViewGroup)?.removeView(gv)
+            gv?.releaseSession()
+        } catch (e: Exception) {}
         GeckoSessionManager.removeAndDestroySession(tabId)
         geckoSessions.remove(tabId)
         val wv = webViews[tabId]
@@ -1926,6 +1946,8 @@ fun PrivateBrowserSection(
             if (currentClearHistoryOnExit) {
                 viewModel.clearBrowserHistory()
                 clearAllBrowsingData(context, tabs, webViews)
+                geckoViews.values.forEach { try { (it.parent as? android.view.ViewGroup)?.removeView(it); it.releaseSession() } catch (e: Exception) {} }
+                geckoViews.clear()
                 GeckoSessionManager.destroyAllSessions()
             } else {
                 webViews.values.forEach { webView ->
@@ -1935,9 +1957,11 @@ fun PrivateBrowserSection(
                     } catch (e: Exception) {}
                 }
                 webViews.clear()
+                geckoViews.values.forEach { try { (it.parent as? android.view.ViewGroup)?.removeView(it) } catch (e: Exception) {} }
                 geckoSessions.values.forEach { it.setActive(false) }
             }
             geckoSessions.clear()
+            geckoViews.clear()
         }
     }
 
@@ -2121,7 +2145,7 @@ fun PrivateBrowserSection(
                 } else {
                     val encodedQ = java.net.URLEncoder.encode(q, "UTF-8")
                     when (searchEngine) {
-                        "DuckDuckGo" -> "https://duckduckgo.com/?q=$encodedQ&t=h_&ia=web"
+                        "DuckDuckGo" -> "https://duckduckgo.com/?q=$encodedQ"
                         "Bing" -> "https://www.bing.com/search?q=$encodedQ&setlang=en&cc=US"
                         "Yahoo" -> "https://search.yahoo.com/search?p=$encodedQ&ei=UTF-8&vc=US&vl=en"
                         else -> "https://www.google.com/search?q=$encodedQ&hl=en&gl=US"
@@ -2658,40 +2682,38 @@ fun PrivateBrowserSection(
                         Icon(Icons.Default.Close, "Cancel", tint = TextPrimary, modifier = Modifier.size(20.dp))
                     }
 
-                    BasicTextField(
-                        value = editingUrlText,
-                        onValueChange = { editingUrlText = it },
-                        singleLine = true,
-                        cursorBrush = SolidColor(AccentColor),
-                        textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp),
+                    Row(
                         modifier = Modifier
                             .weight(1f)
+                            .height(40.dp)
                             .padding(horizontal = 4.dp)
-                            .focusRequester(urlFocusRequester),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(
-                            onSearch = {
-                                val target = editingUrlText.trim()
-                                if (target.isNotEmpty()) {
-                                    loadUrl(target)
+                            .background(LightBg, RoundedCornerShape(20.dp))
+                            .border(1.dp, AccentColor, RoundedCornerShape(20.dp))
+                            .padding(start = 12.dp, end = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        BasicTextField(
+                            value = editingUrlText,
+                            onValueChange = { editingUrlText = it },
+                            singleLine = true,
+                            cursorBrush = SolidColor(AccentColor),
+                            textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(urlFocusRequester),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(
+                                onSearch = {
+                                    val target = editingUrlText.trim()
+                                    if (target.isNotEmpty()) {
+                                        loadUrl(target)
+                                    }
+                                    isEditingUrl = false
                                 }
-                                isEditingUrl = false
-                            }
-                        ),
-                        decorationBox = { innerTextField ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(40.dp)
-                                    .background(LightBg, RoundedCornerShape(20.dp))
-                                    .border(1.dp, AccentColor, RoundedCornerShape(20.dp))
-                                    .padding(horizontal = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                            ),
+                            decorationBox = { innerTextField ->
                                 Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clipToBounds(),
+                                    modifier = Modifier.fillMaxWidth(),
                                     contentAlignment = Alignment.CenterStart
                                 ) {
                                     if (editingUrlText.isEmpty()) {
@@ -2704,22 +2726,22 @@ fun PrivateBrowserSection(
                                     }
                                     innerTextField()
                                 }
-                                if (editingUrlText.isNotEmpty()) {
-                                    IconButton(
-                                        onClick = { editingUrlText = "" },
-                                        modifier = Modifier.size(22.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Close,
-                                            contentDescription = "Clear",
-                                            tint = TextSecondary,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                }
+                            }
+                        )
+                        if (editingUrlText.isNotEmpty()) {
+                            IconButton(
+                                onClick = { editingUrlText = "" },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = TextSecondary,
+                                    modifier = Modifier.size(14.dp)
+                                )
                             }
                         }
-                    )
+                    }
 
                     IconButton(
                         onClick = {
@@ -2903,7 +2925,7 @@ fun PrivateBrowserSection(
                                 } else {
                                     val q = java.net.URLEncoder.encode(target, "UTF-8")
                                     target = when (searchEngine) {
-                                        "DuckDuckGo" -> "https://duckduckgo.com/?q=$q&t=h_&ia=web"
+                                        "DuckDuckGo" -> "https://duckduckgo.com/?q=$q"
                                         "Bing" -> "https://www.bing.com/search?q=$q&setlang=en&cc=US"
                                         "Yahoo" -> "https://search.yahoo.com/search?p=$q&ei=UTF-8&vc=US&vl=en"
                                         else -> "https://www.google.com/search?q=$q&hl=en&gl=US"
@@ -2925,6 +2947,8 @@ fun PrivateBrowserSection(
                                 viewModel.clearBrowserHistory()
                             }
                             clearAllBrowsingData(context, tabs, webViews)
+                            geckoViews.values.forEach { try { (it.parent as? android.view.ViewGroup)?.removeView(it); it.releaseSession() } catch (e: Exception) {} }
+                            geckoViews.clear()
                             geckoSessions.clear()
                             openNewTab("home")
                             Toast.makeText(context, "Session Purged Successfully!", Toast.LENGTH_SHORT).show()
@@ -2950,17 +2974,24 @@ fun PrivateBrowserSection(
                         label = "BrowserProgressAlpha"
                     )
 
-                    if (activeGeckoSession != null) {
+                    if (activeGeckoSession != null && currentActiveId != null) {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            key(activeGeckoSession.hashCode()) {
+                            key(currentActiveId) {
                                 AndroidView(
                                     factory = { ctx ->
-                                        org.mozilla.geckoview.GeckoView(ctx).apply {
-                                            try {
-                                                activeGeckoSession.setActive(true)
-                                            } catch (e: Exception) {}
-                                            setSession(activeGeckoSession)
+                                        val gv = geckoViews.getOrPut(currentActiveId) {
+                                            org.mozilla.geckoview.GeckoView(ctx).apply {
+                                                setSession(activeGeckoSession)
+                                            }
                                         }
+                                        (gv.parent as? android.view.ViewGroup)?.removeView(gv)
+                                        try {
+                                            activeGeckoSession.setActive(true)
+                                            if (gv.session != activeGeckoSession) {
+                                                gv.setSession(activeGeckoSession)
+                                            }
+                                        } catch (e: Exception) {}
+                                        gv
                                     },
                                     update = { geckoView ->
                                         try {
@@ -2974,7 +3005,7 @@ fun PrivateBrowserSection(
                                     },
                                     onRelease = { geckoView ->
                                         try {
-                                            geckoView.releaseSession()
+                                            (geckoView.parent as? android.view.ViewGroup)?.removeView(geckoView)
                                         } catch (e: Exception) {}
                                     },
                                     modifier = Modifier.fillMaxSize()
@@ -3416,6 +3447,8 @@ fun PrivateBrowserSection(
                                     viewModel.clearBrowserHistory()
                                 }
                                 clearAllBrowsingData(context, tabs, webViews)
+                                geckoViews.values.forEach { try { (it.parent as? android.view.ViewGroup)?.removeView(it); it.releaseSession() } catch (e: Exception) {} }
+                                geckoViews.clear()
                                 geckoSessions.clear()
                                 onPanic()
                             },
@@ -3476,49 +3509,49 @@ fun FindInPageBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        BasicTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            singleLine = true,
-            cursorBrush = SolidColor(AccentColor),
-            textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp),
+        Row(
             modifier = Modifier
                 .weight(1f)
-                .focusRequester(focusRequester),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-            keyboardActions = KeyboardActions(
-                onNext = {
-                    onNext()
-                }
-            ),
-            decorationBox = { innerTextField ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(40.dp)
-                        .background(LightCard, RoundedCornerShape(20.dp))
-                        .border(1.dp, AccentColor, RoundedCornerShape(20.dp))
-                        .padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                .height(40.dp)
+                .background(LightCard, RoundedCornerShape(20.dp))
+                .border(1.dp, AccentColor, RoundedCornerShape(20.dp))
+                .padding(start = 12.dp, end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                cursorBrush = SolidColor(AccentColor),
+                textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(
+                    onNext = {
+                        onNext()
+                    }
+                ),
+                decorationBox = { innerTextField ->
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
                         if (query.isEmpty()) {
                             Text("Find in page...", color = TextSecondary, fontSize = 13.sp, maxLines = 1)
                         }
                         innerTextField()
                     }
-                    if (query.isNotEmpty()) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (totalMatch > 0) "$currentMatch/$totalMatch" else "0/0",
-                            color = if (totalMatch > 0) AccentColor else TextSecondary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
                 }
+            )
+            if (query.isNotEmpty()) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (totalMatch > 0) "$currentMatch/$totalMatch" else "0/0",
+                    color = if (totalMatch > 0) AccentColor else TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
-        )
+        }
 
         Spacer(modifier = Modifier.width(8.dp))
 

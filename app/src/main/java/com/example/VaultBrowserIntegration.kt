@@ -211,6 +211,8 @@ fun prepareVaultFileForUpload(context: Context, originalPath: String, originalNa
                 input.copyTo(output) // Secure, memory-safe chunked streaming
             }
         }
+        tempFile.setReadable(true, false)
+        tempFile.setWritable(true, false)
         
         val uri = androidx.core.content.FileProvider.getUriForFile(
             context,
@@ -223,6 +225,21 @@ fun prepareVaultFileForUpload(context: Context, originalPath: String, originalNa
                 uri,
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
+            val webPackages = listOf(
+                "com.google.android.webview",
+                "com.android.webview",
+                "com.android.chrome",
+                "org.mozilla.geckoview"
+            )
+            webPackages.forEach { pkg ->
+                try {
+                    context.grantUriPermission(
+                        pkg,
+                        uri,
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                } catch (e: Exception) {}
+            }
         } catch (e: Exception) {}
         uri
     } catch (e: Exception) {
@@ -259,6 +276,8 @@ fun prepareCapturedMediaForUpload(context: Context, capturedFile: File, mimeType
                 input.copyTo(output)
             }
         }
+        tempFile.setReadable(true, false)
+        tempFile.setWritable(true, false)
 
         val uri = androidx.core.content.FileProvider.getUriForFile(
             context,
@@ -271,6 +290,21 @@ fun prepareCapturedMediaForUpload(context: Context, capturedFile: File, mimeType
                 uri,
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
+            val webPackages = listOf(
+                "com.google.android.webview",
+                "com.android.webview",
+                "com.android.chrome",
+                "org.mozilla.geckoview"
+            )
+            webPackages.forEach { pkg ->
+                try {
+                    context.grantUriPermission(
+                        pkg,
+                        uri,
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                } catch (e: Exception) {}
+            }
         } catch (e: Exception) {}
         uri
     } catch (e: Exception) {
@@ -415,12 +449,11 @@ fun BrowserUploadSourceDialog(
         SecureCameraView(
             viewModel = viewModel,
             onDismiss = {
-                dialogSubScreen = "home"
                 activeUpload.onResult(null)
                 VaultBrowserIntegration.activeUploadRequest = null
+                dialogSubScreen = "home"
             },
             onMediaCaptured = { capturedFile, mimeType ->
-                dialogSubScreen = "home"
                 val uri = prepareCapturedMediaForUpload(context, capturedFile, mimeType)
                 if (uri != null) {
                     activeUpload.onResult(listOf(uri))
@@ -428,6 +461,7 @@ fun BrowserUploadSourceDialog(
                     activeUpload.onResult(null)
                 }
                 VaultBrowserIntegration.activeUploadRequest = null
+                dialogSubScreen = "home"
             },
             initialVideoMode = isOnlyVideo
         )
