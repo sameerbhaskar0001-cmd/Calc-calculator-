@@ -19,6 +19,7 @@ object GeckoSessionManager {
     private val onUpdateCallbacks = ConcurrentHashMap<String, ((TabState) -> TabState) -> Unit>()
     private val onDownloadCallbacks = ConcurrentHashMap<String, ((String, String, String, String, Long) -> Unit)>()
     var globalDownloadCallback: ((String, String, String, String, Long) -> Unit)? = null
+    var onOpenSecretRunner: (() -> Unit)? = null
 
     /**
      * Creates a new GeckoSession or returns an existing one for the specified tabId.
@@ -85,6 +86,10 @@ object GeckoSessionManager {
             ): org.mozilla.geckoview.GeckoResult<org.mozilla.geckoview.AllowOrDeny>? {
                 try {
                     val url = request.uri
+                    if (url.startsWith("secret://runner") || url == "secret://runner") {
+                        onOpenSecretRunner?.invoke()
+                        return org.mozilla.geckoview.GeckoResult.fromValue(org.mozilla.geckoview.AllowOrDeny.DENY)
+                    }
                     if (SecretBrowserTrackingProtection.shouldBlock(url, isMainFrame = true, currentSiteUrl = currentMainUrl)) {
                         return org.mozilla.geckoview.GeckoResult.fromValue(org.mozilla.geckoview.AllowOrDeny.DENY)
                     }
@@ -158,22 +163,204 @@ object GeckoSessionManager {
                     <html>
                     <head>
                         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <title>Failed to load page</title>
+                        <title>Secret Browser - Offline</title>
                         <style>
-                            body { font-family: -apple-system, sans-serif; padding: 24px; text-align: center; color: #333; background-color: #f7f9fa; }
-                            .container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1.5px solid #eee; }
-                            h1 { color: #d9534f; font-size: 20px; margin-top: 0; }
-                            p { color: #666; font-size: 14px; line-height: 1.5; }
-                            .btn { display: inline-block; background-color: #6200EE; color: white; padding: 10px 20px; border-radius: 20px; text-decoration: none; font-weight: bold; margin-top: 15px; font-size: 14px; }
+                            :root {
+                                --bg: #f7f9fa;
+                                --card: #ffffff;
+                                --text-p: #1a1a1a;
+                                --text-s: #757575;
+                                --border: #e0e0e0;
+                                --accent: #1E88E5;
+                                --accent-hover: #1565C0;
+                                --secondary-btn-bg: #f0f2f5;
+                                --secondary-btn-text: #424242;
+                                --secondary-btn-hover: #e4e6e9;
+                                --ambient-bg: rgba(30, 136, 229, 0.08);
+                                --icon-tint: #1E88E5;
+                            }
+                            @media (prefers-color-scheme: dark) {
+                                :root {
+                                    --bg: #121212;
+                                    --card: #1e1e1e;
+                                    --text-p: #f5f5f5;
+                                    --text-s: #a0a0a0;
+                                    --border: #333333;
+                                    --accent: #2196F3;
+                                    --accent-hover: #42A5F5;
+                                    --secondary-btn-bg: #2a2a2a;
+                                    --secondary-btn-text: #e0e0e0;
+                                    --secondary-btn-hover: #333333;
+                                    --ambient-bg: rgba(33, 150, 243, 0.12);
+                                    --icon-tint: #42A5F5;
+                                }
+                            }
+                            * { box-sizing: border-box; margin: 0; padding: 0; }
+                            body {
+                                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                                background-color: var(--bg);
+                                color: var(--text-p);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                min-height: 100vh;
+                                padding: 20px;
+                            }
+                            .card {
+                                background: var(--card);
+                                border: 1px solid var(--border);
+                                border-radius: 24px;
+                                padding: 32px 24px;
+                                max-width: 390px;
+                                width: 100%;
+                                text-align: center;
+                                box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+                            }
+                            .icon-box {
+                                width: 68px;
+                                height: 68px;
+                                background: var(--ambient-bg);
+                                border-radius: 50%;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                margin: 0 auto 16px auto;
+                            }
+                            .icon-box svg {
+                                width: 34px;
+                                height: 34px;
+                                fill: var(--icon-tint);
+                            }
+                            .greeting {
+                                font-size: 20px;
+                                font-weight: 800;
+                                margin-bottom: 6px;
+                                color: var(--text-p);
+                            }
+                            .title {
+                                font-size: 15px;
+                                font-weight: 600;
+                                margin-bottom: 8px;
+                                color: var(--text-p);
+                            }
+                            p.sub {
+                                font-size: 13px;
+                                color: var(--text-s);
+                                line-height: 1.5;
+                                margin-bottom: 20px;
+                            }
+                            details {
+                                margin-bottom: 22px;
+                                text-align: left;
+                            }
+                            summary {
+                                font-size: 11.5px;
+                                color: var(--text-s);
+                                cursor: pointer;
+                                user-select: none;
+                                padding: 4px 0;
+                            }
+                            .error-badge {
+                                background: var(--bg);
+                                border: 1px solid var(--border);
+                                border-radius: 12px;
+                                padding: 10px 12px;
+                                font-size: 11.5px;
+                                color: var(--text-s);
+                                word-break: break-all;
+                                margin-top: 6px;
+                            }
+                            .btn-group {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 10px;
+                            }
+                            .btn {
+                                display: inline-flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-size: 14px;
+                                font-weight: 600;
+                                text-decoration: none;
+                                padding: 12px 20px;
+                                border-radius: 14px;
+                                border: none;
+                                cursor: pointer;
+                                transition: opacity 0.15s ease, background 0.15s ease;
+                                width: 100%;
+                            }
+                            .btn-primary {
+                                background: var(--accent);
+                                color: #ffffff;
+                            }
+                            .btn-primary:active {
+                                background: var(--accent-hover);
+                            }
+                            .btn-secondary {
+                                background: var(--secondary-btn-bg);
+                                color: var(--secondary-btn-text);
+                                border: 1px solid var(--border);
+                            }
+                            .btn-secondary:active {
+                                background: var(--secondary-btn-hover);
+                            }
+                            .btn-runner {
+                                background: var(--ambient-bg);
+                                color: var(--accent);
+                                border: 1.5px solid var(--accent);
+                            }
+                            .btn-runner:active {
+                                opacity: 0.8;
+                                transform: scale(0.98);
+                            }
                         </style>
                     </head>
                     <body>
-                        <div class="container">
-                            <h1>Unable to connect</h1>
-                            <p>We can't load the page. Check your internet connection or the URL address you entered.</p>
-                            <p style="font-size: 12px; color: #999; word-break: break-all;">Error: ${error.localizedMessage ?: "Unknown Error"}</p>
-                            <a class="btn" href="$failingUrl">Try Again</a>
+                        <div class="card">
+                            <div class="icon-box">
+                                <svg viewBox="0 0 24 24"><path d="M23.64 7c-.45-.34-4.93-4-11.64-4-1.5 0-2.8.19-3.99.51L12 7.52 16.01 11.53c2.39.4 4.54 1.47 6.09 2.97L23.64 7zM1.41 1.6L0 3.01l2.45 2.45C1.56 5.86 1 6.34.36 7l11.63 14.49 5.3-6.6 3.7 3.7 1.41-1.41L1.41 1.6zM7.17 10.18L4.35 7.36c1.86-.68 4.39-1.07 7.65-1.07.72 0 1.41.03 2.07.08l-2.83 2.83c-.88-.06-1.84-.02-2.87.08l-1.2 1.2z"/></svg>
+                            </div>
+                            <div class="greeting">Hey Buddy 👋</div>
+                            <div class="title">Looks like this page couldn't be reached</div>
+                            <p class="sub">Check your internet connection and try again.</p>
+                            
+                            <details>
+                                <summary>Technical Details</summary>
+                                <div class="error-badge">
+                                    <strong>Status:</strong> ${error.localizedMessage ?: "Connection Refused / Offline"}
+                                </div>
+                            </details>
+
+                            <div class="btn-group">
+                                <button id="retryBtn" class="btn btn-primary" onclick="handleRetry()">Try Again</button>
+                                <button id="homeBtn" class="btn btn-secondary" onclick="handleHome()">Go Home</button>
+                            </div>
+
+                            <div style="margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--border);">
+                                <div style="font-size: 12px; color: var(--text-s); margin-bottom: 8px;">While you're here...</div>
+                                <button id="runnerBtn" class="btn btn-runner" onclick="handleRunner()">🛡️ Play Secret Runner</button>
+                            </div>
                         </div>
+
+                        <script>
+                            function handleRetry() {
+                                var btn = document.getElementById('retryBtn');
+                                btn.innerText = 'Connecting...';
+                                btn.style.opacity = '0.7';
+                                btn.style.pointerEvents = 'none';
+                                window.location.href = '$failingUrl';
+                            }
+                            function handleHome() {
+                                var btn = document.getElementById('homeBtn');
+                                btn.innerText = 'Returning Home...';
+                                btn.style.opacity = '0.7';
+                                btn.style.pointerEvents = 'none';
+                                window.location.href = 'about:blank';
+                            }
+                            function handleRunner() {
+                                window.location.href = 'secret://runner';
+                            }
+                        </script>
                     </body>
                     </html>
                 """.trimIndent()

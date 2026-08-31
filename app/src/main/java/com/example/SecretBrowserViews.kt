@@ -118,100 +118,109 @@ fun SecretBrowserHome(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // 1. TOP MINIMAL LOGO
+        // 1. HERO / BRAND AREA
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 24.dp),
+                .padding(top = 10.dp, bottom = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
-                    .size(72.dp)
-                    .background(LightCard, RoundedCornerShape(22.dp))
-                    .border(1.5.dp, BorderColor, RoundedCornerShape(22.dp)),
+                    .size(60.dp)
+                    .background(LightCard, RoundedCornerShape(18.dp))
+                    .border(1.dp, BorderColor, RoundedCornerShape(18.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Security,
-                    contentDescription = "Secret Browser Logo",
-                    tint = AccentColor,
-                    modifier = Modifier.size(36.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Security,
+                        contentDescription = "Secret Browser Logo",
+                        tint = AccentColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "Secret Browser",
                 color = TextPrimary,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.5).sp
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.3).sp
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Private. Independent. Secure.",
+                text = "Private • Independent • Secure",
                 color = TextSecondary,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                letterSpacing = 0.3.sp,
+                textAlign = TextAlign.Center
             )
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         // 2. LARGE FLOATING SEARCH CAPSULE
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(62.dp),
-            shape = RoundedCornerShape(31.dp),
+                .height(54.dp),
+            shape = RoundedCornerShape(27.dp),
             colors = CardDefaults.cardColors(containerColor = LightCard),
-            border = BorderStroke(1.dp, BorderColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            border = BorderStroke(1.2.dp, BorderColor),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Search Engine Selector Pill
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(18.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .background(LightBg)
+                        .border(0.9.dp, BorderColor, RoundedCornerShape(16.dp))
                         .premiumPressClick { onShowSearchEngineDialog() }
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
+                        contentDescription = "Search Engine",
                         tint = AccentColor,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(13.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
                     Text(
                         text = searchEngine,
                         color = TextPrimary,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.width(2.dp))
                     Icon(
                         imageVector = Icons.Default.ArrowDropDown,
-                        contentDescription = null,
+                        contentDescription = "Choose Search Engine",
                         tint = TextSecondary,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(end = 4.dp),
+                        .padding(start = 2.dp, end = 4.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     BasicTextField(
@@ -221,7 +230,8 @@ fun SecretBrowserHome(
                         cursorBrush = SolidColor(AccentColor),
                         textStyle = TextStyle(
                             color = TextPrimary,
-                            fontSize = 14.sp
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Normal
                         ),
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -238,8 +248,8 @@ fun SecretBrowserHome(
                                 if (searchInput.isEmpty()) {
                                     Text(
                                         text = "Search or enter URL...",
-                                        color = TextSecondary,
-                                        fontSize = 14.sp,
+                                        color = TextSecondary.copy(alpha = 0.65f),
+                                        fontSize = 13.5.sp,
                                         maxLines = 1
                                     )
                                 }
@@ -249,11 +259,24 @@ fun SecretBrowserHome(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                if (searchInput.isNotEmpty()) {
+                    IconButton(
+                        onClick = { searchInput = "" },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Clear search",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(3.dp))
+                }
 
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(38.dp)
                         .clip(CircleShape)
                         .background(AccentColor)
                         .premiumPressClick {
@@ -265,13 +288,13 @@ fun SecretBrowserHome(
                         imageVector = Icons.Default.ArrowForward,
                         contentDescription = "Go",
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
         // 3. QUICK ACTIONS
         Text(
@@ -279,37 +302,37 @@ fun SecretBrowserHome(
             color = TextSecondary,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 1.5.sp
+            letterSpacing = 1.2.sp
         )
         Spacer(modifier = Modifier.height(10.dp))
 
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .height(90.dp)
+                        .height(76.dp)
                         .premiumPressClick { onOpenNewTab("home") },
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = LightCard),
                     border = BorderStroke(1.dp, BorderColor),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxSize().padding(14.dp),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
-                                .background(AccentColor.copy(alpha = 0.08f), CircleShape),
+                                .size(38.dp)
+                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Add, "New Tab", tint = AccentColor, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Add, "New Tab", tint = AccentColor, modifier = Modifier.size(19.dp))
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(11.dp))
                         Column {
-                            Text("New Tab", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("New Tab", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
                             Spacer(modifier = Modifier.height(2.dp))
                             Text("Isolated session", color = TextSecondary, fontSize = 11.sp)
                         }
@@ -318,60 +341,60 @@ fun SecretBrowserHome(
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .height(90.dp)
+                        .height(76.dp)
                         .premiumPressClick { onShowBookmarks() },
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = LightCard),
                     border = BorderStroke(1.dp, BorderColor),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxSize().padding(14.dp),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
-                                .background(AccentColor.copy(alpha = 0.08f), CircleShape),
+                                .size(38.dp)
+                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Star, "Bookmarks", tint = AccentColor, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Star, "Bookmarks", tint = AccentColor, modifier = Modifier.size(19.dp))
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(11.dp))
                         Column {
-                            Text("Bookmarks", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("Bookmarks", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
                             Spacer(modifier = Modifier.height(2.dp))
                             Text("Access saved", color = TextSecondary, fontSize = 11.sp)
                         }
                     }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .height(90.dp)
+                        .height(76.dp)
                         .premiumPressClick { onClearAllData() },
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = LightCard),
                     border = BorderStroke(1.dp, BorderColor),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxSize().padding(14.dp),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
-                                .background(DangerColor.copy(alpha = 0.08f), CircleShape),
+                                .size(38.dp)
+                                .background(DangerColor.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.DeleteForever, "Wipe", tint = DangerColor, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.DeleteForever, "Wipe", tint = DangerColor, modifier = Modifier.size(19.dp))
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(11.dp))
                         Column {
-                            Text("Destruct", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("Destruct", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
                             Spacer(modifier = Modifier.height(2.dp))
                             Text("Purge all data", color = TextSecondary, fontSize = 11.sp)
                         }
@@ -380,28 +403,28 @@ fun SecretBrowserHome(
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .height(90.dp)
+                        .height(76.dp)
                         .premiumPressClick { onShowSettings() },
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = LightCard),
                     border = BorderStroke(1.dp, BorderColor),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxSize().padding(14.dp),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
-                                .background(AccentColor.copy(alpha = 0.08f), CircleShape),
+                                .size(38.dp)
+                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Settings, "Settings", tint = AccentColor, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Settings, "Settings", tint = AccentColor, modifier = Modifier.size(19.dp))
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(11.dp))
                         Column {
-                            Text("Settings", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("Settings", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
                             Spacer(modifier = Modifier.height(2.dp))
                             Text("Configure engine", color = TextSecondary, fontSize = 11.sp)
                         }
@@ -410,58 +433,81 @@ fun SecretBrowserHome(
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
         // 4. RECENT ACTIVE TABS
-        Text(
-            text = "RECENT ACTIVE TABS",
-            color = TextSecondary,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.5.sp
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "ACTIVE SESSIONS (${tabs.size})",
+                color = TextSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp
+            )
+            Text(
+                text = "Tap to switch",
+                color = TextSecondary.copy(alpha = 0.7f),
+                fontSize = 11.sp
+            )
+        }
         Spacer(modifier = Modifier.height(10.dp))
 
-        val recentTabs = tabs.filter { it.id != activeTabId }
-        if (recentTabs.isEmpty()) {
+        if (tabs.isEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = LightCard),
                 border = BorderStroke(1.dp, BorderColor)
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp, horizontal = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(
-                        text = "🌐",
-                        fontSize = 32.sp
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(AccentColor.copy(alpha = 0.08f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = null,
+                            tint = AccentColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = "No Active Tabs",
                         color = TextPrimary,
-                        fontSize = 15.sp,
+                        fontSize = 14.5.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Start a secure browsing session.",
+                        text = "Start a private browsing session.",
                         color = TextSecondary,
                         fontSize = 12.sp,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                     Button(
                         onClick = { onOpenNewTab("home") },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
+                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
+                        modifier = Modifier.height(38.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("New Tab", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("New Tab", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -470,49 +516,56 @@ fun SecretBrowserHome(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(recentTabs) { tab ->
+                items(tabs) { tab ->
+                    val isActive = tab.id == activeTabId
                     Card(
                         modifier = Modifier
-                            .width(220.dp)
+                            .width(210.dp)
+                            .height(68.dp)
                             .premiumPressClick { onSelectActiveTab(tab.id) },
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = LightCard),
-                        border = BorderStroke(1.dp, BorderColor),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isActive) AccentColor.copy(alpha = 0.08f) else LightCard
+                        ),
+                        border = BorderStroke(
+                            if (isActive) 1.5.dp else 1.dp,
+                            if (isActive) AccentColor else BorderColor
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = if (isActive) 2.dp else 1.dp)
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxSize().padding(12.dp),
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                 Box(
                                     modifier = Modifier
-                                        .size(32.dp)
-                                        .background(LightBg, CircleShape),
+                                        .size(30.dp)
+                                        .background(if (isActive) AccentColor.copy(alpha = 0.15f) else LightBg, CircleShape),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Language,
+                                        imageVector = if (tab.url == "home") Icons.Default.Home else Icons.Default.Language,
                                         contentDescription = "Tab icon",
-                                        tint = AccentColor,
+                                        tint = if (isActive) AccentColor else TextSecondary,
                                         modifier = Modifier.size(14.dp)
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(10.dp))
+                                Spacer(modifier = Modifier.width(9.dp))
                                 Column {
                                     Text(
                                         text = if (tab.url == "home") "New Tab" else tab.title,
                                         color = TextPrimary,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.5.sp,
+                                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
                                         text = if (tab.url == "home") "Internal start page" else tab.url,
-                                        color = TextSecondary,
-                                        fontSize = 10.sp,
+                                        color = if (isActive) AccentColor.copy(alpha = 0.8f) else TextSecondary,
+                                        fontSize = 10.5.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -520,12 +573,12 @@ fun SecretBrowserHome(
                             }
                             IconButton(
                                 onClick = { onCloseTab(tab.id) },
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(28.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "Close Tab",
-                                    tint = DangerColor,
+                                    tint = DangerColor.copy(alpha = 0.8f),
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
@@ -535,7 +588,7 @@ fun SecretBrowserHome(
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
         // 5. SECURE COLLECTIONS
         Text(
@@ -543,72 +596,112 @@ fun SecretBrowserHome(
             color = TextSecondary,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 1.5.sp
+            letterSpacing = 1.2.sp
         )
         Spacer(modifier = Modifier.height(10.dp))
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 Card(
-                    modifier = Modifier.weight(1f).height(72.dp).premiumPressClick { onShowBookmarks() },
-                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.weight(1f).height(62.dp).premiumPressClick { onShowBookmarks() },
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = LightCard),
                     border = BorderStroke(1.dp, BorderColor),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    Row(modifier = Modifier.fillMaxSize().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Star, "Bookmarks", tint = AccentColor, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("Bookmarks", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Star, "Bookmarks", tint = AccentColor, modifier = Modifier.size(17.dp))
+                        }
+                        Spacer(modifier = Modifier.width(11.dp))
+                        Text("Bookmarks", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
                 Card(
-                    modifier = Modifier.weight(1f).height(72.dp).premiumPressClick { onShowDownloads() },
-                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.weight(1f).height(62.dp).premiumPressClick { onShowDownloads() },
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = LightCard),
                     border = BorderStroke(1.dp, BorderColor),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    Row(modifier = Modifier.fillMaxSize().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Download, "Downloads", tint = AccentColor, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("Downloads", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Download, "Downloads", tint = AccentColor, modifier = Modifier.size(17.dp))
+                        }
+                        Spacer(modifier = Modifier.width(11.dp))
+                        Text("Downloads", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 Card(
-                    modifier = Modifier.weight(1f).height(72.dp).premiumPressClick { onShowHistory() },
-                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.weight(1f).height(62.dp).premiumPressClick { onShowHistory() },
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = LightCard),
                     border = BorderStroke(1.dp, BorderColor),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    Row(modifier = Modifier.fillMaxSize().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.History, "History", tint = AccentColor, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("History Logs", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.History, "History", tint = AccentColor, modifier = Modifier.size(17.dp))
+                        }
+                        Spacer(modifier = Modifier.width(11.dp))
+                        Text("History Logs", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
                 Card(
-                    modifier = Modifier.weight(1f).height(72.dp).premiumPressClick {
+                    modifier = Modifier.weight(1f).height(62.dp).premiumPressClick {
                         Toast.makeText(context, "Added current pages to Reading Later queue", Toast.LENGTH_SHORT).show()
                     },
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = LightCard),
                     border = BorderStroke(1.dp, BorderColor),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    Row(modifier = Modifier.fillMaxSize().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.InsertDriveFile, "Reading Later", tint = AccentColor, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("Reading Later", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.InsertDriveFile, "Reading Later", tint = AccentColor, modifier = Modifier.size(17.dp))
+                        }
+                        Spacer(modifier = Modifier.width(11.dp))
+                        Text("Reading Later", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(110.dp)) // Avoid content covered by dock bottom bar
+        Spacer(modifier = Modifier.height(100.dp)) // Safe clearance for floating dock bottom bar
     }
 }
 
@@ -871,12 +964,12 @@ fun SecretBrowserSettingsDashboard(
                 .padding(horizontal = 8.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary)
+            IconButton(onClick = onBack, modifier = Modifier.size(38.dp)) {
+                Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary, modifier = Modifier.size(20.dp))
             }
             Column(modifier = Modifier.padding(start = 8.dp)) {
-                Text("Secret Browser", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("Configuration & Security Dashboard", color = TextSecondary, fontSize = 12.sp)
+                Text("Secret Browser Settings", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Privacy, engine preferences & data controls", color = TextSecondary, fontSize = 12.sp)
             }
         }
 
@@ -989,9 +1082,9 @@ fun SecretBrowserSettingsDashboard(
                 }
             }
 
-            // GENERAL CONFIGURATIONS
+            // BROWSING PREFERENCES
             Text(
-                text = "GENERAL SETTINGS",
+                text = "BROWSING PREFERENCES",
                 color = TextSecondary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
@@ -1000,7 +1093,7 @@ fun SecretBrowserSettingsDashboard(
             )
 
             Card(
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = LightCard),
                 border = BorderStroke(1.dp, BorderColor),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -1014,7 +1107,7 @@ fun SecretBrowserSettingsDashboard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
@@ -1031,12 +1124,40 @@ fun SecretBrowserSettingsDashboard(
                         }
                         Icon(Icons.Default.ArrowDropDown, "Dropdown", tint = TextSecondary)
                     }
+
+                    HorizontalDivider(color = BorderColor)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .premiumPressClick { onShowDownloads() }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(AccentColor.copy(alpha = 0.08f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.CloudDownload, "Downloads", tint = AccentColor, modifier = Modifier.size(16.dp))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("Vault Downloads", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Manage downloaded files inside secure vault", color = TextSecondary, fontSize = 11.sp)
+                            }
+                        }
+                        Icon(Icons.Default.ChevronRight, "Open", tint = TextSecondary, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
 
-            // PRIVACY CONTROLS
+            // PRIVACY & SECURITY
             Text(
-                text = "PRIVACY & DATA DESTRUCTION",
+                text = "PRIVACY & SECURITY",
                 color = TextSecondary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
@@ -1045,7 +1166,7 @@ fun SecretBrowserSettingsDashboard(
             )
 
             Card(
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = LightCard),
                 border = BorderStroke(1.dp, BorderColor),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -1110,9 +1231,26 @@ fun SecretBrowserSettingsDashboard(
                             colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = AccentColor)
                         )
                     }
+                }
+            }
 
-                    HorizontalDivider(color = BorderColor)
+            // DATA & STORAGE CONTROLS
+            Text(
+                text = "DATA & STORAGE CONTROLS",
+                color = TextSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp,
+                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+            )
 
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = LightCard),
+                border = BorderStroke(1.dp, BorderColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1162,8 +1300,8 @@ fun SecretBrowserSettingsDashboard(
                             }
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
-                                Text("Clear Temporary Browser Files on Exit", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Automatically purge temporary uploads and partial downloads on exit", color = TextSecondary, fontSize = 11.sp)
+                                Text("Clear Temporary Files on Exit", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Automatically purge temporary uploads and downloads on exit", color = TextSecondary, fontSize = 11.sp)
                             }
                         }
                         Switch(
@@ -1563,6 +1701,379 @@ fun SecretBrowserHistoryScreen(
     }
 }
 
+@Composable
+fun SecretBrowserDownloadsScreen(
+    viewModel: CalculatorViewModel,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val downloads by viewModel.downloads.collectAsStateWithLifecycle()
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabTitles = listOf("All", "Downloading", "Completed", "Failed")
+
+    val filteredDownloads = remember(downloads, selectedTab) {
+        downloads.filter { task ->
+            when (selectedTab) {
+                0 -> true
+                1 -> task.status == "Downloading"
+                2 -> task.status == "Completed"
+                else -> task.status == "Failed" || task.status == "Cancelled"
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(LightBg)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+    ) {
+        // Top Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack, modifier = Modifier.size(38.dp)) {
+                    Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary, modifier = Modifier.size(20.dp))
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Column {
+                    Text("Vault Downloads", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("Encrypted offline sandbox", color = TextSecondary, fontSize = 11.5.sp)
+                }
+            }
+            if (downloads.isNotEmpty()) {
+                TextButton(
+                    onClick = { viewModel.clearDownloads() },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = DangerColor, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Clear All", color = DangerColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        // Segmented Status Filter Tabs
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .background(LightCard, RoundedCornerShape(12.dp))
+                .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
+                .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            tabTitles.forEachIndexed { index, title ->
+                val isSelected = selectedTab == index
+                val count = when (index) {
+                    0 -> downloads.size
+                    1 -> downloads.count { it.status == "Downloading" }
+                    2 -> downloads.count { it.status == "Completed" }
+                    else -> downloads.count { it.status == "Failed" || it.status == "Cancelled" }
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(34.dp)
+                        .background(
+                            if (isSelected) AccentColor else Color.Transparent,
+                            RoundedCornerShape(9.dp)
+                        )
+                        .clickable { selectedTab = index },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = title,
+                            color = if (isSelected) Color.White else TextSecondary,
+                            fontSize = 11.5.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                        if (count > 0 && !isSelected) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .background(BorderColor, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "$count",
+                                    color = TextSecondary,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Content List or Empty State
+        if (filteredDownloads.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(AccentColor.copy(alpha = 0.08f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CloudDownload,
+                            contentDescription = "No downloads",
+                            tint = AccentColor,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = if (selectedTab == 0) "No downloads yet" else "No ${tabTitles[selectedTab].lowercase()} downloads",
+                        color = TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Downloaded web files are encrypted directly into your secure vault sandbox.",
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                items(filteredDownloads, key = { it.id }) { task ->
+                    SecretBrowserDownloadItemCard(
+                        task = task,
+                        onOpen = { viewModel.openDownload(context, task) },
+                        onDelete = { viewModel.deleteDownload(task) },
+                        onRetry = { viewModel.retryDownload(context, task) },
+                        onCancel = { viewModel.cancelDownload(task) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SecretBrowserDownloadItemCard(
+    task: DownloadTask,
+    onOpen: () -> Unit,
+    onDelete: () -> Unit,
+    onRetry: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val isDownloading = task.status == "Downloading"
+    val isCompleted = task.status == "Completed"
+
+    val fileIcon = when {
+        task.mimeType.startsWith("image/") -> Icons.Default.Image
+        task.mimeType.startsWith("video/") -> Icons.Default.VideoLibrary
+        task.mimeType.startsWith("audio/") -> Icons.Default.AudioFile
+        task.mimeType.contains("pdf") || task.filename.endsWith(".pdf", ignoreCase = true) -> Icons.Default.Description
+        task.mimeType.contains("zip") || task.mimeType.contains("rar") || task.mimeType.contains("archive") -> Icons.Default.FolderZip
+        else -> Icons.Default.InsertDriveFile
+    }
+
+    val iconBgColor = when {
+        isDownloading -> AccentColor.copy(alpha = 0.1f)
+        isCompleted -> SuccessColor.copy(alpha = 0.1f)
+        else -> DangerColor.copy(alpha = 0.1f)
+    }
+
+    val iconTintColor = when {
+        isDownloading -> AccentColor
+        isCompleted -> SuccessColor
+        else -> DangerColor
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = LightCard),
+        border = BorderStroke(1.dp, BorderColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // File Type / Status Icon
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(iconBgColor, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = fileIcon,
+                        contentDescription = null,
+                        tint = iconTintColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // File Details
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = task.filename,
+                        color = TextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = if (task.sizeString.isNotEmpty() && task.sizeString != "0 B") task.sizeString else "Vault Sandbox",
+                            color = TextSecondary,
+                            fontSize = 11.5.sp
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(3.dp)
+                                .background(TextSecondary.copy(alpha = 0.5f), CircleShape)
+                        )
+                        Text(
+                            text = when {
+                                isDownloading -> "Downloading ${(task.progress * 100).toInt()}%"
+                                isCompleted -> "Completed"
+                                task.status == "Cancelled" -> "Cancelled"
+                                else -> "Failed"
+                            },
+                            color = when {
+                                isDownloading -> AccentColor
+                                isCompleted -> SuccessColor
+                                else -> DangerColor
+                            },
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                // Action Buttons
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (isDownloading) {
+                        IconButton(
+                            onClick = onCancel,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cancel Download",
+                                tint = DangerColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    } else if (isCompleted) {
+                        Button(
+                            onClick = onOpen,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentColor.copy(alpha = 0.1f)),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("Open", color = AccentColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "Delete",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    } else {
+                        IconButton(
+                            onClick = onRetry,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Retry Download",
+                                tint = AccentColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "Delete",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Progress bar if downloading
+            if (isDownloading) {
+                Spacer(modifier = Modifier.height(10.dp))
+                LinearProgressIndicator(
+                    progress = { task.progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = AccentColor,
+                    trackColor = BorderColor
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrivateBrowserSection(
@@ -1647,28 +2158,22 @@ fun PrivateBrowserSection(
     var activePopupWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
     var pendingDownload by remember { mutableStateOf<PendingDownloadData?>(null) }
     var showSiteSecurityDialog by remember { mutableStateOf(false) }
+    var showSecretRunnerGame by remember { mutableStateOf(false) }
 
     androidx.compose.runtime.DisposableEffect(Unit) {
         GeckoSessionManager.globalDownloadCallback = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
             pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
         }
+        GeckoSessionManager.onOpenSecretRunner = {
+            showSecretRunnerGame = true
+        }
         onDispose {
             GeckoSessionManager.globalDownloadCallback = null
+            GeckoSessionManager.onOpenSecretRunner = null
         }
     }
 
     val activeTab = tabs.find { it.id == activeTabId } ?: tabs.find { it.id == viewModel.activeTabId } ?: tabs.firstOrNull()
-
-    LaunchedEffect(activeTab?.isFullScreen) {
-        val activity = context as? android.app.Activity ?: return@LaunchedEffect
-        if (activeTab?.isFullScreen == true) {
-            activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            setSystemBarsVisibility(activity, false)
-        } else {
-            activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            setSystemBarsVisibility(activity, true)
-        }
-    }
 
     LaunchedEffect(Unit) {
         viewModel.memoryPressureEvent.collectLatest { level ->
@@ -2227,7 +2732,9 @@ fun PrivateBrowserSection(
     }
 
     val goBackOrExit = {
-        if (activeTab?.isFullScreen == true) {
+        if (showSecretRunnerGame) {
+            showSecretRunnerGame = false
+        } else if (activeTab?.isFullScreen == true) {
             if (activeGeckoSession != null) {
                 activeGeckoSession.exitFullScreen()
             } else if (viewModel.browserCustomViewCallback != null) {
@@ -2278,92 +2785,178 @@ fun PrivateBrowserSection(
         val guessedFilename = android.webkit.URLUtil.guessFileName(download.url, download.contentDisposition, download.mimeType) ?: "file"
         val sizeText = if (download.contentLength > 0) viewModel.formatFileSize(download.contentLength) else "Unknown Size"
 
-        AlertDialog(
-            onDismissRequest = { pendingDownload = null },
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CloudDownload,
-                        contentDescription = null,
-                        tint = AccentColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Text("Confirm Download", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
+        val fileIcon = when {
+            download.mimeType.startsWith("image/") -> Icons.Default.Image
+            download.mimeType.startsWith("video/") -> Icons.Default.VideoLibrary
+            download.mimeType.startsWith("audio/") -> Icons.Default.AudioFile
+            download.mimeType.contains("pdf") || guessedFilename.endsWith(".pdf", ignoreCase = true) -> Icons.Default.Description
+            download.mimeType.contains("zip") || download.mimeType.contains("rar") || download.mimeType.contains("archive") -> Icons.Default.FolderZip
+            else -> Icons.Default.InsertDriveFile
+        }
+
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { pendingDownload = null }
+        ) {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = LightCard),
+                border = BorderStroke(1.dp, BorderColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+            ) {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp)
                 ) {
-                    Text(
-                        "Do you want to download this file directly to your secure Vault?",
-                        color = TextSecondary,
-                        fontSize = 14.sp
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("File details:", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(LightBg, shape = RoundedCornerShape(8.dp))
-                            .border(1.dp, BorderColor, shape = RoundedCornerShape(8.dp))
-                            .padding(12.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Text("Name: ", fontWeight = FontWeight.Bold, color = TextSecondary, fontSize = 13.sp)
-                            Text(guessedFilename, color = TextPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(AccentColor.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudDownload,
+                                contentDescription = null,
+                                tint = AccentColor,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Text("Size: ", fontWeight = FontWeight.Bold, color = TextSecondary, fontSize = 13.sp)
-                            Text(sizeText, color = TextPrimary, fontSize = 13.sp)
+                        Column {
+                            Text(
+                                text = "Confirm Download",
+                                color = TextPrimary,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Save to encrypted vault sandbox",
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
                         }
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Text("Type: ", fontWeight = FontWeight.Bold, color = TextSecondary, fontSize = 13.sp)
-                            Text(download.mimeType, color = TextPrimary, fontSize = 13.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = LightBg),
+                        border = BorderStroke(1.dp, BorderColor),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = fileIcon,
+                                    contentDescription = null,
+                                    tint = AccentColor,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = guessedFilename,
+                                    color = TextPrimary,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(sizeText, color = TextSecondary, fontSize = 11.5.sp)
+                                    if (download.mimeType.isNotEmpty()) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(3.dp)
+                                                .background(TextSecondary.copy(alpha = 0.5f), CircleShape)
+                                        )
+                                        Text(
+                                            text = download.mimeType,
+                                            color = TextSecondary,
+                                            fontSize = 11.5.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { pendingDownload = null },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, BorderColor),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
+                        ) {
+                            Text("Cancel", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        Button(
+                            onClick = {
+                                viewModel.startVaultDownload(
+                                    context,
+                                    download.url,
+                                    download.userAgent,
+                                    download.contentDisposition,
+                                    download.mimeType,
+                                    download.contentLength,
+                                    destination = DownloadDestination.SECRET_VAULT
+                                )
+                                pendingDownload = null
+                            },
+                            modifier = Modifier
+                                .weight(1.3f)
+                                .height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Download", color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.startVaultDownload(
-                            context,
-                            download.url,
-                            download.userAgent,
-                            download.contentDisposition,
-                            download.mimeType,
-                            download.contentLength,
-                            destination = DownloadDestination.SECRET_VAULT
-                        )
-                        pendingDownload = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
-                ) {
-                    Text("Download", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingDownload = null }) {
-                    Text("Cancel", color = TextSecondary)
-                }
-            },
-            containerColor = LightCard,
-            titleContentColor = TextPrimary,
-            textContentColor = TextPrimary
-        )
+            }
+        }
     }
 
     if (showDownloads) {
-        DownloadsScreen(
+        SecretBrowserDownloadsScreen(
             viewModel = viewModel,
-            onBack = { showDownloads = false },
-            context = context
+            onBack = { showDownloads = false }
         )
         return
     }
@@ -2441,33 +3034,95 @@ fun PrivateBrowserSection(
     if (showSearchEngineDialog) {
         androidx.compose.ui.window.Dialog(onDismissRequest = { showSearchEngineDialog = false }) {
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = LightCard),
                 border = BorderStroke(1.dp, BorderColor)
             ) {
-                Column(modifier = Modifier.padding(20.dp).fillMaxWidth()) {
-                    Text("Search Engine", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
-                    val engines = listOf("Google", "DuckDuckGo", "Bing", "Yahoo")
-                    engines.forEach { engine ->
-                        Row(
+                Column(
+                    modifier = Modifier
+                        .padding(20.dp)
+                        .fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    ) {
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.setSearchEngine(engine)
-                                    showSearchEngineDialog = false
-                                }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .size(32.dp)
+                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            RadioButton(
-                                selected = searchEngine == engine,
-                                onClick = {
-                                    viewModel.setSearchEngine(engine)
-                                    showSearchEngineDialog = false
-                                },
-                                colors = RadioButtonDefaults.colors(selectedColor = AccentColor, unselectedColor = TextSecondary)
-                            )
-                            Text(engine, color = TextPrimary, fontSize = 16.sp, modifier = Modifier.padding(start = 12.dp))
+                            Icon(Icons.Default.Search, contentDescription = null, tint = AccentColor, modifier = Modifier.size(16.dp))
+                        }
+                        Column {
+                            Text("Search Engine", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("Select default search provider", color = TextSecondary, fontSize = 11.5.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    val engines = listOf(
+                        Triple("DuckDuckGo", "Privacy-focused • No tracking", Icons.Default.Security),
+                        Triple("Google", "Fast results • Comprehensive index", Icons.Default.Search),
+                        Triple("Bing", "Microsoft search network", Icons.Default.Search),
+                        Triple("Yahoo", "Yahoo web search", Icons.Default.Search)
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        engines.forEach { (engine, subtitle, icon) ->
+                            val isSelected = searchEngine == engine
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(if (isSelected) AccentColor.copy(alpha = 0.08f) else Color.Transparent)
+                                    .border(1.dp, if (isSelected) AccentColor.copy(alpha = 0.4f) else BorderColor.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                                    .clickable {
+                                        viewModel.setSearchEngine(engine)
+                                        showSearchEngineDialog = false
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .background(if (isSelected) AccentColor.copy(alpha = 0.15f) else LightBg, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        tint = if (isSelected) AccentColor else TextSecondary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = engine,
+                                        color = TextPrimary,
+                                        fontSize = 13.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = subtitle,
+                                        color = TextSecondary,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = {
+                                        viewModel.setSearchEngine(engine)
+                                        showSearchEngineDialog = false
+                                    },
+                                    colors = RadioButtonDefaults.colors(selectedColor = AccentColor, unselectedColor = TextSecondary.copy(alpha = 0.5f))
+                                )
+                            }
                         }
                     }
                 }
@@ -2654,7 +3309,7 @@ fun PrivateBrowserSection(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize().background(LightBg)) {
+    Box(modifier = modifier.fillMaxSize().background(if (activeTab?.isFullScreen == true) Color.Black else LightBg)) {
         Column(modifier = Modifier.fillMaxSize().let { if (activeTab?.isFullScreen == true) it else it.statusBarsPadding() }) {
 
             // TOP ADDRESS / BAR AREA
@@ -2662,7 +3317,7 @@ fun PrivateBrowserSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(LightCard)
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
                     .drawBehind {
                         drawLine(
                             color = BorderColor,
@@ -2677,9 +3332,9 @@ fun PrivateBrowserSection(
                 if (isEditingUrl) {
                     IconButton(
                         onClick = { isEditingUrl = false },
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(36.dp)
                     ) {
-                        Icon(Icons.Default.Close, "Cancel", tint = TextPrimary, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Close, "Cancel", tint = TextPrimary, modifier = Modifier.size(19.dp))
                     }
 
                     Row(
@@ -2687,17 +3342,25 @@ fun PrivateBrowserSection(
                             .weight(1f)
                             .height(40.dp)
                             .padding(horizontal = 4.dp)
-                            .background(LightBg, RoundedCornerShape(20.dp))
-                            .border(1.dp, AccentColor, RoundedCornerShape(20.dp))
-                            .padding(start = 12.dp, end = 6.dp),
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(LightBg)
+                            .border(1.2.dp, AccentColor.copy(alpha = 0.85f), RoundedCornerShape(20.dp))
+                            .padding(start = 10.dp, end = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = AccentColor,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         BasicTextField(
                             value = editingUrlText,
                             onValueChange = { editingUrlText = it },
                             singleLine = true,
                             cursorBrush = SolidColor(AccentColor),
-                            textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp),
+                            textStyle = TextStyle(color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.Normal),
                             modifier = Modifier
                                 .weight(1f)
                                 .focusRequester(urlFocusRequester),
@@ -2718,9 +3381,9 @@ fun PrivateBrowserSection(
                                 ) {
                                     if (editingUrlText.isEmpty()) {
                                         Text(
-                                            text = "Search or enter URL",
-                                            color = TextSecondary,
-                                            fontSize = 13.sp,
+                                            text = "Search or enter address...",
+                                            color = TextSecondary.copy(alpha = 0.65f),
+                                            fontSize = 13.5.sp,
                                             maxLines = 1
                                         )
                                     }
@@ -2731,36 +3394,40 @@ fun PrivateBrowserSection(
                         if (editingUrlText.isNotEmpty()) {
                             IconButton(
                                 onClick = { editingUrlText = "" },
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(26.dp)
                             ) {
                                 Icon(
                                     Icons.Default.Close,
                                     contentDescription = "Clear",
                                     tint = TextSecondary,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(13.dp)
                                 )
                             }
                         }
                     }
 
-                    IconButton(
-                        onClick = {
-                            val target = editingUrlText.trim()
-                            if (target.isNotEmpty()) {
-                                loadUrl(target)
-                            }
-                            isEditingUrl = false
-                        },
-                        modifier = Modifier.size(34.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(AccentColor)
+                            .premiumPressClick {
+                                val target = editingUrlText.trim()
+                                if (target.isNotEmpty()) {
+                                    loadUrl(target)
+                                }
+                                isEditingUrl = false
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Check, "Go", tint = AccentColor, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.ArrowForward, "Go", tint = Color.White, modifier = Modifier.size(16.dp))
                     }
                 } else {
                     IconButton(
                         onClick = { if (isHome) onExit() else goBackOrExit() },
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(36.dp)
                     ) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary, modifier = Modifier.size(19.dp))
                     }
 
                     if (isHome) {
@@ -2768,51 +3435,63 @@ fun PrivateBrowserSection(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(start = 8.dp)
+                                .padding(horizontal = 6.dp)
                                 .clickable {
                                     editingUrlText = ""
                                     isEditingUrl = true
                                 }
                         ) {
-                            Icon(Icons.Default.Security, "Secret Browser", tint = AccentColor, modifier = Modifier.size(16.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Security, "Secret Browser", tint = AccentColor, modifier = Modifier.size(15.dp))
+                            }
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Secret Browser",
                                 color = TextPrimary,
-                                fontSize = 15.sp,
+                                fontSize = 15.5.sp,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
+                                letterSpacing = (-0.2).sp
                             )
                         }
                     } else {
                         Row(
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(horizontal = 8.dp)
+                                .padding(horizontal = 4.dp)
                                 .height(38.dp)
-                                .clip(RoundedCornerShape(20.dp))
+                                .clip(RoundedCornerShape(19.dp))
                                 .background(LightBg)
-                                .border(1.dp, BorderColor, RoundedCornerShape(20.dp))
+                                .border(1.dp, BorderColor, RoundedCornerShape(19.dp))
                                 .clickable {
                                     editingUrlText = activeTab?.url ?: ""
                                     isEditingUrl = true
                                 }
-                                .padding(horizontal = 12.dp),
+                                .padding(start = 7.dp, end = 5.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                Icon(
-                                    imageVector = if (isProtectionActive) Icons.Default.Security else Icons.Default.Lock,
-                                    contentDescription = "Security Info",
-                                    tint = if (isProtectionActive) SuccessColor else TextSecondary,
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f).padding(end = 4.dp)) {
+                                Box(
                                     modifier = Modifier
-                                        .size(14.dp)
-                                        .clickable {
-                                            showSiteSecurityDialog = true
-                                        }
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                        .size(26.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isProtectionActive) SuccessColor.copy(alpha = 0.12f) else TextSecondary.copy(alpha = 0.08f))
+                                        .clickable { showSiteSecurityDialog = true },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (isProtectionActive) Icons.Default.Security else Icons.Default.Lock,
+                                        contentDescription = "Security Info",
+                                        tint = if (isProtectionActive) SuccessColor else TextSecondary,
+                                        modifier = Modifier.size(13.5.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(7.dp))
                                 val displayUrl = try {
                                     val urlStr = activeTab?.url ?: ""
                                     if (urlStr == "home" || urlStr.isEmpty()) {
@@ -2833,7 +3512,7 @@ fun PrivateBrowserSection(
                                     text = displayUrl,
                                     color = TextPrimary,
                                     fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.SemiBold,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -2846,13 +3525,13 @@ fun PrivateBrowserSection(
                                         reload()
                                     }
                                 },
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(28.dp)
                             ) {
                                 Icon(
                                     imageVector = if (activeTab?.isLoading == true) Icons.Default.Close else Icons.Default.Refresh,
                                     contentDescription = if (activeTab?.isLoading == true) "Stop" else "Refresh",
-                                    tint = TextSecondary,
-                                    modifier = Modifier.size(14.dp)
+                                    tint = if (activeTab?.isLoading == true) DangerColor.copy(alpha = 0.85f) else TextSecondary,
+                                    modifier = Modifier.size(15.dp)
                                 )
                             }
                         }
@@ -2879,8 +3558,8 @@ fun PrivateBrowserSection(
                             Icon(
                                 imageVector = if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
                                 contentDescription = "Bookmark",
-                                tint = if (isBookmarked) Color(0xFFFFC107) else TextPrimary,
-                                modifier = Modifier.size(20.dp)
+                                tint = if (isBookmarked) Color(0xFFFFB300) else TextPrimary,
+                                modifier = Modifier.size(19.dp)
                             )
                         }
                     }
@@ -2889,7 +3568,7 @@ fun PrivateBrowserSection(
                         onClick = { showMenu = true },
                         modifier = Modifier.size(34.dp)
                     ) {
-                        Icon(Icons.Default.MoreVert, "More Options", tint = TextPrimary, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.MoreVert, "More Options", tint = TextPrimary, modifier = Modifier.size(19.dp))
                     }
                 }
             }
@@ -3066,21 +3745,21 @@ fun PrivateBrowserSection(
             if (activeTab?.isFullScreen != true) Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp)
+                    .padding(horizontal = 18.dp, vertical = 8.dp)
                     .navigationBarsPadding(),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(64.dp),
-                    shape = RoundedCornerShape(32.dp),
+                        .height(54.dp),
+                    shape = RoundedCornerShape(27.dp),
                     colors = CardDefaults.cardColors(containerColor = LightCard),
                     border = BorderStroke(1.dp, BorderColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.SpaceAround,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -3088,26 +3767,26 @@ fun PrivateBrowserSection(
                         IconButton(
                             onClick = { goBack() },
                             enabled = canNavigateBack,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(38.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
                                 contentDescription = "Back",
-                                tint = if (canNavigateBack) TextPrimary else TextSecondary.copy(alpha = 0.4f),
-                                modifier = Modifier.size(20.dp)
+                                tint = if (canNavigateBack) TextPrimary else TextSecondary.copy(alpha = 0.3f),
+                                modifier = Modifier.size(19.dp)
                             )
                         }
 
                         IconButton(
                             onClick = { goForward() },
                             enabled = activeTab?.canGoForward == true,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(38.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowForward,
                                 contentDescription = "Forward",
-                                tint = if (activeTab?.canGoForward == true) TextPrimary else TextSecondary.copy(alpha = 0.4f),
-                                modifier = Modifier.size(20.dp)
+                                tint = if (activeTab?.canGoForward == true) TextPrimary else TextSecondary.copy(alpha = 0.3f),
+                                modifier = Modifier.size(19.dp)
                             )
                         }
 
@@ -3116,54 +3795,68 @@ fun PrivateBrowserSection(
                                 stopLoading()
                                 loadUrl("home")
                             },
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(38.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Home,
                                 contentDescription = "Home",
-                                tint = TextPrimary,
-                                modifier = Modifier.size(20.dp)
+                                tint = if (isHome) AccentColor else TextPrimary,
+                                modifier = Modifier.size(19.dp)
                             )
                         }
 
                         IconButton(
                             onClick = { openNewTab("home") },
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(38.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = "New Tab",
                                 tint = TextPrimary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(19.dp)
                             )
                         }
 
                         Box(
                             modifier = Modifier
-                                .size(26.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .border(1.5.dp, TextPrimary, RoundedCornerShape(6.dp))
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
                                 .premiumPressClick { showTabSwitcher = true },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = tabs.size.toString(),
-                                color = TextPrimary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (showTabSwitcher) AccentColor.copy(alpha = 0.15f) else Color.Transparent)
+                                    .border(1.5.dp, if (showTabSwitcher) AccentColor else TextPrimary, RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = tabs.size.toString(),
+                                    color = if (showTabSwitcher) AccentColor else TextPrimary,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
             }
         }
 
-        // TAB SWITCHER DIALOG OVERLAY (Light mode)
-        if (showTabSwitcher) {
+        // TAB SWITCHER DIALOG OVERLAY (Light & Dark mode premium sheet)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showTabSwitcher,
+            enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(180)) +
+                    androidx.compose.animation.slideInVertically(initialOffsetY = { it / 6 }, animationSpec = androidx.compose.animation.core.tween(220)),
+            exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(150)) +
+                    androidx.compose.animation.slideOutVertically(targetOffsetY = { it / 6 }, animationSpec = androidx.compose.animation.core.tween(180))
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
+                    .background(Color.Black.copy(alpha = 0.55f))
                     .clickable { showTabSwitcher = false }
             ) {
                 Card(
@@ -3171,92 +3864,217 @@ fun PrivateBrowserSection(
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
-                        .padding(16.dp)
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
                         .clickable(enabled = false) {},
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(26.dp),
                     colors = CardDefaults.cardColors(containerColor = LightCard),
-                    border = BorderStroke(1.dp, BorderColor)
+                    border = BorderStroke(1.2.dp, BorderColor),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .padding(20.dp)
                             .fillMaxWidth()
                     ) {
+                        // HEADER
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Active Sessions (${tabs.size})",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            IconButton(onClick = { openNewTab("home"); showTabSwitcher = false }) {
-                                Icon(Icons.Default.Add, "New Tab", tint = AccentColor)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        LazyColumn(
-                            modifier = Modifier
-                                .heightIn(max = 280.dp)
-                                .fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(tabs) { tab ->
-                                val isActive = tab.id == activeTabId
-                                Card(
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            activeTabId = tab.id
+                                        .size(34.dp)
+                                        .background(AccentColor.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Language, contentDescription = null, tint = AccentColor, modifier = Modifier.size(17.dp))
+                                }
+                                Column {
+                                    Text(
+                                        text = "Active Sessions",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextPrimary
+                                    )
+                                    Text(
+                                        text = "${tabs.size} isolated ${if (tabs.size == 1) "tab" else "tabs"} running",
+                                        fontSize = 11.5.sp,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(AccentColor)
+                                        .premiumPressClick {
+                                            openNewTab("home")
                                             showTabSwitcher = false
-                                        },
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = if (isActive) AccentColor.copy(alpha = 0.08f) else LightBg
-                                    ),
-                                    border = BorderStroke(1.dp, if (isActive) AccentColor else BorderColor)
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 7.dp)
                                 ) {
                                     Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = "New Tab", tint = Color.White, modifier = Modifier.size(15.dp))
+                                        Text("New Tab", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                IconButton(
+                                    onClick = { showTabSwitcher = false },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // TAB LIST / EMPTY STATE
+                        if (tabs.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .background(AccentColor.copy(alpha = 0.08f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Shield, contentDescription = null, tint = AccentColor, modifier = Modifier.size(24.dp))
+                                    }
+                                    Text("No Active Tabs", color = TextPrimary, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
+                                    Text("Start a private browsing session.", color = TextSecondary, fontSize = 12.sp)
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Button(
+                                        onClick = {
+                                            openNewTab("home")
+                                            showTabSwitcher = false
+                                        },
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Open New Tab", color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .heightIn(max = 320.dp)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(tabs) { tab ->
+                                    val isActive = tab.id == activeTabId
+                                    Card(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(12.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .premiumPressClick {
+                                                activeTabId = tab.id
+                                                showTabSwitcher = false
+                                            },
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isActive) AccentColor.copy(alpha = 0.08f) else LightBg
+                                        ),
+                                        border = BorderStroke(
+                                            if (isActive) 1.5.dp else 1.dp,
+                                            if (isActive) AccentColor else BorderColor
+                                        ),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = if (isActive) 2.dp else 0.dp)
                                     ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = if (tab.url == "home") "Home Page" else tab.title,
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = TextPrimary,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            if (tab.url != "home") {
-                                                Text(
-                                                    text = tab.url,
-                                                    fontSize = 12.sp,
-                                                    color = TextSecondary,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 11.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(32.dp)
+                                                        .background(if (isActive) AccentColor.copy(alpha = 0.15f) else LightCard, CircleShape)
+                                                        .border(0.8.dp, if (isActive) AccentColor.copy(alpha = 0.4f) else BorderColor, CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = if (tab.url == "home") Icons.Default.Home else Icons.Default.Language,
+                                                        contentDescription = null,
+                                                        tint = if (isActive) AccentColor else TextSecondary,
+                                                        modifier = Modifier.size(15.dp)
+                                                    )
+                                                }
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = if (tab.url == "home") "Home Page" else tab.title,
+                                                            fontSize = 13.5.sp,
+                                                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
+                                                            color = TextPrimary,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier.weight(1f, fill = false)
+                                                        )
+                                                        if (isActive) {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .background(AccentColor, RoundedCornerShape(6.dp))
+                                                                    .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                                            ) {
+                                                                Text("ACTIVE", color = Color.White, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                                                            }
+                                                        }
+                                                    }
+                                                    Text(
+                                                        text = if (tab.url == "home") "Internal start page" else tab.url,
+                                                        fontSize = 11.5.sp,
+                                                        color = if (isActive) AccentColor.copy(alpha = 0.85f) else TextSecondary,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
+                                            IconButton(
+                                                onClick = { closeTab(tab.id) },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Close Tab",
+                                                    tint = DangerColor.copy(alpha = 0.85f),
+                                                    modifier = Modifier.size(15.dp)
                                                 )
                                             }
-                                        }
-                                        IconButton(
-                                            onClick = {
-                                                closeTab(tab.id)
-                                            },
-                                            modifier = Modifier.size(36.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "Close Tab",
-                                                tint = DangerColor,
-                                                modifier = Modifier.size(16.dp)
-                                            )
                                         }
                                     }
                                 }
@@ -3268,7 +4086,13 @@ fun PrivateBrowserSection(
         }
 
         // BROWSER MENU OVERLAY (Command Center style)
-        if (showMenu) {
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showMenu,
+            enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(180)) +
+                    androidx.compose.animation.slideInVertically(initialOffsetY = { it / 4 }, animationSpec = androidx.compose.animation.core.tween(220)),
+            exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(150)) +
+                    androidx.compose.animation.slideOutVertically(targetOffsetY = { it / 4 }, animationSpec = androidx.compose.animation.core.tween(180))
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -3421,6 +4245,20 @@ fun PrivateBrowserSection(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .premiumPressClick { showMenu = false; showSecretRunnerGame = true }
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Security, null, tint = AccentColor, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Text("Play Secret Runner", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                androidx.compose.material3.HorizontalDivider(color = BorderColor)
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
                                         .premiumPressClick { showMenu = false; showSettings = true }
                                         .padding(16.dp),
                                     verticalAlignment = Alignment.CenterVertically
@@ -3474,10 +4312,15 @@ fun PrivateBrowserSection(
             }
         }
         BrowserUploadSourceDialog(viewModel = viewModel)
+
+        if (showSecretRunnerGame) {
+            SecretRunnerGameView(
+                onClose = { showSecretRunnerGame = false }
+            )
+        }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FindInPageBar(
     query: String,
@@ -3488,7 +4331,7 @@ fun FindInPageBar(
     onNext: () -> Unit,
     onClose: () -> Unit
 ) {
-    val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
@@ -3497,7 +4340,7 @@ fun FindInPageBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(LightBg)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
             .drawBehind {
                 drawLine(
                     color = BorderColor,
@@ -3506,94 +4349,124 @@ fun FindInPageBar(
                     strokeWidth = 1.dp.toPx()
                 )
             },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        // Search Input Field Container
         Row(
             modifier = Modifier
                 .weight(1f)
                 .height(40.dp)
                 .background(LightCard, RoundedCornerShape(20.dp))
-                .border(1.dp, AccentColor, RoundedCornerShape(20.dp))
-                .padding(start = 12.dp, end = 12.dp),
+                .border(1.dp, AccentColor.copy(alpha = 0.85f), RoundedCornerShape(20.dp))
+                .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = AccentColor,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
             BasicTextField(
                 value = query,
                 onValueChange = onQueryChange,
                 singleLine = true,
                 cursorBrush = SolidColor(AccentColor),
-                textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp),
+                textStyle = TextStyle(color = TextPrimary, fontSize = 13.5.sp),
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(focusRequester),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 keyboardActions = KeyboardActions(
-                    onNext = {
-                        onNext()
-                    }
+                    onNext = { onNext() }
                 ),
                 decorationBox = { innerTextField ->
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
                         if (query.isEmpty()) {
-                            Text("Find in page...", color = TextSecondary, fontSize = 13.sp, maxLines = 1)
+                            Text("Find in page...", color = TextSecondary.copy(alpha = 0.7f), fontSize = 13.sp, maxLines = 1)
                         }
                         innerTextField()
                     }
                 }
             )
+
             if (query.isNotEmpty()) {
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = if (totalMatch > 0) "$currentMatch/$totalMatch" else "0/0",
-                    color = if (totalMatch > 0) AccentColor else TextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                // Clear button
+                IconButton(
+                    onClick = { onQueryChange("") },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Clear search",
+                        tint = TextSecondary.copy(alpha = 0.8f),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                // Match Counter Badge
+                Box(
+                    modifier = Modifier
+                        .background(
+                            if (totalMatch > 0) AccentColor.copy(alpha = 0.12f) else TextSecondary.copy(alpha = 0.1f),
+                            RoundedCornerShape(6.dp)
+                        )
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (totalMatch > 0) "$currentMatch/$totalMatch" else "0/0",
+                        color = if (totalMatch > 0) AccentColor else TextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(6.dp))
 
+        // Previous Match
         IconButton(
             onClick = onPrev,
-            modifier = Modifier.size(36.dp),
-            enabled = query.isNotEmpty()
+            modifier = Modifier.size(34.dp),
+            enabled = query.isNotEmpty() && totalMatch > 0
         ) {
             Icon(
                 imageVector = Icons.Default.KeyboardArrowUp,
                 contentDescription = "Previous Match",
-                tint = if (query.isNotEmpty()) TextPrimary else TextSecondary.copy(alpha = 0.5f),
+                tint = if (query.isNotEmpty() && totalMatch > 0) TextPrimary else TextSecondary.copy(alpha = 0.35f),
                 modifier = Modifier.size(20.dp)
             )
         }
 
-        Spacer(modifier = Modifier.width(4.dp))
-
+        // Next Match
         IconButton(
             onClick = onNext,
-            modifier = Modifier.size(36.dp),
-            enabled = query.isNotEmpty()
+            modifier = Modifier.size(34.dp),
+            enabled = query.isNotEmpty() && totalMatch > 0
         ) {
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = "Next Match",
-                tint = if (query.isNotEmpty()) TextPrimary else TextSecondary.copy(alpha = 0.5f),
+                tint = if (query.isNotEmpty() && totalMatch > 0) TextPrimary else TextSecondary.copy(alpha = 0.35f),
                 modifier = Modifier.size(20.dp)
             )
         }
 
-        Spacer(modifier = Modifier.width(4.dp))
-
+        // Close Find in Page
         IconButton(
             onClick = onClose,
-            modifier = Modifier.size(36.dp)
+            modifier = Modifier.size(34.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
-                contentDescription = "Close",
+                contentDescription = "Close Find in Page",
                 tint = TextPrimary,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
     }
