@@ -60,7 +60,8 @@ object GeckoSessionManager {
             }
         }
 
-        // Setup GeckoSession settings (Desktop vs Mobile mode user agent + tracking protection + suspend media when inactive)
+        // Setup GeckoSession settings (Desktop vs Mobile mode user agent + suspend media when inactive)
+        // Note: Tracking protection is actively handled by our granular fail-open SecretBrowserTrackingProtection
         val settings = GeckoSessionSettings.Builder()
             .userAgentMode(
                 if (isDesktopMode) GeckoSessionSettings.USER_AGENT_MODE_DESKTOP 
@@ -70,7 +71,7 @@ object GeckoSessionManager {
                 if (isDesktopMode) GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
                 else GeckoSessionSettings.VIEWPORT_MODE_MOBILE
             )
-            .useTrackingProtection(true)
+            .useTrackingProtection(false)
             .suspendMediaWhenInactive(true)
             .build()
         
@@ -120,11 +121,11 @@ object GeckoSessionManager {
                 url: String?, 
                 perms: List<GeckoSession.PermissionDelegate.ContentPermission>
             ) {
-                if (url != null) {
+                if (!url.isNullOrEmpty() && url != "about:blank") {
                     currentMainUrl = url
-                }
-                onUpdate { tab ->
-                    tab.copy(url = url ?: "")
+                    onUpdate { tab ->
+                        tab.copy(url = url)
+                    }
                 }
             }
 
@@ -142,7 +143,9 @@ object GeckoSessionManager {
 
             override fun onNewSession(s: GeckoSession, uri: String): org.mozilla.geckoview.GeckoResult<GeckoSession>? {
                 try {
-                    s.loadUri(uri)
+                    if (uri.isNotBlank() && uri != "about:blank" && !uri.startsWith("javascript:")) {
+                        s.loadUri(uri)
+                    }
                 } catch (e: Exception) {
                     android.util.Log.e("GeckoSession", "Failed to load uri in onNewSession", e)
                 }

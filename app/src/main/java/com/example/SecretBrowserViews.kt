@@ -82,6 +82,16 @@ object TabThumbnailCache {
     }
 }
 
+private fun isValidRenderedBitmap(bitmap: android.graphics.Bitmap): Boolean {
+    if (bitmap.width < 20 || bitmap.height < 20) return false
+    val w = bitmap.width
+    val h = bitmap.height
+    val centerPixel = bitmap.getPixel(w / 2, h / 2)
+    val alpha = android.graphics.Color.alpha(centerPixel)
+    if (alpha < 30) return false
+    return true
+}
+
 fun captureViewThumbnail(view: android.view.View?, tabId: String, onComplete: (() -> Unit)? = null) {
     if (view == null || tabId.isEmpty()) {
         onComplete?.invoke()
@@ -125,7 +135,9 @@ fun captureViewThumbnail(view: android.view.View?, tabId: String, onComplete: ((
                             } else {
                                 bmp
                             }
-                            TabThumbnailCache.setThumbnail(tabId, scaled)
+                            if (isValidRenderedBitmap(scaled)) {
+                                TabThumbnailCache.setThumbnail(tabId, scaled)
+                            }
                         }
                         onComplete?.invoke()
                         null
@@ -3401,29 +3413,11 @@ fun PrivateBrowserSection(
 
     fun getOrCreateTabSession(tab: TabState): org.mozilla.geckoview.GeckoSession {
         val existing = geckoSessions[tab.id] ?: GeckoSessionManager.getSession(tab.id)
-        if (existing != null && existing.isOpen) {
-            geckoSessions[tab.id] = existing
-            return existing
-        }
-        val session = createPrivateGeckoSession(
-            ctx = context,
-            tabId = tab.id,
-            initialUrl = tab.url,
-            isDesktopMode = tab.isDesktopMode,
-            onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-                pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
-            },
-            onCrash = {
-                geckoSessions.remove(tab.id)
-            }
-        ) { transform ->
+        val updateBlock: ((TabState) -> TabState) -> Unit = { transform ->
             val index = tabs.indexOfFirst { it.id == tab.id }
             if (index != -1) {
                 val oldTab = tabs[index]
                 val newTab = transform(oldTab)
-                if (newTab.url != oldTab.url && oldTab.url.isNotEmpty() && oldTab.url != "home" && oldTab.url != "about:blank") {
-                    TabThumbnailCache.removeThumbnail(tab.id)
-                }
                 tabs[index] = newTab
                 val currentUrl = newTab.url
                 val currentTitle = newTab.title
@@ -3435,14 +3429,46 @@ fun PrivateBrowserSection(
                     geckoViews[tab.id]?.let { gv ->
                         gv.postDelayed({
                             captureViewThumbnail(gv, tab.id)
-                        }, 350)
+                        }, 400)
                         gv.postDelayed({
                             captureViewThumbnail(gv, tab.id)
-                        }, 1100)
+                        }, 1200)
                     }
                 }
             }
         }
+
+        if (existing != null && existing.isOpen) {
+            geckoSessions[tab.id] = existing
+            GeckoSessionManager.getOrCreateSession(
+                context = context,
+                tabId = tab.id,
+                initialUrl = tab.url,
+                isDesktopMode = tab.isDesktopMode,
+                onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+                    pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                },
+                onCrash = {
+                    geckoSessions.remove(tab.id)
+                },
+                onUpdateParam = updateBlock
+            )
+            return existing
+        }
+
+        val session = createPrivateGeckoSession(
+            ctx = context,
+            tabId = tab.id,
+            initialUrl = tab.url,
+            isDesktopMode = tab.isDesktopMode,
+            onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+                pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+            },
+            onCrash = {
+                geckoSessions.remove(tab.id)
+            },
+            onUpdate = updateBlock
+        )
         geckoSessions[tab.id] = session
         return session
     }
@@ -4651,7 +4677,13 @@ fun PrivateBrowserSection(
                             loadUrl(target)
                         },
                         onOpenNewTab = { openNewTab(it) },
-                        onSelectActiveTab = { activeTabId = it },
+                        onSelectActiveTab = { targetId ->
+                            val currentId = activeTabId
+                            if (currentId != null && currentId != targetId) {
+                                geckoViews[currentId]?.let { gv -> captureViewThumbnail(gv, currentId) }
+                            }
+                            activeTabId = targetId
+                        },
                         onCloseTab = closeTab,
                         onShowBookmarks = { showBookmarks = true },
                         onShowHistory = { showHistory = true },
@@ -4692,40 +4724,39 @@ fun PrivateBrowserSection(
 
                     if (activeGeckoSession != null && currentActiveId != null) {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            key(currentActiveId) {
-                                AndroidView(
-                                    factory = { ctx ->
-                                        val gv = org.mozilla.geckoview.GeckoView(ctx)
-                                        geckoViews[currentActiveId] = gv
-                                        try {
-                                            activeGeckoSession.setActive(true)
-                                            gv.setSession(activeGeckoSession)
-                                        } catch (e: Exception) {
-                                            android.util.Log.e("GeckoViewAttach", "Failed in factory", e)
-                                        }
-                                        gv
-                                    },
-                                    update = { geckoView ->
-                                        geckoViews[currentActiveId] = geckoView
-                                        try {
-                                            activeGeckoSession.setActive(true)
-                                            if (geckoView.session != activeGeckoSession) {
-                                                geckoView.setSession(activeGeckoSession)
-                                            }
-                                        } catch (e: Exception) {
-                                            android.util.Log.e("GeckoViewUpdate", "Failed in update", e)
-                                        }
-                                    },
-                                    onRelease = { geckoView ->
-                                        try {
-                                            geckoViews.remove(currentActiveId)
+                            AndroidView(
+                                factory = { ctx ->
+                                    val gv = org.mozilla.geckoview.GeckoView(ctx)
+                                    geckoViews[currentActiveId] = gv
+                                    try {
+                                        activeGeckoSession.setActive(true)
+                                        gv.setSession(activeGeckoSession)
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("GeckoViewAttach", "Failed in factory", e)
+                                    }
+                                    gv
+                                },
+                                update = { geckoView ->
+                                    geckoViews[currentActiveId] = geckoView
+                                    try {
+                                        activeGeckoSession.setActive(true)
+                                        if (geckoView.session != activeGeckoSession) {
                                             geckoView.releaseSession()
-                                            (geckoView.parent as? android.view.ViewGroup)?.removeView(geckoView)
-                                        } catch (e: Exception) {}
-                                    },
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
+                                            geckoView.setSession(activeGeckoSession)
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("GeckoViewUpdate", "Failed in update", e)
+                                    }
+                                },
+                                onRelease = { geckoView ->
+                                    try {
+                                        geckoViews.remove(currentActiveId)
+                                        geckoView.releaseSession()
+                                        (geckoView.parent as? android.view.ViewGroup)?.removeView(geckoView)
+                                    } catch (e: Exception) {}
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
                             if (progressAlpha > 0f && activeTab?.isFullScreen != true) {
                                 LinearProgressIndicator(
                                     progress = { animatedProgress },

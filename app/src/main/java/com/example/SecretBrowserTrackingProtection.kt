@@ -63,7 +63,6 @@ object SecretBrowserTrackingProtection {
         "connect.facebook.net",
         "platform.twitter.com",
         "platform.instagram.com",
-        "pinterest.com/js",
         "snapchat.com/sdk",
         "linkedin.com/count"
     )
@@ -72,14 +71,8 @@ object SecretBrowserTrackingProtection {
     val KNOWN_TRACKING_DOMAINS = setOf(
         "criteo.com",
         "ads-twitter.com",
-        "tracker",
         "pixel.facebook.com",
-        "analytics",
-        "telemetry",
-        "trackers",
-        "ads.youtube.com",
-        "metrics",
-        "beacon"
+        "ads.youtube.com"
     )
 
     /**
@@ -89,6 +82,7 @@ object SecretBrowserTrackingProtection {
      *
      * Rules:
      * - Main-frame navigation -> ALLOW
+     * - First-party assets/APIs for the active site -> ALLOW
      * - Internal browser resources (about:, file:, data:, blob:) -> ALLOW
      * - Match known tracker -> BLOCK
      * - Normal request -> ALLOW
@@ -137,13 +131,18 @@ object SecretBrowserTrackingProtection {
             // 3. Extract host for matching
             val host = extractHost(url) ?: return false
 
-            // 4. Match host against categorized blocklists (Exact domain or subdomain matching)
+            // 4. First-party immunity: requests belonging to the active site's organization must never be blocked
+            if (currentHost != null && isSameOrganization(currentHost, host)) {
+                return false
+            }
+
+            // 5. Match host against categorized blocklists (Exact domain or subdomain matching)
             if (isTrackerHost(host)) {
                 Log.d(TAG, "BLOCKED tracker request (host match): $host (URL: $url)")
                 return true
             }
 
-            // 5. Additional fallback: path/substring checking for generic tracker footprints in resource names
+            // 6. Additional fallback: path/substring checking for generic tracker footprints in third-party resource names
             if (containsTrackingFootprint(lowerUrl)) {
                 Log.d(TAG, "BLOCKED tracker request (substring footprint match): $url")
                 return true
@@ -156,6 +155,35 @@ object SecretBrowserTrackingProtection {
         }
 
         return false
+    }
+
+    /**
+     * Checks whether two hosts belong to the same parent domain or first-party service.
+     */
+    private fun isSameOrganization(siteHost: String, requestHost: String): Boolean {
+        if (siteHost == requestHost || requestHost.endsWith(".$siteHost")) return true
+        val baseSite = getBaseDomain(siteHost)
+        val baseReq = getBaseDomain(requestHost)
+        if (baseSite.isNotEmpty() && baseSite == baseReq) return true
+
+        // First-party cross-domain service mappings (e.g. pinimg <-> pinterest, ytimg <-> youtube)
+        if ((baseSite.contains("pinterest") || baseSite.contains("pinimg")) && 
+            (baseReq.contains("pinterest") || baseReq.contains("pinimg"))) return true
+        if ((baseSite.contains("youtube") || baseSite.contains("googlevideo") || baseSite.contains("ytimg") || baseSite.contains("google")) &&
+            (baseReq.contains("youtube") || baseReq.contains("googlevideo") || baseReq.contains("ytimg") || baseReq.contains("google"))) return true
+        if ((baseSite.contains("telegram") || baseSite.contains("t.me")) &&
+            (baseReq.contains("telegram") || baseReq.contains("t.me"))) return true
+
+        return false
+    }
+
+    private fun getBaseDomain(host: String): String {
+        val parts = host.split(".")
+        return if (parts.size >= 2) {
+            "${parts[parts.size - 2]}.${parts[parts.size - 1]}"
+        } else {
+            host
+        }
     }
 
     /**
