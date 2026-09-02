@@ -2,6 +2,7 @@ package com.example
 
 import android.content.Context
 import org.mozilla.geckoview.GeckoRuntime
+import org.mozilla.geckoview.GeckoRuntimeSettings
 
 object GeckoEngine {
     private var runtime: GeckoRuntime? = null
@@ -9,7 +10,10 @@ object GeckoEngine {
     fun getRuntime(context: Context): GeckoRuntime {
         synchronized(this) {
             if (runtime == null) {
-                runtime = GeckoRuntime.getDefault(context.applicationContext)
+                val settings = GeckoRuntimeSettings.Builder()
+                    .consoleOutput(false)
+                    .build()
+                runtime = GeckoRuntime.create(context.applicationContext, settings)
             }
             return runtime!!
         }

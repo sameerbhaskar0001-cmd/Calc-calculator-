@@ -9,6 +9,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -43,7 +44,61 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.interaction.*
 import androidx.compose.material3.ripple
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import kotlinx.coroutines.flow.collectLatest
+import java.util.concurrent.ConcurrentHashMap
+
+// TAB THUMBNAIL SNAPSHOT CACHE
+object TabThumbnailCache {
+    private val cache = ConcurrentHashMap<String, android.graphics.Bitmap>()
+    val version = mutableStateOf(0)
+
+    fun setThumbnail(tabId: String, bitmap: android.graphics.Bitmap) {
+        cache[tabId] = bitmap
+        version.value++
+    }
+
+    fun getThumbnail(tabId: String): android.graphics.Bitmap? {
+        return cache[tabId]
+    }
+
+    fun removeThumbnail(tabId: String) {
+        cache.remove(tabId)
+        version.value++
+    }
+
+    fun clear() {
+        cache.clear()
+        version.value++
+    }
+}
+
+fun captureWebViewThumbnail(webView: android.webkit.WebView?, tabId: String) {
+    if (webView == null) return
+    try {
+        val w = webView.width
+        val h = webView.height
+        if (w > 20 && h > 20) {
+            val scale = (360f / w).coerceAtMost(1f)
+            val tw = (w * scale).toInt().coerceAtLeast(60)
+            val th = (h * scale).toInt().coerceAtLeast(60)
+            val bmp = android.graphics.Bitmap.createBitmap(tw, th, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bmp)
+            canvas.scale(scale, scale)
+            webView.draw(canvas)
+            TabThumbnailCache.setThumbnail(tabId, bmp)
+        }
+    } catch (e: Throwable) {}
+}
 
 // BRAND & COLORS CONSTANTS
 val LightBg = Color(0xFFF8F9FA)
@@ -54,6 +109,247 @@ val BorderColor = Color(0xFFE8E8E8)
 val AccentColor = Color(0xFFFF6A00)
 val DangerColor = Color(0xFFC62828)
 val SuccessColor = Color(0xFF2E7D32)
+
+@Composable
+fun YouTubeBrandIcon(modifier: Modifier = Modifier, sizeDp: Int = 34) {
+    Box(
+        modifier = modifier
+            .size(sizeDp.dp)
+            .background(Color(0xFFFF0000), RoundedCornerShape((sizeDp * 0.26f).dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size((sizeDp * 0.44f).dp)) {
+            val path = Path().apply {
+                moveTo(size.width * 0.28f, size.height * 0.16f)
+                lineTo(size.width * 0.84f, size.height * 0.50f)
+                lineTo(size.width * 0.28f, size.height * 0.84f)
+                close()
+            }
+            drawPath(path, color = Color.White)
+        }
+    }
+}
+
+@Composable
+fun InstagramBrandIcon(modifier: Modifier = Modifier, sizeDp: Int = 34) {
+    val brush = Brush.linearGradient(
+        colors = listOf(
+            Color(0xFF4F5BD5),
+            Color(0xFF962FBF),
+            Color(0xFFD62976),
+            Color(0xFFFA7E1E),
+            Color(0xFFFEDA75)
+        ),
+        start = Offset(0f, 100f),
+        end = Offset(100f, 0f)
+    )
+    Box(
+        modifier = modifier
+            .size(sizeDp.dp)
+            .background(brush, RoundedCornerShape((sizeDp * 0.28f).dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size((sizeDp * 0.54f).dp)) {
+            val strokeW = (sizeDp * 0.058f).dp.toPx()
+            drawRoundRect(
+                color = Color.White,
+                topLeft = Offset(strokeW / 2, strokeW / 2),
+                size = Size(size.width - strokeW, size.height - strokeW),
+                cornerRadius = CornerRadius((sizeDp * 0.12f).dp.toPx(), (sizeDp * 0.12f).dp.toPx()),
+                style = Stroke(width = strokeW)
+            )
+            drawCircle(
+                color = Color.White,
+                radius = size.width * 0.24f,
+                center = center,
+                style = Stroke(width = strokeW)
+            )
+            drawCircle(
+                color = Color.White,
+                radius = (sizeDp * 0.038f).dp.toPx(),
+                center = Offset(size.width * 0.74f, size.height * 0.26f)
+            )
+        }
+    }
+}
+
+@Composable
+fun FacebookBrandIcon(modifier: Modifier = Modifier, sizeDp: Int = 34) {
+    Box(
+        modifier = modifier
+            .size(sizeDp.dp)
+            .background(Color(0xFF0866FF), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size((sizeDp * 0.62f).dp)) {
+            val w = size.width
+            val h = size.height
+            val path = Path().apply {
+                moveTo(w * 0.68f, h * 0.98f)
+                lineTo(w * 0.48f, h * 0.98f)
+                lineTo(w * 0.48f, h * 0.55f)
+                lineTo(w * 0.34f, h * 0.55f)
+                lineTo(w * 0.34f, h * 0.39f)
+                lineTo(w * 0.48f, h * 0.39f)
+                lineTo(w * 0.48f, h * 0.26f)
+                cubicTo(w * 0.48f, h * 0.12f, w * 0.56f, h * 0.04f, w * 0.72f, h * 0.04f)
+                lineTo(w * 0.84f, h * 0.04f)
+                lineTo(w * 0.84f, h * 0.19f)
+                lineTo(w * 0.74f, h * 0.19f)
+                cubicTo(w * 0.67f, h * 0.19f, w * 0.65f, h * 0.23f, w * 0.65f, h * 0.29f)
+                lineTo(w * 0.65f, h * 0.39f)
+                lineTo(w * 0.83f, h * 0.39f)
+                lineTo(w * 0.80f, h * 0.55f)
+                lineTo(w * 0.68f, h * 0.55f)
+                close()
+            }
+            drawPath(path, color = Color.White)
+        }
+    }
+}
+
+@Composable
+fun TelegramBrandIcon(modifier: Modifier = Modifier, sizeDp: Int = 34) {
+    Box(
+        modifier = modifier
+            .size(sizeDp.dp)
+            .background(Color(0xFF229ED9), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size((sizeDp * 0.56f).dp)) {
+            val w = size.width
+            val h = size.height
+            
+            val underPath = Path().apply {
+                moveTo(w * 0.42f, h * 0.62f)
+                lineTo(w * 0.39f, h * 0.88f)
+                lineTo(w * 0.53f, h * 0.74f)
+                close()
+            }
+            drawPath(underPath, color = Color(0xFFB0D6F5))
+
+            val planePath = Path().apply {
+                moveTo(w * 0.90f, h * 0.14f)
+                lineTo(w * 0.10f, h * 0.48f)
+                lineTo(w * 0.39f, h * 0.62f)
+                lineTo(w * 0.78f, h * 0.28f)
+                lineTo(w * 0.45f, h * 0.66f)
+                lineTo(w * 0.84f, h * 0.86f)
+                close()
+            }
+            drawPath(planePath, color = Color.White)
+        }
+    }
+}
+
+@Composable
+fun PinterestBrandIcon(modifier: Modifier = Modifier, sizeDp: Int = 34) {
+    Box(
+        modifier = modifier
+            .size(sizeDp.dp)
+            .background(Color(0xFFE60023), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size((sizeDp * 0.62f).dp)) {
+            val w = size.width
+            val h = size.height
+            val path = Path().apply {
+                moveTo(w * 0.44f, h * 0.15f)
+                cubicTo(w * 0.28f, h * 0.15f, w * 0.20f, h * 0.28f, w * 0.20f, h * 0.44f)
+                cubicTo(w * 0.20f, h * 0.56f, w * 0.25f, h * 0.66f, w * 0.33f, h * 0.70f)
+                cubicTo(w * 0.34f, h * 0.71f, w * 0.35f, h * 0.70f, w * 0.36f, h * 0.67f)
+                lineTo(w * 0.39f, h * 0.57f)
+                cubicTo(w * 0.37f, h * 0.53f, w * 0.36f, h * 0.48f, w * 0.36f, h * 0.43f)
+                cubicTo(w * 0.36f, h * 0.31f, w * 0.44f, h * 0.23f, w * 0.56f, h * 0.23f)
+                cubicTo(w * 0.66f, h * 0.23f, w * 0.73f, h * 0.30f, w * 0.73f, h * 0.42f)
+                cubicTo(w * 0.73f, h * 0.56f, w * 0.66f, h * 0.67f, w * 0.56f, h * 0.67f)
+                cubicTo(w * 0.51f, h * 0.67f, w * 0.47f, h * 0.64f, w * 0.45f, h * 0.60f)
+                lineTo(w * 0.41f, h * 0.75f)
+                cubicTo(w * 0.38f, h * 0.88f, w * 0.33f, h * 0.95f, w * 0.31f, h * 0.97f)
+                cubicTo(w * 0.35f, h * 0.98f, w * 0.40f, h * 0.99f, w * 0.45f, h * 0.99f)
+                cubicTo(w * 0.70f, h * 0.99f, w * 0.90f, h * 0.79f, w * 0.90f, h * 0.54f)
+                cubicTo(w * 0.90f, h * 0.32f, w * 0.70f, h * 0.15f, w * 0.44f, h * 0.15f)
+                close()
+            }
+            drawPath(path, color = Color.White)
+        }
+    }
+}
+
+@Composable
+fun GoogleBrandIcon(modifier: Modifier = Modifier, sizeDp: Int = 34) {
+    Box(
+        modifier = modifier
+            .size(sizeDp.dp)
+            .background(Color.White, CircleShape)
+            .border(0.8.dp, BorderColor, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size((sizeDp * 0.58f).dp)) {
+            val strokeW = size.width * 0.22f
+            val halfStroke = strokeW / 2f
+            val rect = Rect(
+                halfStroke,
+                halfStroke,
+                size.width - halfStroke,
+                size.height - halfStroke
+            )
+
+            // Red (Top arc)
+            drawArc(
+                color = Color(0xFFEA4335),
+                startAngle = 210f,
+                sweepAngle = 105f,
+                useCenter = false,
+                topLeft = rect.topLeft,
+                size = rect.size,
+                style = Stroke(width = strokeW, cap = StrokeCap.Butt)
+            )
+
+            // Yellow (Left arc)
+            drawArc(
+                color = Color(0xFFFBBC05),
+                startAngle = 135f,
+                sweepAngle = 80f,
+                useCenter = false,
+                topLeft = rect.topLeft,
+                size = rect.size,
+                style = Stroke(width = strokeW, cap = StrokeCap.Butt)
+            )
+
+            // Green (Bottom arc)
+            drawArc(
+                color = Color(0xFF34A853),
+                startAngle = 35f,
+                sweepAngle = 105f,
+                useCenter = false,
+                topLeft = rect.topLeft,
+                size = rect.size,
+                style = Stroke(width = strokeW, cap = StrokeCap.Butt)
+            )
+
+            // Blue (Right arc)
+            drawArc(
+                color = Color(0xFF4285F4),
+                startAngle = 315f,
+                sweepAngle = 80f,
+                useCenter = false,
+                topLeft = rect.topLeft,
+                size = rect.size,
+                style = Stroke(width = strokeW, cap = StrokeCap.Butt)
+            )
+
+            // Blue Horizontal Bar
+            drawLine(
+                color = Color(0xFF4285F4),
+                start = Offset(size.width * 0.46f, size.height * 0.5f),
+                end = Offset(size.width - halfStroke + 1f, size.height * 0.5f),
+                strokeWidth = strokeW,
+                cap = StrokeCap.Square
+            )
+        }
+    }
+}
 
 @Composable
 fun Modifier.premiumPressClick(
@@ -79,6 +375,167 @@ fun Modifier.premiumPressClick(
             indication = ripple(color = AccentColor.copy(alpha = 0.15f)),
             onClick = onClick
         )
+}
+
+private data class PopularSiteItem(
+    val name: String,
+    val url: String,
+    val brandType: String
+)
+
+private fun formatTabDomain(url: String): String {
+    if (url == "home" || url.isEmpty()) return "Home"
+    return try {
+        val uri = android.net.Uri.parse(url)
+        val host = uri.host
+        if (!host.isNullOrEmpty()) {
+            host.removePrefix("www.")
+        } else {
+            url.removePrefix("https://").removePrefix("http://").take(24)
+        }
+    } catch (e: Exception) {
+        url.removePrefix("https://").removePrefix("http://").take(24)
+    }
+}
+
+@Composable
+private fun CommandCenterMenuItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String? = null,
+    badgeText: String? = null,
+    trailingText: String? = null,
+    trailingSwitch: Boolean? = null,
+    isDestructive: Boolean = false,
+    isEnabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (isEnabled) Modifier.premiumPressClick(onClick = onClick)
+                else Modifier
+            )
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .background(
+                    if (isDestructive) DangerColor.copy(alpha = 0.12f)
+                    else if (!isEnabled) TextSecondary.copy(alpha = 0.08f)
+                    else iconTint.copy(alpha = 0.12f),
+                    RoundedCornerShape(10.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isDestructive) DangerColor else if (!isEnabled) TextSecondary.copy(alpha = 0.5f) else iconTint,
+                modifier = Modifier.size(17.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = title,
+                    color = if (isDestructive) DangerColor else if (!isEnabled) TextSecondary.copy(alpha = 0.7f) else TextPrimary,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (badgeText != null) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(AccentColor.copy(alpha = 0.15f))
+                            .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                    ) {
+                        Text(
+                            text = badgeText,
+                            color = AccentColor,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            if (!subtitle.isNullOrEmpty()) {
+                Text(
+                    text = subtitle,
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (trailingSwitch != null) {
+            Switch(
+                checked = trailingSwitch,
+                onCheckedChange = { onClick() },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = AccentColor,
+                    uncheckedThumbColor = TextSecondary,
+                    uncheckedTrackColor = LightBg
+                ),
+                modifier = Modifier.graphicsLayer {
+                    scaleX = 0.8f
+                    scaleY = 0.8f
+                }
+            )
+        } else if (trailingText != null) {
+            Text(
+                text = trailingText,
+                color = TextSecondary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+        } else if (isEnabled && !isDestructive) {
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = TextSecondary.copy(alpha = 0.4f),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CommandCenterSectionCard(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = title,
+            color = TextSecondary.copy(alpha = 0.8f),
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp,
+            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = LightCard),
+            border = BorderStroke(1.dp, BorderColor),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                content()
+            }
+        }
+    }
 }
 
 @Composable
@@ -111,6 +568,16 @@ fun SecretBrowserHome(
         }
     }
 
+    val popularSites = remember {
+        listOf(
+            PopularSiteItem("YouTube", "https://www.youtube.com", "youtube"),
+            PopularSiteItem("Instagram", "https://www.instagram.com", "instagram"),
+            PopularSiteItem("Facebook", "https://www.facebook.com", "facebook"),
+            PopularSiteItem("Telegram", "https://web.telegram.org", "telegram"),
+            PopularSiteItem("Pinterest", "https://www.pinterest.com", "pinterest")
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -120,90 +587,90 @@ fun SecretBrowserHome(
     ) {
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 1. HERO / BRAND AREA
+        // 1. BRAND & IDENTITY AREA (CALM, COMPACT & UNDERSTATED)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 10.dp, bottom = 18.dp),
+                .padding(top = 14.dp, bottom = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
-                    .size(60.dp)
-                    .background(LightCard, RoundedCornerShape(18.dp))
-                    .border(1.dp, BorderColor, RoundedCornerShape(18.dp)),
+                    .size(48.dp)
+                    .background(LightCard, RoundedCornerShape(16.dp))
+                    .border(0.8.dp, BorderColor, RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
-                        .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
+                        .size(34.dp)
+                        .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(11.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Security,
                         contentDescription = "Secret Browser Logo",
                         tint = AccentColor,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = "Secret Browser",
                 color = TextPrimary,
-                fontSize = 22.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = (-0.3).sp
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = "Private • Independent • Secure",
                 color = TextSecondary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.3.sp,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Normal,
+                letterSpacing = 0.2.sp,
                 textAlign = TextAlign.Center
             )
         }
 
-        // 2. LARGE FLOATING SEARCH CAPSULE
+        // 2. PRIMARY SEARCH EXPERIENCE (FOCUSED & COMFORTABLE VIEWPORT)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(54.dp),
-            shape = RoundedCornerShape(27.dp),
+                .height(52.dp),
+            shape = RoundedCornerShape(26.dp),
             colors = CardDefaults.cardColors(containerColor = LightCard),
-            border = BorderStroke(1.2.dp, BorderColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            border = BorderStroke(1.dp, BorderColor),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                    .padding(start = 5.dp, end = 5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Search Engine Selector Pill
+                // Subordinate Search Engine Selector Pill
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
                         .background(LightBg)
-                        .border(0.9.dp, BorderColor, RoundedCornerShape(16.dp))
+                        .border(0.8.dp, BorderColor, RoundedCornerShape(16.dp))
                         .premiumPressClick { onShowSearchEngineDialog() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .padding(horizontal = 8.dp, vertical = 5.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search Engine",
                         tint = AccentColor,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(12.dp)
                     )
-                    Spacer(modifier = Modifier.width(5.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = searchEngine,
                         color = TextPrimary,
-                        fontSize = 12.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.width(2.dp))
@@ -211,16 +678,17 @@ fun SecretBrowserHome(
                         imageVector = Icons.Default.ArrowDropDown,
                         contentDescription = "Choose Search Engine",
                         tint = TextSecondary,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
 
+                // Protected Middle Viewport for text input
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(start = 2.dp, end = 4.dp),
+                        .padding(horizontal = 3.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     BasicTextField(
@@ -248,7 +716,7 @@ fun SecretBrowserHome(
                                 if (searchInput.isEmpty()) {
                                     Text(
                                         text = "Search or enter URL...",
-                                        color = TextSecondary.copy(alpha = 0.65f),
+                                        color = TextSecondary.copy(alpha = 0.6f),
                                         fontSize = 13.5.sp,
                                         maxLines = 1
                                     )
@@ -259,10 +727,11 @@ fun SecretBrowserHome(
                     )
                 }
 
+                // Protected Trailing Controls
                 if (searchInput.isNotEmpty()) {
                     IconButton(
                         onClick = { searchInput = "" },
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(26.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
@@ -276,7 +745,7 @@ fun SecretBrowserHome(
 
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(AccentColor)
                         .premiumPressClick {
@@ -288,414 +757,149 @@ fun SecretBrowserHome(
                         imageVector = Icons.Default.ArrowForward,
                         contentDescription = "Go",
                         tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // 3. QUICK ACTIONS
+        // 3. POPULAR SITES / QUICK ACCESS (CLEAN DISCOVERY STRIP)
         Text(
-            text = "QUICK ACTIONS",
-            color = TextSecondary,
-            fontSize = 11.sp,
+            text = "POPULAR SITES",
+            color = TextSecondary.copy(alpha = 0.85f),
+            fontSize = 10.5.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 1.2.sp
+            letterSpacing = 1.1.sp
         )
         Spacer(modifier = Modifier.height(10.dp))
 
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(76.dp)
-                        .premiumPressClick { onOpenNewTab("home") },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCard),
-                    border = BorderStroke(1.dp, BorderColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Add, "New Tab", tint = AccentColor, modifier = Modifier.size(19.dp))
-                        }
-                        Spacer(modifier = Modifier.width(11.dp))
-                        Column {
-                            Text("New Tab", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text("Isolated session", color = TextSecondary, fontSize = 11.sp)
-                        }
-                    }
-                }
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(76.dp)
-                        .premiumPressClick { onShowBookmarks() },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCard),
-                    border = BorderStroke(1.dp, BorderColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Star, "Bookmarks", tint = AccentColor, modifier = Modifier.size(19.dp))
-                        }
-                        Spacer(modifier = Modifier.width(11.dp))
-                        Column {
-                            Text("Bookmarks", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text("Access saved", color = TextSecondary, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(76.dp)
-                        .premiumPressClick { onClearAllData() },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCard),
-                    border = BorderStroke(1.dp, BorderColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .background(DangerColor.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.DeleteForever, "Wipe", tint = DangerColor, modifier = Modifier.size(19.dp))
-                        }
-                        Spacer(modifier = Modifier.width(11.dp))
-                        Column {
-                            Text("Destruct", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text("Purge all data", color = TextSecondary, fontSize = 11.sp)
-                        }
-                    }
-                }
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(76.dp)
-                        .premiumPressClick { onShowSettings() },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCard),
-                    border = BorderStroke(1.dp, BorderColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Settings, "Settings", tint = AccentColor, modifier = Modifier.size(19.dp))
-                        }
-                        Spacer(modifier = Modifier.width(11.dp))
-                        Column {
-                            Text("Settings", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text("Configure engine", color = TextSecondary, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(22.dp))
-
-        // 4. RECENT ACTIVE TABS
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
-            Text(
-                text = "ACTIVE SESSIONS (${tabs.size})",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.2.sp
-            )
-            Text(
-                text = "Tap to switch",
-                color = TextSecondary.copy(alpha = 0.7f),
-                fontSize = 11.sp
-            )
-        }
-        Spacer(modifier = Modifier.height(10.dp))
-
-        if (tabs.isEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = LightCard),
-                border = BorderStroke(1.dp, BorderColor)
-            ) {
+            popularSites.forEach { site ->
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 24.dp, horizontal = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    modifier = Modifier
+                        .weight(1f)
+                        .premiumPressClick { onSearch(site.url) }
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .background(AccentColor.copy(alpha = 0.08f), CircleShape),
+                            .size(48.dp)
+                            .background(LightCard, RoundedCornerShape(15.dp))
+                            .border(0.8.dp, BorderColor, RoundedCornerShape(15.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Language,
-                            contentDescription = null,
-                            tint = AccentColor,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "No Active Tabs",
-                        color = TextPrimary,
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Start a private browsing session.",
-                        color = TextSecondary,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Button(
-                        onClick = { onOpenNewTab("home") },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
-                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
-                        modifier = Modifier.height(38.dp)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("New Tab", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-        } else {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(tabs) { tab ->
-                    val isActive = tab.id == activeTabId
-                    Card(
-                        modifier = Modifier
-                            .width(210.dp)
-                            .height(68.dp)
-                            .premiumPressClick { onSelectActiveTab(tab.id) },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isActive) AccentColor.copy(alpha = 0.08f) else LightCard
-                        ),
-                        border = BorderStroke(
-                            if (isActive) 1.5.dp else 1.dp,
-                            if (isActive) AccentColor else BorderColor
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = if (isActive) 2.dp else 1.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(30.dp)
-                                        .background(if (isActive) AccentColor.copy(alpha = 0.15f) else LightBg, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = if (tab.url == "home") Icons.Default.Home else Icons.Default.Language,
-                                        contentDescription = "Tab icon",
-                                        tint = if (isActive) AccentColor else TextSecondary,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(9.dp))
-                                Column {
-                                    Text(
-                                        text = if (tab.url == "home") "New Tab" else tab.title,
-                                        color = TextPrimary,
-                                        fontSize = 12.5.sp,
-                                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = if (tab.url == "home") "Internal start page" else tab.url,
-                                        color = if (isActive) AccentColor.copy(alpha = 0.8f) else TextSecondary,
-                                        fontSize = 10.5.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                            IconButton(
-                                onClick = { onCloseTab(tab.id) },
-                                modifier = Modifier.size(28.dp)
+                        when (site.brandType) {
+                            "youtube" -> YouTubeBrandIcon(sizeDp = 34)
+                            "instagram" -> InstagramBrandIcon(sizeDp = 34)
+                            "facebook" -> FacebookBrandIcon(sizeDp = 34)
+                            "telegram" -> TelegramBrandIcon(sizeDp = 34)
+                            "pinterest" -> PinterestBrandIcon(sizeDp = 34)
+                            else -> Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(AccentColor.copy(alpha = 0.1f), RoundedCornerShape(11.dp)),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close Tab",
-                                    tint = DangerColor.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(14.dp)
+                                    imageVector = Icons.Default.Language,
+                                    contentDescription = site.name,
+                                    tint = AccentColor,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(5.dp))
+                    Text(
+                        text = site.name,
+                        color = TextPrimary,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // 5. SECURE COLLECTIONS
+        // 4. ESSENTIAL SHORTCUTS (LIGHTWEIGHT & UNCLUTTERED)
         Text(
-            text = "SECURE COLLECTIONS",
-            color = TextSecondary,
-            fontSize = 11.sp,
+            text = "QUICK SHORTCUTS",
+            color = TextSecondary.copy(alpha = 0.85f),
+            fontSize = 10.5.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 1.2.sp
+            letterSpacing = 1.1.sp
         )
         Spacer(modifier = Modifier.height(10.dp))
 
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                Card(
-                    modifier = Modifier.weight(1f).height(62.dp).premiumPressClick { onShowBookmarks() },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCard),
-                    border = BorderStroke(1.dp, BorderColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(58.dp)
+                    .premiumPressClick { onOpenNewTab("home") },
+                shape = RoundedCornerShape(15.dp),
+                colors = CardDefaults.cardColors(containerColor = LightCard),
+                border = BorderStroke(0.9.dp, BorderColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(9.dp)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Star, "Bookmarks", tint = AccentColor, modifier = Modifier.size(17.dp))
-                        }
-                        Spacer(modifier = Modifier.width(11.dp))
-                        Text("Bookmarks", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Icon(Icons.Default.Add, "New Tab", tint = AccentColor, modifier = Modifier.size(16.dp))
                     }
-                }
-                Card(
-                    modifier = Modifier.weight(1f).height(62.dp).premiumPressClick { onShowDownloads() },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCard),
-                    border = BorderStroke(1.dp, BorderColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Download, "Downloads", tint = AccentColor, modifier = Modifier.size(17.dp))
-                        }
-                        Spacer(modifier = Modifier.width(11.dp))
-                        Text("Downloads", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.width(9.dp))
+                    Column {
+                        Text("New Tab", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Private session", color = TextSecondary, fontSize = 10.5.sp)
                     }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                Card(
-                    modifier = Modifier.weight(1f).height(62.dp).premiumPressClick { onShowHistory() },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCard),
-                    border = BorderStroke(1.dp, BorderColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(58.dp)
+                    .premiumPressClick { onShowBookmarks() },
+                shape = RoundedCornerShape(15.dp),
+                colors = CardDefaults.cardColors(containerColor = LightCard),
+                border = BorderStroke(0.9.dp, BorderColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(9.dp)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.History, "History", tint = AccentColor, modifier = Modifier.size(17.dp))
-                        }
-                        Spacer(modifier = Modifier.width(11.dp))
-                        Text("History Logs", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Icon(Icons.Default.Star, "Bookmarks", tint = AccentColor, modifier = Modifier.size(16.dp))
                     }
-                }
-                Card(
-                    modifier = Modifier.weight(1f).height(62.dp).premiumPressClick {
-                        Toast.makeText(context, "Added current pages to Reading Later queue", Toast.LENGTH_SHORT).show()
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCard),
-                    border = BorderStroke(1.dp, BorderColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.InsertDriveFile, "Reading Later", tint = AccentColor, modifier = Modifier.size(17.dp))
-                        }
-                        Spacer(modifier = Modifier.width(11.dp))
-                        Text("Reading Later", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.width(9.dp))
+                    Column {
+                        Text("Bookmarks", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Saved pages", color = TextSecondary, fontSize = 10.5.sp)
                     }
                 }
             }
@@ -749,7 +953,7 @@ fun SecretBrowserSettingsDashboard(
                         tint = DangerColor,
                         modifier = Modifier.size(24.dp)
                     )
-                    Text("Clear browsing data?", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("Clear Browsing Data", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
             },
             text = {
@@ -758,7 +962,7 @@ fun SecretBrowserSettingsDashboard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Selected browsing data will be permanently removed.",
+                        text = "Permanently remove selected private data from this device.",
                         color = TextSecondary,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(bottom = 12.dp)
@@ -779,8 +983,8 @@ fun SecretBrowserSettingsDashboard(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
-                            Text("History", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Clear saved browser activity logs", color = TextSecondary, fontSize = 11.sp)
+                            Text("Browsing History", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Clear visited web pages and search logs", color = TextSecondary, fontSize = 11.sp)
                         }
                     }
 
@@ -799,7 +1003,7 @@ fun SecretBrowserSettingsDashboard(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
-                            Text("Cookies", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Cookies & Logins", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                             Text("Sign out of active web sessions", color = TextSecondary, fontSize = 11.sp)
                         }
                     }
@@ -819,8 +1023,8 @@ fun SecretBrowserSettingsDashboard(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
-                            Text("Cache", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Clear rendering files and temp assets", color = TextSecondary, fontSize = 11.sp)
+                            Text("Cached Images & Files", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Clear temporarily stored web content", color = TextSecondary, fontSize = 11.sp)
                         }
                     }
 
@@ -839,8 +1043,8 @@ fun SecretBrowserSettingsDashboard(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
-                            Text("Site Data", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Clear local storage and site settings", color = TextSecondary, fontSize = 11.sp)
+                            Text("Site Storage & Preferences", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Clear offline storage and per-site permissions", color = TextSecondary, fontSize = 11.sp)
                         }
                     }
                 }
@@ -854,7 +1058,7 @@ fun SecretBrowserSettingsDashboard(
                         onClick = {
                             onClearBrowsingData(true, true, true, true) { success ->
                                 if (success) {
-                                    Toast.makeText(context, "All browsing data cleared successfully", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Browsing data cleared", Toast.LENGTH_SHORT).show()
                                 } else {
                                     Toast.makeText(context, "Some browsing data failed to clear", Toast.LENGTH_SHORT).show()
                                 }
@@ -873,7 +1077,7 @@ fun SecretBrowserSettingsDashboard(
                             }
                             onClearBrowsingData(clearHist, clearCooks, clearCach, clearSite) { success ->
                                 if (success) {
-                                    Toast.makeText(context, "Selected data cleared successfully", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Browsing data cleared", Toast.LENGTH_SHORT).show()
                                 } else {
                                     Toast.makeText(context, "Failed to clear some selected data", Toast.LENGTH_SHORT).show()
                                 }
@@ -882,7 +1086,7 @@ fun SecretBrowserSettingsDashboard(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = DangerColor)
                     ) {
-                        Text("Clear", color = Color.White)
+                        Text("Clear Selected", color = Color.White)
                     }
                 }
             },
@@ -910,12 +1114,12 @@ fun SecretBrowserSettingsDashboard(
                         tint = DangerColor,
                         modifier = Modifier.size(24.dp)
                     )
-                    Text("Clear Temporary Files?", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("Clear Temporary Files", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
             },
             text = {
                 Text(
-                    "Are you sure you want to securely clear all temporary, incomplete-download, and upload files from the browser? This action is permanent.",
+                    "Securely wipe temporary disk fragments, cached uploads, and incomplete download remnants. This action cannot be undone.",
                     color = TextSecondary,
                     fontSize = 14.sp
                 )
@@ -929,16 +1133,16 @@ fun SecretBrowserSettingsDashboard(
                             val ok2 = SecretBrowserSecureDelete.cleanStaleTemporaryRemnants(context, secure = true)
                             withContext(Dispatchers.Main) {
                                 if (ok1 && ok2) {
-                                    Toast.makeText(context, "Temporary files securely cleared successfully", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Temporary files cleared", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    Toast.makeText(context, "Temporary files cleared (some active/locked files skipped)", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Temporary files cleared", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = DangerColor)
                 ) {
-                    Text("Clear Securely", color = Color.White)
+                    Text("Clear Temporary Files", color = Color.White)
                 }
             },
             dismissButton = {
@@ -964,11 +1168,11 @@ fun SecretBrowserSettingsDashboard(
                 .padding(horizontal = 8.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack, modifier = Modifier.size(38.dp)) {
-                Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary, modifier = Modifier.size(20.dp))
+            IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary, modifier = Modifier.size(22.dp))
             }
-            Column(modifier = Modifier.padding(start = 8.dp)) {
-                Text("Secret Browser Settings", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Column(modifier = Modifier.padding(start = 6.dp)) {
+                Text("Browser Settings", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Text("Privacy, engine preferences & data controls", color = TextSecondary, fontSize = 12.sp)
             }
         }
@@ -979,119 +1183,38 @@ fun SecretBrowserSettingsDashboard(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // STATS SECTION (DASHBOARD STYLE)
+            // 1. BROWSING
+            SettingsSectionHeader(title = "BROWSING")
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = LightCard),
                 border = BorderStroke(1.dp, BorderColor),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "ENGINE STATISTICS",
-                        color = AccentColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.5.sp
+                Column {
+                    SettingsNavigationRow(
+                        icon = Icons.Default.Search,
+                        iconTint = AccentColor,
+                        title = "Search Engine",
+                        subtitle = searchEngine,
+                        subtitleColor = AccentColor,
+                        onClick = onShowSearchEngineDialog
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceAround
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = tabs.size.toString(), color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                            Text(text = "Active Tabs", color = TextSecondary, fontSize = 11.sp)
-                        }
-                        Box(modifier = Modifier.width(1.dp).height(32.dp).background(BorderColor))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = browserBookmarks.size.toString(), color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                            Text(text = "Bookmarks", color = TextSecondary, fontSize = 11.sp)
-                        }
-                        Box(modifier = Modifier.width(1.dp).height(32.dp).background(BorderColor))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = browserHistory.size.toString(), color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                            Text(text = "History Logs", color = TextSecondary, fontSize = 11.sp)
-                        }
-                        Box(modifier = Modifier.width(1.dp).height(32.dp).background(BorderColor))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = totalTrackersBlocked.toString(), color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                            Text(text = "Blocked", color = TextSecondary, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-
-            // SECURITY STATUS BADGES CARD
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = LightCard),
-                border = BorderStroke(1.dp, BorderColor),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "SECURITY SHIELD STATUS",
-                        color = SuccessColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.5.sp
+                    HorizontalDivider(color = BorderColor.copy(alpha = 0.6f), thickness = 0.8.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    SettingsNavigationRow(
+                        icon = Icons.Default.CloudDownload,
+                        iconTint = AccentColor,
+                        title = "Vault Downloads",
+                        subtitle = "Manage downloaded files inside secure vault",
+                        onClick = onShowDownloads
                     )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.CheckCircle, "Active", tint = SuccessColor, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("Isolated Sandbox Cookies", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("Independent cookie containers prevent cross-site correlation", color = TextSecondary, fontSize = 11.sp)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.CheckCircle, "Active", tint = SuccessColor, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("Kernel Separation Sandbox", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("Local files and OS layers completely hidden from renderers", color = TextSecondary, fontSize = 11.sp)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        val activeColor = if (trackingProtectionEnabled) SuccessColor else TextSecondary.copy(alpha = 0.5f)
-                        val activeText = if (trackingProtectionEnabled) "Active Shielding" else "Shielding Disabled"
-                        Icon(if (trackingProtectionEnabled) Icons.Default.CheckCircle else Icons.Default.Cancel, "Status", tint = activeColor, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("Real-Time $activeText", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("Block tracking networks, cross-site beacons, and ads", color = TextSecondary, fontSize = 11.sp)
-                        }
-                    }
                 }
             }
 
-            // BROWSING PREFERENCES
-            Text(
-                text = "BROWSING PREFERENCES",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp,
-                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
-            )
-
+            // 2. PRIVACY & SECURITY
+            SettingsSectionHeader(title = "PRIVACY & SECURITY")
             Card(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = LightCard),
@@ -1099,72 +1222,37 @@ fun SecretBrowserSettingsDashboard(
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .premiumPressClick { onShowSearchEngineDialog() }
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(AccentColor.copy(alpha = 0.08f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Search, "Search", tint = AccentColor, modifier = Modifier.size(16.dp))
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text("Search Engine", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Text(searchEngine, color = AccentColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
+                    SettingsSwitchRow(
+                        icon = Icons.Default.Security,
+                        iconTint = if (trackingProtectionEnabled) SuccessColor else TextSecondary,
+                        title = "Tracking Protection",
+                        subtitle = if (trackingProtectionEnabled) {
+                            if (totalTrackersBlocked > 0) "Active • $totalTrackersBlocked tracker${if (totalTrackersBlocked > 1) "s" else ""} blocked this session" else "Active • Blocking known trackers (No activity yet)"
+                        } else {
+                            "Inactive • Protection disabled"
+                        },
+                        checked = trackingProtectionEnabled,
+                        activeTrackColor = SuccessColor,
+                        onCheckedChange = { enabled ->
+                            onSetTrackingProtectionEnabled(enabled)
+                            Toast.makeText(context, if (enabled) "Protection enabled" else "Protection disabled", Toast.LENGTH_SHORT).show()
                         }
-                        Icon(Icons.Default.ArrowDropDown, "Dropdown", tint = TextSecondary)
-                    }
-
-                    HorizontalDivider(color = BorderColor)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .premiumPressClick { onShowDownloads() }
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(AccentColor.copy(alpha = 0.08f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.CloudDownload, "Downloads", tint = AccentColor, modifier = Modifier.size(16.dp))
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text("Vault Downloads", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Manage downloaded files inside secure vault", color = TextSecondary, fontSize = 11.sp)
-                            }
-                        }
-                        Icon(Icons.Default.ChevronRight, "Open", tint = TextSecondary, modifier = Modifier.size(20.dp))
-                    }
+                    )
+                    HorizontalDivider(color = BorderColor.copy(alpha = 0.6f), thickness = 0.8.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    SettingsSwitchRow(
+                        icon = Icons.Default.Lock,
+                        iconTint = if (savePasswords) AccentColor else TextSecondary,
+                        title = "Form Autofill Prompts",
+                        subtitle = if (savePasswords) "Active • Browser prompts to autofill credentials in web forms" else "Disabled • Form credential autofill prompts disabled",
+                        checked = savePasswords,
+                        activeTrackColor = AccentColor,
+                        onCheckedChange = onSetSavePasswords
+                    )
                 }
             }
 
-            // PRIVACY & SECURITY
-            Text(
-                text = "PRIVACY & SECURITY",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp,
-                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
-            )
-
+            // 3. DATA & CLEANUP
+            SettingsSectionHeader(title = "DATA & CLEANUP")
             Card(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = LightCard),
@@ -1172,337 +1260,118 @@ fun SecretBrowserSettingsDashboard(
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(SuccessColor.copy(alpha = 0.08f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Security, "Shield", tint = SuccessColor, modifier = Modifier.size(16.dp))
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text("Tracking Protection", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Block scripts, beacons, and trackers", color = TextSecondary, fontSize = 11.sp)
-                            }
-                        }
-                        Switch(
-                            checked = trackingProtectionEnabled,
-                            onCheckedChange = onSetTrackingProtectionEnabled,
-                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = SuccessColor)
-                        )
-                    }
-
-                    HorizontalDivider(color = BorderColor)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(TextSecondary.copy(alpha = 0.08f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Lock, "Lock", tint = TextSecondary, modifier = Modifier.size(16.dp))
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text("Save Passwords", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Save credential states inside forms", color = TextSecondary, fontSize = 11.sp)
-                            }
-                        }
-                        Switch(
-                            checked = savePasswords,
-                            onCheckedChange = onSetSavePasswords,
-                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = AccentColor)
-                        )
-                    }
+                    SettingsSwitchRow(
+                        icon = Icons.Default.History,
+                        iconTint = AccentColor,
+                        title = "Clear History on Exit",
+                        subtitle = "Purge web history logs whenever you leave the browser",
+                        checked = clearHistoryOnExit,
+                        activeTrackColor = AccentColor,
+                        onCheckedChange = onSetClearHistoryOnExit
+                    )
+                    HorizontalDivider(color = BorderColor.copy(alpha = 0.6f), thickness = 0.8.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    SettingsSwitchRow(
+                        icon = Icons.Default.DeleteSweep,
+                        iconTint = AccentColor,
+                        title = "Clear Temporary Files on Exit",
+                        subtitle = "Purge upload caches and incomplete download remnants on exit",
+                        checked = clearTempOnExit,
+                        activeTrackColor = AccentColor,
+                        onCheckedChange = onSetClearTempOnExit
+                    )
+                    HorizontalDivider(color = BorderColor.copy(alpha = 0.6f), thickness = 0.8.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    SettingsActionRow(
+                        icon = Icons.Default.DeleteForever,
+                        iconTint = DangerColor,
+                        title = "Clear Browsing Data",
+                        subtitle = "Permanently delete history, cookies, cache, and site data",
+                        actionLabel = "Clear",
+                        isDestructive = true,
+                        onClick = { showClearBrowsingDataDialog = true }
+                    )
+                    HorizontalDivider(color = BorderColor.copy(alpha = 0.6f), thickness = 0.8.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    SettingsActionRow(
+                        icon = Icons.Default.FolderDelete,
+                        iconTint = DangerColor,
+                        title = "Clear Temporary Browser Files",
+                        subtitle = "Securely wipe temporary disk remnants and cache fragments",
+                        actionLabel = "Clear",
+                        isDestructive = true,
+                        onClick = { showClearTempFilesDialog = true }
+                    )
                 }
             }
 
-            // DATA & STORAGE CONTROLS
-            Text(
-                text = "DATA & STORAGE CONTROLS",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp,
-                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
-            )
-
+            // 4. BROWSER ENGINE
+            SettingsSectionHeader(title = "BROWSER ENGINE")
             Card(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = LightCard),
                 border = BorderStroke(1.dp, BorderColor),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(TextSecondary.copy(alpha = 0.08f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.History, "History", tint = TextSecondary, modifier = Modifier.size(16.dp))
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text("Clear History on Exit", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Automatically purge logs upon exit", color = TextSecondary, fontSize = 11.sp)
-                            }
-                        }
-                        Switch(
-                            checked = clearHistoryOnExit,
-                            onCheckedChange = onSetClearHistoryOnExit,
-                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = AccentColor)
-                        )
-                    }
-
-                    HorizontalDivider(color = BorderColor)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(TextSecondary.copy(alpha = 0.08f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Delete, "Delete", tint = TextSecondary, modifier = Modifier.size(16.dp))
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text("Clear Temporary Files on Exit", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Automatically purge temporary uploads and downloads on exit", color = TextSecondary, fontSize = 11.sp)
-                            }
-                        }
-                        Switch(
-                            checked = clearTempOnExit,
-                            onCheckedChange = onSetClearTempOnExit,
-                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = AccentColor)
-                        )
-                    }
-
-                    HorizontalDivider(color = BorderColor)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showClearBrowsingDataDialog = true }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
-                                .background(DangerColor.copy(alpha = 0.08f), CircleShape),
+                                .size(36.dp)
+                                .background(SuccessColor.copy(alpha = 0.1f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.DeleteForever, "Clear Browsing Data", tint = DangerColor, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Speed, "Engine", tint = SuccessColor, modifier = Modifier.size(18.dp))
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Clear Browsing Data", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("History, cookies, cache, and site storage", color = TextSecondary, fontSize = 11.sp)
-                        }
-                        Text(
-                            text = "Clear",
-                            color = DangerColor,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    HorizontalDivider(color = BorderColor)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showClearTempFilesDialog = true }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(DangerColor.copy(alpha = 0.08f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.DeleteForever, "Clear Temp", tint = DangerColor, modifier = Modifier.size(16.dp))
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Clear Temporary Browser Files", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Securely clear upload, download remnants, and browser cache files", color = TextSecondary, fontSize = 11.sp)
-                        }
-                        Text(
-                            text = "Clear",
-                            color = DangerColor,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                }
-            }
-
-            // ENGINE PREFERENCE
-            Text(
-                text = "SANDBOX ENGINE",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp,
-                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
-            )
-
-            Card(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = LightCard),
-                border = BorderStroke(1.dp, BorderColor),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(SuccessColor.copy(alpha = 0.08f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Security, "Engine", tint = SuccessColor, modifier = Modifier.size(16.dp))
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text("GeckoView Engine", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Text(if (useGeckoView) "Currently active high-privacy renderer" else "WebKit renderer currently active", color = TextSecondary, fontSize = 11.sp)
-                            }
-                        }
-                        Box(
-                            modifier = Modifier
-                                .background(SuccessColor.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text("STABLE", color = SuccessColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-
-            // NEXT GEN CAPABILITIES
-            Text(
-                text = "NEXT-GEN PROTECTION (COMING SOON)",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp,
-                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
-            )
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = LightCard),
-                border = BorderStroke(1.dp, BorderColor),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(AccentColor.copy(alpha = 0.08f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Shield,
-                                contentDescription = "Shield",
-                                tint = AccentColor,
-                                modifier = Modifier.size(16.dp)
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column {
+                            Text("GeckoView Engine", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                if (useGeckoView) "High-isolation Mozilla GeckoView active" else "System WebKit active",
+                                color = TextSecondary,
+                                fontSize = 11.sp
                             )
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Decentralized Onion Routing", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("Multi-hop encrypted proxy relays inside your tabs", color = TextSecondary, fontSize = 11.sp)
-                        }
-                        Box(
-                            modifier = Modifier
-                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text("COMING SOON", color = AccentColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                        }
                     }
-
-                    HorizontalDivider(color = BorderColor, modifier = Modifier.padding(vertical = 12.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = SuccessColor.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, SuccessColor.copy(alpha = 0.3f))
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(AccentColor.copy(alpha = 0.08f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = "Lock",
-                                tint = AccentColor,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("AI Fingerprint Shield", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("Neural traffic blocks preventing advanced data extraction", color = TextSecondary, fontSize = 11.sp)
-                        }
-                        Box(
-                            modifier = Modifier
-                                .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text("COMING SOON", color = AccentColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                        }
+                        Text(
+                            text = "STABLE",
+                            color = SuccessColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
                     }
+                }
+            }
+
+            // 5. FUTURE PROTECTION
+            SettingsSectionHeader(title = "FUTURE PROTECTION")
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = LightCard.copy(alpha = 0.7f)),
+                border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.7f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column {
+                    SettingsFutureRow(
+                        icon = Icons.Default.Shield,
+                        title = "Decentralized Onion Routing",
+                        subtitle = "Multi-hop encrypted relay protection"
+                    )
+                    HorizontalDivider(color = BorderColor.copy(alpha = 0.5f), thickness = 0.8.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    SettingsFutureRow(
+                        icon = Icons.Default.Fingerprint,
+                        title = "AI Fingerprint Shield",
+                        subtitle = "Neural traffic defense against browser profiling"
+                    )
                 }
             }
 
@@ -1512,12 +1381,239 @@ fun SecretBrowserSettingsDashboard(
 }
 
 @Composable
+private fun SettingsSectionHeader(title: String) {
+    Text(
+        text = title,
+        color = TextSecondary,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.2.sp,
+        modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)
+    )
+}
+
+@Composable
+private fun SettingsNavigationRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    subtitleColor: Color = TextSecondary,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .premiumPressClick { onClick() }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(iconTint.copy(alpha = 0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, title, tint = iconTint, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column {
+                Text(title, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, color = subtitleColor, fontSize = 12.sp, fontWeight = if (subtitleColor != TextSecondary) FontWeight.SemiBold else FontWeight.Normal)
+            }
+        }
+        Icon(Icons.Default.ChevronRight, "Navigate", tint = TextSecondary, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    activeTrackColor: Color,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(iconTint.copy(alpha = 0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, title, tint = iconTint, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.padding(end = 8.dp)) {
+                Text(title, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, color = TextSecondary, fontSize = 11.sp)
+            }
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = activeTrackColor)
+        )
+    }
+}
+
+@Composable
+private fun SettingsActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    actionLabel: String,
+    isDestructive: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(iconTint.copy(alpha = 0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, title, tint = iconTint, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.padding(end = 8.dp)) {
+                Text(title, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, color = TextSecondary, fontSize = 11.sp)
+            }
+        }
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = if (isDestructive) DangerColor.copy(alpha = 0.1f) else AccentColor.copy(alpha = 0.1f)
+        ) {
+            Text(
+                text = actionLabel,
+                color = if (isDestructive) DangerColor else AccentColor,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsFutureRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(TextSecondary.copy(alpha = 0.08f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, title, tint = TextSecondary.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.padding(end = 8.dp)) {
+                Text(title, color = TextPrimary.copy(alpha = 0.75f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, color = TextSecondary.copy(alpha = 0.7f), fontSize = 11.sp)
+            }
+        }
+        Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = TextSecondary.copy(alpha = 0.1f)
+        ) {
+            Text(
+                text = "COMING SOON",
+                color = TextSecondary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+            )
+        }
+    }
+}
+
+// HELPER FUNCTIONS FOR BROWSER LIBRARY
+fun extractBrowserDomain(url: String): String {
+    if (url.isBlank() || url == "home" || url == "about:blank") return "Start Page"
+    return try {
+        val uri = java.net.URI(if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url)
+        val host = uri.host ?: url
+        host.removePrefix("www.")
+    } catch (e: Exception) {
+        url.removePrefix("https://").removePrefix("http://").removePrefix("www.").substringBefore("/").substringBefore("?")
+    }
+}
+
+private fun groupHistoryByRelativeDate(history: List<BrowserHistory>): Map<String, List<BrowserHistory>> {
+    val now = java.util.Calendar.getInstance()
+    val todayYear = now.get(java.util.Calendar.YEAR)
+    val todayDayOfYear = now.get(java.util.Calendar.DAY_OF_YEAR)
+
+    now.add(java.util.Calendar.DAY_OF_YEAR, -1)
+    val yesterdayYear = now.get(java.util.Calendar.YEAR)
+    val yesterdayDayOfYear = now.get(java.util.Calendar.DAY_OF_YEAR)
+
+    val cal = java.util.Calendar.getInstance()
+    val grouped = LinkedHashMap<String, MutableList<BrowserHistory>>()
+    grouped["Today"] = mutableListOf()
+    grouped["Yesterday"] = mutableListOf()
+    grouped["Earlier"] = mutableListOf()
+
+    for (item in history) {
+        cal.timeInMillis = item.timestamp
+        val itemYear = cal.get(java.util.Calendar.YEAR)
+        val itemDayOfYear = cal.get(java.util.Calendar.DAY_OF_YEAR)
+
+        if (itemYear == todayYear && itemDayOfYear == todayDayOfYear) {
+            grouped["Today"]?.add(item)
+        } else if (itemYear == yesterdayYear && itemDayOfYear == yesterdayDayOfYear) {
+            grouped["Yesterday"]?.add(item)
+        } else {
+            grouped["Earlier"]?.add(item)
+        }
+    }
+    return grouped.filterValues { it.isNotEmpty() }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 fun SecretBrowserBookmarksScreen(
     browserBookmarks: List<BrowserBookmark>,
     onBack: () -> Unit,
     onSelectBookmark: (String) -> Unit,
     onDeleteBookmark: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    var selectedBookmarkForDetail by remember { mutableStateOf<BrowserBookmark?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1525,76 +1621,263 @@ fun SecretBrowserBookmarksScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
+        // Premium Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack, modifier = Modifier.size(38.dp)) {
+                    Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary, modifier = Modifier.size(20.dp))
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Column {
+                    Text("Saved Collection", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (browserBookmarks.isEmpty()) "Private bookmarks" else "${browserBookmarks.size} pages saved",
+                        color = TextSecondary,
+                        fontSize = 11.5.sp
+                    )
+                }
             }
-            Text("Bookmarks", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+            if (browserBookmarks.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AccentColor.copy(alpha = 0.08f),
+                    border = BorderStroke(0.8.dp, AccentColor.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(Icons.Default.Bookmark, contentDescription = null, tint = AccentColor, modifier = Modifier.size(13.dp))
+                        Text("Encrypted", color = AccentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+
+        Spacer(modifier = Modifier.height(4.dp))
+
         if (browserBookmarks.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(72.dp)
+                            .size(76.dp)
                             .background(AccentColor.copy(alpha = 0.08f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Star, "No bookmarks", tint = AccentColor, modifier = Modifier.size(36.dp))
+                        Icon(
+                            imageVector = Icons.Default.Bookmarks,
+                            contentDescription = "No Saved Pages",
+                            tint = AccentColor,
+                            modifier = Modifier.size(38.dp)
+                        )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("No bookmarks yet", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("No Saved Pages", color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Bookmark your favorite pages to access them quickly from here.",
+                        "Bookmark your essential websites and private pages to quickly access them in your encrypted browser.",
                         color = TextSecondary,
                         fontSize = 13.sp,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        lineHeight = 18.sp
                     )
                 }
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp)
             ) {
-                items(browserBookmarks) { bookmark ->
+                items(browserBookmarks, key = { it.url }) { bookmark ->
+                    val domain = extractBrowserDomain(bookmark.url)
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .combinedClickable(
+                                onClick = { onSelectBookmark(bookmark.url) },
+                                onLongClick = { selectedBookmarkForDetail = bookmark }
+                            ),
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = LightCard),
-                        border = BorderStroke(1.dp, BorderColor)
+                        border = BorderStroke(1.dp, BorderColor),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.8.dp)
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onSelectBookmark(bookmark.url) }
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(bookmark.title, color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(bookmark.url, color = TextSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            // Favicon / Site Identity
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .background(LightBg, RoundedCornerShape(12.dp))
+                                    .border(0.8.dp, BorderColor, RoundedCornerShape(12.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                TabCardFavicon(url = bookmark.url, isActive = true, sizeDp = 24)
                             }
-                            IconButton(onClick = { onDeleteBookmark(bookmark.url) }) {
-                                Icon(Icons.Default.Delete, "Delete", tint = DangerColor)
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            // Site information hierarchy
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(5.dp),
+                                        color = AccentColor.copy(alpha = 0.08f)
+                                    ) {
+                                        Text(
+                                            text = domain,
+                                            color = AccentColor,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Text(
+                                        text = "• Saved",
+                                        color = TextSecondary.copy(alpha = 0.8f),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    text = if (bookmark.title.isNotBlank()) bookmark.title else domain,
+                                    color = TextPrimary,
+                                    fontSize = 14.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    lineHeight = 19.sp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(4.dp))
+
+                            // Actions
+                            IconButton(
+                                onClick = { selectedBookmarkForDetail = bookmark },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(Icons.Default.MoreVert, "Details", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                            }
+                            IconButton(
+                                onClick = { onDeleteBookmark(bookmark.url) },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(Icons.Default.DeleteOutline, "Delete", tint = DangerColor.copy(alpha = 0.85f), modifier = Modifier.size(18.dp))
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    // Detail Bottom Sheet / Dialog for Bookmark
+    selectedBookmarkForDetail?.let { bookmark ->
+        AlertDialog(
+            onDismissRequest = { selectedBookmarkForDetail = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TabCardFavicon(url = bookmark.url, isActive = true, sizeDp = 22)
+                    Text(
+                        text = extractBrowserDomain(bookmark.url),
+                        color = TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = bookmark.title,
+                        color = TextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = LightBg,
+                        border = BorderStroke(0.8.dp, BorderColor),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = bookmark.url,
+                            color = TextSecondary,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(10.dp),
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val targetUrl = bookmark.url
+                        selectedBookmarkForDetail = null
+                        onSelectBookmark(targetUrl)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Open Page", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                            val clip = android.content.ClipData.newPlainText("URL", bookmark.url)
+                            clipboard?.setPrimaryClip(clip)
+                            Toast.makeText(context, "URL Copied to clipboard", Toast.LENGTH_SHORT).show()
+                            selectedBookmarkForDetail = null
+                        },
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Copy URL", color = TextPrimary)
+                    }
+                    TextButton(onClick = { selectedBookmarkForDetail = null }) {
+                        Text("Close", color = TextSecondary)
+                    }
+                }
+            },
+            containerColor = LightCard,
+            shape = RoundedCornerShape(18.dp)
+        )
     }
 }
 
@@ -1606,6 +1889,12 @@ fun SecretBrowserHistoryScreen(
     onClearHistory: () -> Unit,
     onDeleteHistoryItem: (BrowserHistory) -> Unit
 ) {
+    var showClearConfirmDialog by remember { mutableStateOf(false) }
+    val groupedHistory = remember(browserHistory) { groupHistoryByRelativeDate(browserHistory) }
+
+    val timeFormatter = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
+    val fullDateFormatter = remember { SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault()) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1613,91 +1902,237 @@ fun SecretBrowserHistoryScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
+        // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary)
+                IconButton(onClick = onBack, modifier = Modifier.size(38.dp)) {
+                    Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary, modifier = Modifier.size(20.dp))
                 }
-                Text("History Logs", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Column {
+                    Text("Browsing History", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (browserHistory.isEmpty()) "Private audit trail" else "${browserHistory.size} total visits recorded",
+                        color = TextSecondary,
+                        fontSize = 11.5.sp
+                    )
+                }
             }
             if (browserHistory.isNotEmpty()) {
-                IconButton(onClick = onClearHistory) {
-                    Icon(Icons.Default.DeleteForever, "Clear History", tint = DangerColor)
+                TextButton(
+                    onClick = { showClearConfirmDialog = true },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = DangerColor, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Clear All", color = DangerColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+
+        Spacer(modifier = Modifier.height(4.dp))
+
         if (browserHistory.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(72.dp)
+                            .size(76.dp)
                             .background(AccentColor.copy(alpha = 0.08f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.History, "No history", tint = AccentColor, modifier = Modifier.size(36.dp))
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = "No Browsing History",
+                            tint = AccentColor,
+                            modifier = Modifier.size(38.dp)
+                        )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("No history yet", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("No Browsing History", color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Pages you visit during your session will appear here.",
+                        "Pages you visit in your private browsing sessions are recorded chronologically and can be erased anytime.",
                         color = TextSecondary,
                         fontSize = 13.sp,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        lineHeight = 18.sp
                     )
                 }
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp)
             ) {
-                items(browserHistory) { historyItem ->
-                    val date = Date(historyItem.timestamp)
-                    val formatter = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = LightCard),
-                        border = BorderStroke(1.dp, BorderColor)
-                    ) {
+                groupedHistory.forEach { (sectionTitle, itemsInSection) ->
+                    // Section Date Header
+                    item(key = "section_$sectionTitle") {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onSelectHistoryItem(historyItem.url) }
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                                .padding(top = 10.dp, bottom = 4.dp, start = 4.dp, end = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(
-                                modifier = Modifier.weight(1f)
+                            Text(
+                                text = sectionTitle,
+                                color = TextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "${itemsInSection.size} ${if (itemsInSection.size == 1) "visit" else "visits"}",
+                                color = TextSecondary,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    // History Items in this section
+                    items(itemsInSection, key = { "${it.url}_${it.timestamp}" }) { historyItem ->
+                        val domain = extractBrowserDomain(historyItem.url)
+                        val formattedTime = if (sectionTitle == "Earlier") {
+                            fullDateFormatter.format(Date(historyItem.timestamp))
+                        } else {
+                            timeFormatter.format(Date(historyItem.timestamp))
+                        }
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectHistoryItem(historyItem.url) },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = LightCard),
+                            border = BorderStroke(1.dp, BorderColor),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(historyItem.title, color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(historyItem.url, color = TextSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                    Text(formatter.format(date), color = TextSecondary, fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp))
+                                // Website identity favicon
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(LightBg, RoundedCornerShape(10.dp))
+                                        .border(0.8.dp, BorderColor, RoundedCornerShape(10.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    TabCardFavicon(url = historyItem.url, isActive = false, sizeDp = 20)
                                 }
-                            }
-                            IconButton(onClick = { onDeleteHistoryItem(historyItem) }) {
-                                Icon(Icons.Default.Delete, "Delete", tint = DangerColor)
+
+                                Spacer(modifier = Modifier.width(10.dp))
+
+                                // Information hierarchy: Page title -> Domain & Timestamp
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (historyItem.title.isNotBlank()) historyItem.title else domain,
+                                        color = TextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = domain,
+                                            color = AccentColor,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .size(3.dp)
+                                                .background(TextSecondary.copy(alpha = 0.5f), CircleShape)
+                                        )
+                                        Text(
+                                            text = formattedTime,
+                                            color = TextSecondary,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+
+                                // Single item delete
+                                IconButton(
+                                    onClick = { onDeleteHistoryItem(historyItem) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Delete entry",
+                                        tint = TextSecondary.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    if (showClearConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmDialog = false },
+            title = {
+                Text("Clear All History?", color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text(
+                    "This will permanently erase all saved history records from your private browser session.",
+                    color = TextSecondary,
+                    fontSize = 13.5.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showClearConfirmDialog = false
+                        onClearHistory()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerColor),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Clear Everything", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = LightCard,
+            shape = RoundedCornerShape(18.dp)
+        )
     }
 }
 
@@ -1710,6 +2145,8 @@ fun SecretBrowserDownloadsScreen(
     val downloads by viewModel.downloads.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(0) }
     val tabTitles = listOf("All", "Downloading", "Completed", "Failed")
+
+    var selectedTaskForDetail by remember { mutableStateOf<DownloadTask?>(null) }
 
     val filteredDownloads = remember(downloads, selectedTab) {
         downloads.filter { task ->
@@ -1759,11 +2196,42 @@ fun SecretBrowserDownloadsScreen(
             }
         }
 
+        // Vault Sandbox Status Banner (Architecture ready for future premium download extensions)
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 2.dp),
+            shape = RoundedCornerShape(10.dp),
+            color = AccentColor.copy(alpha = 0.06f),
+            border = BorderStroke(0.8.dp, AccentColor.copy(alpha = 0.15f))
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Shield,
+                    contentDescription = null,
+                    tint = AccentColor,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = "Sandbox Protected • Files stored directly in encrypted vault",
+                    color = TextPrimary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
         // Segmented Status Filter Tabs
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .padding(horizontal = 16.dp, vertical = 4.dp)
                 .background(LightCard, RoundedCornerShape(12.dp))
                 .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
                 .padding(3.dp),
@@ -1819,9 +2287,9 @@ fun SecretBrowserDownloadsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // Content List or Empty State
+        // Content List or Filter-Aware Empty State
         if (filteredDownloads.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -1833,32 +2301,52 @@ fun SecretBrowserDownloadsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
+                    val emptyIcon = when (selectedTab) {
+                        1 -> Icons.Default.Downloading
+                        2 -> Icons.Default.TaskAlt
+                        3 -> Icons.Default.ErrorOutline
+                        else -> Icons.Default.CloudDownload
+                    }
+                    val emptyTitle = when (selectedTab) {
+                        1 -> "No Active Downloads"
+                        2 -> "No Completed Downloads"
+                        3 -> "No Failed Downloads"
+                        else -> "No Downloads Yet"
+                    }
+                    val emptyDesc = when (selectedTab) {
+                        1 -> "Currently there are no ongoing background file transfers."
+                        2 -> "Completed downloads encrypted into your vault sandbox will appear here."
+                        3 -> "Any interrupted or cancelled downloads will appear here for retry."
+                        else -> "Downloaded web files are encrypted directly into your secure vault sandbox."
+                    }
+
                     Box(
                         modifier = Modifier
-                            .size(72.dp)
+                            .size(76.dp)
                             .background(AccentColor.copy(alpha = 0.08f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.CloudDownload,
-                            contentDescription = "No downloads",
+                            imageVector = emptyIcon,
+                            contentDescription = emptyTitle,
                             tint = AccentColor,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(38.dp)
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = if (selectedTab == 0) "No downloads yet" else "No ${tabTitles[selectedTab].lowercase()} downloads",
+                        text = emptyTitle,
                         color = TextPrimary,
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Downloaded web files are encrypted directly into your secure vault sandbox.",
+                        text = emptyDesc,
                         color = TextSecondary,
                         fontSize = 13.sp,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        lineHeight = 18.sp
                     )
                 }
             }
@@ -1868,7 +2356,7 @@ fun SecretBrowserDownloadsScreen(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 24.dp)
+                contentPadding = PaddingValues(top = 2.dp, bottom = 24.dp)
             ) {
                 items(filteredDownloads, key = { it.id }) { task ->
                     SecretBrowserDownloadItemCard(
@@ -1876,11 +2364,99 @@ fun SecretBrowserDownloadsScreen(
                         onOpen = { viewModel.openDownload(context, task) },
                         onDelete = { viewModel.deleteDownload(task) },
                         onRetry = { viewModel.retryDownload(context, task) },
-                        onCancel = { viewModel.cancelDownload(task) }
+                        onCancel = { viewModel.cancelDownload(task) },
+                        onShowDetail = { selectedTaskForDetail = task }
                     )
                 }
             }
         }
+    }
+
+    // Download Detail Modal / Sheet
+    selectedTaskForDetail?.let { task ->
+        AlertDialog(
+            onDismissRequest = { selectedTaskForDetail = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = AccentColor, modifier = Modifier.size(22.dp))
+                    Text("File Properties", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = LightBg,
+                        border = BorderStroke(0.8.dp, BorderColor),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Filename", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text(task.filename, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column {
+                                    Text("Size", color = TextSecondary, fontSize = 11.sp)
+                                    Text(if (task.sizeString.isNotBlank()) task.sizeString else "Calculating...", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                                Column {
+                                    Text("Type", color = TextSecondary, fontSize = 11.sp)
+                                    Text(if (task.mimeType.isNotBlank()) task.mimeType else "application/octet-stream", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = SuccessColor.copy(alpha = 0.08f),
+                        border = BorderStroke(0.8.dp, SuccessColor.copy(alpha = 0.2f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = SuccessColor, modifier = Modifier.size(15.dp))
+                            Text("Stored in Private Vault Sandbox (AES Encrypted)", color = SuccessColor, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (task.status == "Completed") {
+                    Button(
+                        onClick = {
+                            selectedTaskForDetail = null
+                            viewModel.openDownload(context, task)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Open File", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                } else if (task.status == "Failed" || task.status == "Cancelled") {
+                    Button(
+                        onClick = {
+                            selectedTaskForDetail = null
+                            viewModel.retryDownload(context, task)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Retry Download", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    TextButton(onClick = { selectedTaskForDetail = null }) {
+                        Text("Close", color = TextPrimary)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectedTaskForDetail = null }) {
+                    Text("Dismiss", color = TextSecondary)
+                }
+            },
+            containerColor = LightCard,
+            shape = RoundedCornerShape(18.dp)
+        )
     }
 }
 
@@ -1890,34 +2466,34 @@ fun SecretBrowserDownloadItemCard(
     onOpen: () -> Unit,
     onDelete: () -> Unit,
     onRetry: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onShowDetail: () -> Unit = {}
 ) {
     val isDownloading = task.status == "Downloading"
     val isCompleted = task.status == "Completed"
+    val isFailed = task.status == "Failed" || task.status == "Cancelled"
 
-    val fileIcon = when {
-        task.mimeType.startsWith("image/") -> Icons.Default.Image
-        task.mimeType.startsWith("video/") -> Icons.Default.VideoLibrary
-        task.mimeType.startsWith("audio/") -> Icons.Default.AudioFile
-        task.mimeType.contains("pdf") || task.filename.endsWith(".pdf", ignoreCase = true) -> Icons.Default.Description
-        task.mimeType.contains("zip") || task.mimeType.contains("rar") || task.mimeType.contains("archive") -> Icons.Default.FolderZip
-        else -> Icons.Default.InsertDriveFile
-    }
-
-    val iconBgColor = when {
-        isDownloading -> AccentColor.copy(alpha = 0.1f)
-        isCompleted -> SuccessColor.copy(alpha = 0.1f)
-        else -> DangerColor.copy(alpha = 0.1f)
-    }
-
-    val iconTintColor = when {
-        isDownloading -> AccentColor
-        isCompleted -> SuccessColor
-        else -> DangerColor
+    val (fileIcon, iconBgColor, iconTintColor) = when {
+        task.mimeType.startsWith("image/") || task.filename.endsWith(".jpg", true) || task.filename.endsWith(".png", true) || task.filename.endsWith(".webp", true) ->
+            Triple(Icons.Default.Image, Color(0xFF2563EB).copy(alpha = 0.1f), Color(0xFF2563EB))
+        task.mimeType.startsWith("video/") || task.filename.endsWith(".mp4", true) || task.filename.endsWith(".mkv", true) ->
+            Triple(Icons.Default.VideoLibrary, Color(0xFF7C3AED).copy(alpha = 0.1f), Color(0xFF7C3AED))
+        task.mimeType.startsWith("audio/") || task.filename.endsWith(".mp3", true) || task.filename.endsWith(".wav", true) ->
+            Triple(Icons.Default.AudioFile, Color(0xFFEA580C).copy(alpha = 0.1f), Color(0xFFEA580C))
+        task.mimeType.contains("pdf") || task.filename.endsWith(".pdf", ignoreCase = true) ->
+            Triple(Icons.Default.Description, Color(0xFFDC2626).copy(alpha = 0.1f), Color(0xFFDC2626))
+        task.mimeType.contains("zip") || task.mimeType.contains("rar") || task.mimeType.contains("tar") || task.mimeType.contains("archive") || task.filename.endsWith(".zip", true) ->
+            Triple(Icons.Default.FolderZip, Color(0xFFD97706).copy(alpha = 0.1f), Color(0xFFD97706))
+        task.filename.endsWith(".apk", true) || task.filename.endsWith(".bin", true) ->
+            Triple(Icons.Default.Android, Color(0xFF059669).copy(alpha = 0.1f), Color(0xFF059669))
+        else ->
+            Triple(Icons.Default.InsertDriveFile, AccentColor.copy(alpha = 0.1f), AccentColor)
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onShowDetail() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = LightCard),
         border = BorderStroke(1.dp, BorderColor),
@@ -1935,8 +2511,9 @@ fun SecretBrowserDownloadItemCard(
                 // File Type / Status Icon
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
-                        .background(iconBgColor, RoundedCornerShape(12.dp)),
+                        .size(44.dp)
+                        .background(iconBgColor, RoundedCornerShape(12.dp))
+                        .border(0.8.dp, iconTintColor.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -1949,17 +2526,17 @@ fun SecretBrowserDownloadItemCard(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // File Details
+                // File Details Hierarchy
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = task.filename,
                         color = TextPrimary,
-                        fontSize = 14.sp,
+                        fontSize = 14.5.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1974,21 +2551,31 @@ fun SecretBrowserDownloadItemCard(
                                 .size(3.dp)
                                 .background(TextSecondary.copy(alpha = 0.5f), CircleShape)
                         )
-                        Text(
-                            text = when {
-                                isDownloading -> "Downloading ${(task.progress * 100).toInt()}%"
-                                isCompleted -> "Completed"
-                                task.status == "Cancelled" -> "Cancelled"
-                                else -> "Failed"
-                            },
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
                             color = when {
-                                isDownloading -> AccentColor
-                                isCompleted -> SuccessColor
-                                else -> DangerColor
-                            },
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                                isDownloading -> AccentColor.copy(alpha = 0.09f)
+                                isCompleted -> SuccessColor.copy(alpha = 0.09f)
+                                else -> DangerColor.copy(alpha = 0.09f)
+                            }
+                        ) {
+                            Text(
+                                text = when {
+                                    isDownloading -> "${(task.progress * 100).toInt()}% • Transferring"
+                                    isCompleted -> "Completed"
+                                    task.status == "Cancelled" -> "Cancelled"
+                                    else -> "Failed"
+                                },
+                                color = when {
+                                    isDownloading -> AccentColor
+                                    isCompleted -> SuccessColor
+                                    else -> DangerColor
+                                },
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
                     }
                 }
 
@@ -2000,7 +2587,7 @@ fun SecretBrowserDownloadItemCard(
                     if (isDownloading) {
                         IconButton(
                             onClick = onCancel,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(34.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
@@ -2013,15 +2600,15 @@ fun SecretBrowserDownloadItemCard(
                         Button(
                             onClick = onOpen,
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentColor.copy(alpha = 0.1f)),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                             modifier = Modifier.height(32.dp)
                         ) {
-                            Text("Open", color = AccentColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Open", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                         IconButton(
                             onClick = onDelete,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(34.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.DeleteOutline,
@@ -2033,7 +2620,7 @@ fun SecretBrowserDownloadItemCard(
                     } else {
                         IconButton(
                             onClick = onRetry,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(34.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
@@ -2044,7 +2631,7 @@ fun SecretBrowserDownloadItemCard(
                         }
                         IconButton(
                             onClick = onDelete,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(34.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.DeleteOutline,
@@ -2069,6 +2656,845 @@ fun SecretBrowserDownloadItemCard(
                     color = AccentColor,
                     trackColor = BorderColor
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabCardFavicon(url: String, isActive: Boolean, sizeDp: Int = 22) {
+    val lower = url.lowercase()
+    when {
+        lower == "home" || lower.isEmpty() -> {
+            Box(
+                modifier = Modifier
+                    .size(sizeDp.dp)
+                    .background(if (isActive) AccentColor.copy(alpha = 0.15f) else LightBg, CircleShape)
+                    .border(0.6.dp, if (isActive) AccentColor.copy(alpha = 0.4f) else BorderColor, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Shield,
+                    contentDescription = null,
+                    tint = if (isActive) AccentColor else TextSecondary,
+                    modifier = Modifier.size((sizeDp * 0.55f).dp)
+                )
+            }
+        }
+        lower.contains("youtube") || lower.contains("youtu.be") -> {
+            YouTubeBrandIcon(sizeDp = sizeDp)
+        }
+        lower.contains("instagram") -> {
+            InstagramBrandIcon(sizeDp = sizeDp)
+        }
+        lower.contains("facebook") || lower.contains("fb.com") -> {
+            FacebookBrandIcon(sizeDp = sizeDp)
+        }
+        lower.contains("telegram") || lower.contains("t.me") -> {
+            TelegramBrandIcon(sizeDp = sizeDp)
+        }
+        lower.contains("pinterest") -> {
+            PinterestBrandIcon(sizeDp = sizeDp)
+        }
+        lower.contains("google") -> {
+            GoogleBrandIcon(sizeDp = sizeDp)
+        }
+        lower.contains("duckduckgo") -> {
+            Box(
+                modifier = Modifier
+                    .size(sizeDp.dp)
+                    .background(Color(0xFFDE5833), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size((sizeDp * 0.55f).dp)
+                )
+            }
+        }
+        else -> {
+            Box(
+                modifier = Modifier
+                    .size(sizeDp.dp)
+                    .background(if (isActive) AccentColor.copy(alpha = 0.12f) else LightBg, CircleShape)
+                    .border(0.6.dp, if (isActive) AccentColor.copy(alpha = 0.4f) else BorderColor, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Language,
+                    contentDescription = null,
+                    tint = if (isActive) AccentColor else TextSecondary,
+                    modifier = Modifier.size((sizeDp * 0.55f).dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabPreviewWindow(
+    tab: TabState,
+    domainText: String,
+    modifier: Modifier = Modifier
+) {
+    val lowerUrl = tab.url.lowercase()
+    val isHome = tab.url == "home" || tab.url.isEmpty()
+    val isYouTube = lowerUrl.contains("youtube") || lowerUrl.contains("youtu.be")
+    val isInstagram = lowerUrl.contains("instagram")
+    val isFacebook = lowerUrl.contains("facebook") || lowerUrl.contains("fb.com")
+    val isTelegram = lowerUrl.contains("telegram") || lowerUrl.contains("t.me")
+    val isPinterest = lowerUrl.contains("pinterest")
+    val isSearch = lowerUrl.contains("google") || lowerUrl.contains("duckduckgo") || lowerUrl.contains("bing") || lowerUrl.contains("search")
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(LightCard)
+            .border(0.8.dp, BorderColor.copy(alpha = 0.9f), RoundedCornerShape(12.dp))
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Simulated Mini Webpage App Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(20.dp)
+                    .background(Color(0xFFF1F3F5))
+                    .padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (isHome) Icons.Default.Shield else Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = if (isHome) AccentColor else SuccessColor,
+                    modifier = Modifier.size(9.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (isHome) "Secret Home" else domainText,
+                    fontSize = 8.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary.copy(alpha = 0.85f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                if (tab.blockedCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(AccentColor.copy(alpha = 0.15f))
+                            .padding(horizontal = 3.dp, vertical = 0.5.dp)
+                    ) {
+                        Text(
+                            text = "${tab.blockedCount} blocked",
+                            fontSize = 7.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentColor
+                        )
+                    }
+                }
+            }
+
+            // Webpage Loading Indicator
+            if (tab.isLoading) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp),
+                    color = AccentColor,
+                    trackColor = Color.Transparent
+                )
+            } else {
+                HorizontalDivider(thickness = 0.5.dp, color = BorderColor)
+            }
+
+            // Rich Visual Content / Glimpse ("Jhalak")
+            val cacheVersion = TabThumbnailCache.version.value
+            val liveScreenshot = if (cacheVersion >= 0) TabThumbnailCache.getThumbnail(tab.id) else null
+            if (liveScreenshot != null && !isHome) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
+                ) {
+                    Image(
+                        bitmap = liveScreenshot.asImageBitmap(),
+                        contentDescription = "Webpage Snapshot Preview",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    when {
+                    isHome -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(AccentColor.copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Security,
+                                    contentDescription = null,
+                                    tint = AccentColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Start Page",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            // Mini search bar preview
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.85f)
+                                    .height(18.dp)
+                                    .background(LightBg, RoundedCornerShape(9.dp))
+                                    .border(0.6.dp, BorderColor, RoundedCornerShape(9.dp))
+                                    .padding(horizontal = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(8.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("Search or type URL", fontSize = 7.5.sp, color = TextSecondary)
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            // Mini 5 site icon row
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                YouTubeBrandIcon(sizeDp = 12)
+                                InstagramBrandIcon(sizeDp = 12)
+                                FacebookBrandIcon(sizeDp = 12)
+                                TelegramBrandIcon(sizeDp = 12)
+                                PinterestBrandIcon(sizeDp = 12)
+                            }
+                        }
+                    }
+
+                    isYouTube -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            // Video player frame preview
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF1E1E1E)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .background(Color(0xFFFF0000), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(4.dp)
+                                        .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(3.dp))
+                                        .padding(horizontal = 3.dp, vertical = 1.dp)
+                                ) {
+                                    Text("HD", color = Color.White, fontSize = 6.5.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(5.dp))
+                            Text(
+                                text = if (tab.title.isNotEmpty() && tab.title != "YouTube") tab.title else "YouTube Video Stream",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Box(modifier = Modifier.size(10.dp).background(Color(0xFFE53935), CircleShape))
+                                Text("Official Channel", fontSize = 7.5.sp, color = TextSecondary)
+                            }
+                        }
+                    }
+
+                    isInstagram -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                InstagramBrandIcon(sizeDp = 14)
+                                Text("Instagram Feed", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(
+                                                Color(0xFF833AB4).copy(alpha = 0.25f),
+                                                Color(0xFFFD1D1D).copy(alpha = 0.25f),
+                                                Color(0xFFFCAF45).copy(alpha = 0.25f)
+                                            )
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color(0xFFE1306C), modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Favorite, contentDescription = null, tint = DangerColor, modifier = Modifier.size(9.dp))
+                                Icon(Icons.Default.ChatBubble, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(8.dp))
+                                Icon(Icons.Default.Send, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(8.dp))
+                            }
+                        }
+                    }
+
+                    isFacebook -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                FacebookBrandIcon(sizeDp = 14)
+                                Text("Facebook", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF1877F2).copy(alpha = 0.12f))
+                                    .padding(6.dp)
+                            ) {
+                                Column {
+                                    Box(modifier = Modifier.fillMaxWidth(0.8f).height(4.dp).background(TextPrimary.copy(alpha = 0.2f), RoundedCornerShape(2.dp)))
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Box(modifier = Modifier.fillMaxWidth(0.95f).height(3.dp).background(TextSecondary.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Box(modifier = Modifier.fillMaxWidth(0.5f).height(3.dp).background(TextSecondary.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.ThumbUp, contentDescription = null, tint = Color(0xFF1877F2), modifier = Modifier.size(9.dp))
+                                Icon(Icons.Default.Comment, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(8.dp))
+                                Icon(Icons.Default.Share, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(8.dp))
+                            }
+                        }
+                    }
+
+                    isTelegram -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                TelegramBrandIcon(sizeDp = 14)
+                                Text("Telegram Web", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.75f)
+                                        .background(Color(0xFF24A1DE).copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 5.dp, vertical = 3.dp)
+                                ) {
+                                    Text("Encrypted message...", fontSize = 7.5.sp, color = TextPrimary)
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .align(Alignment.End)
+                                        .fillMaxWidth(0.65f)
+                                        .background(AccentColor.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 5.dp, vertical = 3.dp)
+                                ) {
+                                    Text("Private response ✓✓", fontSize = 7.5.sp, color = TextPrimary)
+                                }
+                            }
+                        }
+                    }
+
+                    isPinterest -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                PinterestBrandIcon(sizeDp = 14)
+                                Text("Pinterest Visuals", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFFE60023).copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.PushPin, contentDescription = null, tint = Color(0xFFE60023), modifier = Modifier.size(14.dp))
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(AccentColor.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Collections, contentDescription = null, tint = AccentColor, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        }
+                    }
+
+                    isSearch -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            // Search result card simulation
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(LightBg, RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 5.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Search, contentDescription = null, tint = AccentColor, modifier = Modifier.size(8.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("Search Query Results", fontSize = 7.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                            }
+                            Spacer(modifier = Modifier.height(5.dp))
+                            Box(modifier = Modifier.fillMaxWidth(0.75f).height(4.5.dp).background(Color(0xFF1A0DAB).copy(alpha = 0.7f), RoundedCornerShape(2.dp)))
+                            Spacer(modifier = Modifier.height(2.5.dp))
+                            Box(modifier = Modifier.fillMaxWidth(0.95f).height(3.dp).background(TextSecondary.copy(alpha = 0.2f), RoundedCornerShape(2.dp)))
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Box(modifier = Modifier.fillMaxWidth(0.6f).height(3.dp).background(TextSecondary.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
+                            Spacer(modifier = Modifier.height(5.dp))
+                            Box(modifier = Modifier.fillMaxWidth(0.7f).height(4.5.dp).background(Color(0xFF1A0DAB).copy(alpha = 0.7f), RoundedCornerShape(2.dp)))
+                        }
+                    }
+
+                    else -> {
+                        // General Webpage rich preview
+                        Column(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .background(AccentColor.copy(alpha = 0.12f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Public, contentDescription = null, tint = AccentColor, modifier = Modifier.size(7.dp))
+                                }
+                                Text(
+                                    text = domainText,
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(5.dp))
+                            // Large article heading
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.82f)
+                                    .height(6.dp)
+                                    .background(TextPrimary.copy(alpha = 0.25f), RoundedCornerShape(2.dp))
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            // Paragraph lines
+                            Box(modifier = Modifier.fillMaxWidth(0.95f).height(3.5.dp).background(TextSecondary.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
+                            Spacer(modifier = Modifier.height(2.5.dp))
+                            Box(modifier = Modifier.fillMaxWidth(0.90f).height(3.5.dp).background(TextSecondary.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
+                            Spacer(modifier = Modifier.height(2.5.dp))
+                            Box(modifier = Modifier.fillMaxWidth(0.65f).height(3.5.dp).background(TextSecondary.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
+                            Spacer(modifier = Modifier.height(6.dp))
+                            // Image box placeholder
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(22.dp)
+                                    .background(AccentColor.copy(alpha = 0.06f), RoundedCornerShape(4.dp))
+                                    .border(0.5.dp, AccentColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Icon(Icons.Default.Image, contentDescription = null, tint = AccentColor.copy(alpha = 0.6f), modifier = Modifier.size(9.dp))
+                                    Text("Encrypted Media", fontSize = 6.5.sp, color = AccentColor.copy(alpha = 0.8f))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+}
+
+@Composable
+fun SecretBrowserTabSwitcherScreen(
+    tabs: List<TabState>,
+    activeTabId: String?,
+    onSelectTab: (String) -> Unit,
+    onCloseTab: (String) -> Unit,
+    onCloseAllTabs: () -> Unit,
+    onNewTab: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(LightBg)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+    ) {
+        // TOP APP BAR
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = LightCard,
+            shadowElevation = 2.dp,
+            border = BorderStroke(0.8.dp, BorderColor)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back to web page",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Tabs Manager",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(AccentColor.copy(alpha = 0.12f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "${tabs.size}",
+                                    color = AccentColor,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Text(
+                            text = "${tabs.size} isolated private sessions",
+                            fontSize = 11.5.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (tabs.size > 1) {
+                        OutlinedButton(
+                            onClick = onCloseAllTabs,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, DangerColor.copy(alpha = 0.4f)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerColor),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text("Close All", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+
+                    Button(
+                        onClick = onNewTab,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "New Tab", tint = Color.White, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("New", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // CONTENT AREA (SPACIOUS TAB GRID / PREVIEWS)
+        if (tabs.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .background(AccentColor.copy(alpha = 0.08f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Layers,
+                            contentDescription = null,
+                            tint = AccentColor,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                    Text(
+                        text = "No Open Tabs",
+                        color = TextPrimary,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Open a private tab to browse secretly without traces.",
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = onNewTab,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Open New Tab", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(tabs, key = { it.id }) { tab ->
+                    val isActive = tab.id == activeTabId
+                    val domainText = formatTabDomain(tab.url)
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(236.dp)
+                            .premiumPressClick { onSelectTab(tab.id) },
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isActive) AccentColor.copy(alpha = 0.06f) else LightCard
+                        ),
+                        border = BorderStroke(
+                            if (isActive) 2.dp else 1.dp,
+                            if (isActive) AccentColor else BorderColor
+                        ),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = if (isActive) 4.dp else 1.5.dp
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(10.dp)
+                        ) {
+                            // Top Header Bar inside Card
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TabCardFavicon(url = tab.url, isActive = isActive, sizeDp = 22)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = domainText,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
+                                    color = TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (isActive) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(AccentColor)
+                                            .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                    ) {
+                                        Text("ACTIVE", color = Color.White, fontSize = 7.5.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(LightBg)
+                                        .border(0.6.dp, BorderColor, CircleShape)
+                                        .clickable { onCloseTab(tab.id) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Close Tab",
+                                        tint = DangerColor.copy(alpha = 0.9f),
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Spacious Visual Preview ("Jhalak") Area
+                            TabPreviewWindow(
+                                tab = tab,
+                                domainText = domainText,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Spacer(modifier = Modifier.height(7.dp))
+
+                            // Bottom Info Area
+                            Text(
+                                text = if (tab.url == "home" || tab.url.isEmpty()) "Secret Home" else tab.title.ifEmpty { domainText },
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
+                                color = TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (tab.url == "home" || tab.url.isEmpty()) "Internal Start Page" else domainText,
+                                    fontSize = 9.5.sp,
+                                    color = if (isActive) AccentColor else TextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (tab.blockedCount > 0) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Shield,
+                                            contentDescription = null,
+                                            tint = AccentColor,
+                                            modifier = Modifier.size(8.5.dp)
+                                        )
+                                        Text(
+                                            text = "${tab.blockedCount}",
+                                            fontSize = 8.5.sp,
+                                            color = AccentColor,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -2130,6 +3556,9 @@ fun PrivateBrowserSection(
     var showBookmarks by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var showMenuClearBrowsingDataDialog by remember { mutableStateOf(false) }
+    var showMenuClearTempFilesDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
     var isEditingUrl by remember { mutableStateOf(false) }
     var editingUrlText by remember { mutableStateOf("") }
     val urlFocusRequester = remember { FocusRequester() }
@@ -2375,6 +3804,9 @@ fun PrivateBrowserSection(
                                     !currentUrl.startsWith("data:") && !currentUrl.startsWith("file:") && !currentUrl.startsWith("about:")) {
                                     viewModel.addBrowserHistory(currentTitle, currentUrl)
                                 }
+                                webViews[tab.id]?.let { wv ->
+                                    wv.postDelayed({ captureWebViewThumbnail(wv, tab.id) }, 400)
+                                }
                             }
                         }
                     }
@@ -2384,14 +3816,20 @@ fun PrivateBrowserSection(
         }
     }
 
+    var lastTabCreationTime by remember { mutableStateOf(0L) }
     val openNewTab: (String) -> Unit = { url ->
-        val tabId = java.util.UUID.randomUUID().toString()
-        val newTab = TabState(id = tabId, url = url, title = "New Tab")
-        tabs.add(newTab)
-        activeTabId = tabId
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastTabCreationTime > 400L || tabs.isEmpty()) {
+            lastTabCreationTime = now
+            val tabId = java.util.UUID.randomUUID().toString()
+            val newTab = TabState(id = tabId, url = url, title = "New Tab")
+            tabs.add(newTab)
+            activeTabId = tabId
+        }
     }
 
     val closeTab: (String) -> Unit = { tabId ->
+        TabThumbnailCache.removeThumbnail(tabId)
         val gv = geckoViews.remove(tabId)
         try {
             (gv?.parent as? android.view.ViewGroup)?.removeView(gv)
@@ -2756,6 +4194,10 @@ fun PrivateBrowserSection(
             showHistory = false
         } else if (showTabSwitcher) {
             showTabSwitcher = false
+        } else if (showMenuClearBrowsingDataDialog) {
+            showMenuClearBrowsingDataDialog = false
+        } else if (showMenuClearTempFilesDialog) {
+            showMenuClearTempFilesDialog = false
         } else if (showMenu) {
             showMenu = false
         } else if (showFindInPage) {
@@ -3031,6 +4473,32 @@ fun PrivateBrowserSection(
         return
     }
 
+    if (showTabSwitcher) {
+        SecretBrowserTabSwitcherScreen(
+            tabs = tabs,
+            activeTabId = activeTabId,
+            onSelectTab = { id ->
+                activeTabId = id
+                showTabSwitcher = false
+            },
+            onCloseTab = { id ->
+                closeTab(id)
+            },
+            onCloseAllTabs = {
+                TabThumbnailCache.clear()
+                tabs.clear()
+                openNewTab("home")
+                showTabSwitcher = false
+            },
+            onNewTab = {
+                openNewTab("home")
+                showTabSwitcher = false
+            },
+            onBack = { showTabSwitcher = false }
+        )
+        return
+    }
+
     if (showSearchEngineDialog) {
         androidx.compose.ui.window.Dialog(onDismissRequest = { showSearchEngineDialog = false }) {
             Card(
@@ -3150,18 +4618,18 @@ fun PrivateBrowserSection(
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
-                                .background(if (isProtectionActive) SuccessColor.copy(alpha = 0.08f) else TextSecondary.copy(alpha = 0.08f), CircleShape),
+                                .background(if (isProtectionActive) SuccessColor.copy(alpha = 0.1f) else TextSecondary.copy(alpha = 0.08f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Security,
+                                imageVector = if (isProtectionActive) Icons.Default.Security else Icons.Default.Lock,
                                 contentDescription = null,
                                 tint = if (isProtectionActive) SuccessColor else TextSecondary,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
                         Column {
-                            Text("Site Security Info", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("Site Privacy & Security", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             Text(currentHost, color = TextSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -3176,31 +4644,12 @@ fun PrivateBrowserSection(
                             imageVector = Icons.Default.Lock,
                             contentDescription = null,
                             tint = SuccessColor,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(18.dp)
                         )
-                        Text(
-                            text = "Connection is encrypted & isolated",
-                            color = TextPrimary,
-                            fontSize = 13.sp
-                        )
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isProtectionActive) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                            contentDescription = null,
-                            tint = if (isProtectionActive) SuccessColor else DangerColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = if (isProtectionActive) "Tracking Protection ACTIVE" else "Tracking Protection INACTIVE",
-                            color = TextPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Column {
+                            Text("Connection Encrypted", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Data in transit is protected via HTTPS", color = TextSecondary, fontSize = 11.5.sp)
+                        }
                     }
 
                     val pageBlocked = activeTab?.blockedCount ?: 0
@@ -3209,16 +4658,44 @@ fun PrivateBrowserSection(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Block,
+                            imageVector = Icons.Default.Security,
                             contentDescription = null,
-                            tint = if (pageBlocked > 0) DangerColor else TextSecondary,
-                            modifier = Modifier.size(16.dp)
+                            tint = if (isProtectionActive) SuccessColor else TextSecondary,
+                            modifier = Modifier.size(18.dp)
                         )
-                        Text(
-                            text = "$pageBlocked trackers blocked on this page",
-                            color = TextPrimary,
-                            fontSize = 13.sp
+                        Column {
+                            Text(
+                                text = if (isProtectionActive) "Tracking Protection Active" else "Tracking Protection Inactive",
+                                color = TextPrimary,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = if (isProtectionActive) {
+                                    if (pageBlocked > 0) "$pageBlocked tracker${if (pageBlocked > 1) "s" else ""} blocked on this page" else "No trackers detected on this page"
+                                } else {
+                                    "Third-party tracking scripts are not blocked"
+                                },
+                                color = TextSecondary,
+                                fontSize = 11.5.sp
+                            )
+                        }
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FolderSpecial,
+                            contentDescription = null,
+                            tint = AccentColor,
+                            modifier = Modifier.size(18.dp)
                         )
+                        Column {
+                            Text("Isolated Sandbox", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Session cookies & storage are isolated and purged on exit", color = TextSecondary, fontSize = 11.5.sp)
+                        }
                     }
 
                     androidx.compose.material3.HorizontalDivider(color = BorderColor)
@@ -3821,7 +5298,10 @@ fun PrivateBrowserSection(
                             modifier = Modifier
                                 .size(38.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .premiumPressClick { showTabSwitcher = true },
+                                .premiumPressClick {
+                                    activeTabId?.let { id -> captureWebViewThumbnail(webViews[id], id) }
+                                    showTabSwitcher = true
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Box(
@@ -3838,246 +5318,6 @@ fun PrivateBrowserSection(
                                     fontSize = 11.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // TAB SWITCHER DIALOG OVERLAY (Light & Dark mode premium sheet)
-        androidx.compose.animation.AnimatedVisibility(
-            visible = showTabSwitcher,
-            enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(180)) +
-                    androidx.compose.animation.slideInVertically(initialOffsetY = { it / 6 }, animationSpec = androidx.compose.animation.core.tween(220)),
-            exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(150)) +
-                    androidx.compose.animation.slideOutVertically(targetOffsetY = { it / 6 }, animationSpec = androidx.compose.animation.core.tween(180))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.55f))
-                    .clickable { showTabSwitcher = false }
-            ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .navigationBarsPadding()
-                        .padding(horizontal = 14.dp, vertical = 12.dp)
-                        .clickable(enabled = false) {},
-                    shape = RoundedCornerShape(26.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCard),
-                    border = BorderStroke(1.2.dp, BorderColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .padding(20.dp)
-                            .fillMaxWidth()
-                    ) {
-                        // HEADER
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .background(AccentColor.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Language, contentDescription = null, tint = AccentColor, modifier = Modifier.size(17.dp))
-                                }
-                                Column {
-                                    Text(
-                                        text = "Active Sessions",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = TextPrimary
-                                    )
-                                    Text(
-                                        text = "${tabs.size} isolated ${if (tabs.size == 1) "tab" else "tabs"} running",
-                                        fontSize = 11.5.sp,
-                                        color = TextSecondary
-                                    )
-                                }
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(AccentColor)
-                                        .premiumPressClick {
-                                            openNewTab("home")
-                                            showTabSwitcher = false
-                                        }
-                                        .padding(horizontal = 12.dp, vertical = 7.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                                    ) {
-                                        Icon(Icons.Default.Add, contentDescription = "New Tab", tint = Color.White, modifier = Modifier.size(15.dp))
-                                        Text("New Tab", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                                IconButton(
-                                    onClick = { showTabSwitcher = false },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = TextSecondary, modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // TAB LIST / EMPTY STATE
-                        if (tabs.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 32.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(46.dp)
-                                            .background(AccentColor.copy(alpha = 0.08f), CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(Icons.Default.Shield, contentDescription = null, tint = AccentColor, modifier = Modifier.size(24.dp))
-                                    }
-                                    Text("No Active Tabs", color = TextPrimary, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
-                                    Text("Start a private browsing session.", color = TextSecondary, fontSize = 12.sp)
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Button(
-                                        onClick = {
-                                            openNewTab("home")
-                                            showTabSwitcher = false
-                                        },
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
-                                    ) {
-                                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Open New Tab", color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
-                                    }
-                                }
-                            }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier
-                                    .heightIn(max = 320.dp)
-                                    .fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(tabs) { tab ->
-                                    val isActive = tab.id == activeTabId
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .premiumPressClick {
-                                                activeTabId = tab.id
-                                                showTabSwitcher = false
-                                            },
-                                        shape = RoundedCornerShape(16.dp),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = if (isActive) AccentColor.copy(alpha = 0.08f) else LightBg
-                                        ),
-                                        border = BorderStroke(
-                                            if (isActive) 1.5.dp else 1.dp,
-                                            if (isActive) AccentColor else BorderColor
-                                        ),
-                                        elevation = CardDefaults.cardElevation(defaultElevation = if (isActive) 2.dp else 0.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 12.dp, vertical = 11.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.weight(1f).padding(end = 8.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(32.dp)
-                                                        .background(if (isActive) AccentColor.copy(alpha = 0.15f) else LightCard, CircleShape)
-                                                        .border(0.8.dp, if (isActive) AccentColor.copy(alpha = 0.4f) else BorderColor, CircleShape),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        imageVector = if (tab.url == "home") Icons.Default.Home else Icons.Default.Language,
-                                                        contentDescription = null,
-                                                        tint = if (isActive) AccentColor else TextSecondary,
-                                                        modifier = Modifier.size(15.dp)
-                                                    )
-                                                }
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                    ) {
-                                                        Text(
-                                                            text = if (tab.url == "home") "Home Page" else tab.title,
-                                                            fontSize = 13.5.sp,
-                                                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
-                                                            color = TextPrimary,
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis,
-                                                            modifier = Modifier.weight(1f, fill = false)
-                                                        )
-                                                        if (isActive) {
-                                                            Box(
-                                                                modifier = Modifier
-                                                                    .background(AccentColor, RoundedCornerShape(6.dp))
-                                                                    .padding(horizontal = 5.dp, vertical = 1.5.dp)
-                                                            ) {
-                                                                Text("ACTIVE", color = Color.White, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                                                            }
-                                                        }
-                                                    }
-                                                    Text(
-                                                        text = if (tab.url == "home") "Internal start page" else tab.url,
-                                                        fontSize = 11.5.sp,
-                                                        color = if (isActive) AccentColor.copy(alpha = 0.85f) else TextSecondary,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                }
-                                            }
-                                            IconButton(
-                                                onClick = { closeTab(tab.id) },
-                                                modifier = Modifier.size(32.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Close,
-                                                    contentDescription = "Close Tab",
-                                                    tint = DangerColor.copy(alpha = 0.85f),
-                                                    modifier = Modifier.size(15.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
                             }
                         }
                     }
@@ -4111,205 +5351,491 @@ fun PrivateBrowserSection(
                 ) {
                     Column(
                         modifier = Modifier
-                            .padding(horizontal = 24.dp, vertical = 20.dp)
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .heightIn(max = 580.dp)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        // Drag handle
                         Box(
                             modifier = Modifier
                                 .width(36.dp)
                                 .height(4.dp)
                                 .background(TextSecondary.copy(alpha = 0.3f), CircleShape)
                         )
-                        Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        Text(
-                            text = "COMMAND CENTER",
-                            color = TextSecondary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.5.sp,
-                            modifier = Modifier.align(Alignment.Start)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Card(
+                        // Header Bar
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(containerColor = LightCard),
-                            border = BorderStroke(1.dp, BorderColor),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                val labelMode = if (activeTab?.isDesktopMode == true) "Switch to Mobile View" else "Request Desktop Site"
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .premiumPressClick {
-                                            showMenu = false
-                                            if (activeGeckoSession != null && activeTab != null) {
-                                                val newMode = !activeTab.isDesktopMode
-                                                val index = tabs.indexOfFirst { it.id == activeTabId }
-                                                if (index != -1) {
-                                                    tabs[index] = tabs[index].copy(isDesktopMode = newMode)
-                                                }
-                                                GeckoSessionManager.setDesktopMode(activeTab.id, newMode)
-                                            } else {
-                                                val webView = webViews[activeTabId]
-                                                if (webView != null && activeTab != null) {
-                                                    val newMode = !activeTab.isDesktopMode
-                                                    val index = tabs.indexOfFirst { it.id == activeTabId }
-                                                    if (index != -1) {
-                                                        tabs[index] = tabs[index].copy(isDesktopMode = newMode)
-                                                    }
-                                                    webView.tag = newMode
-                                                    if (newMode) {
-                                                        webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                                                        webView.settings.loadWithOverviewMode = true
-                                                        webView.settings.useWideViewPort = true
-                                                        webView.settings.setSupportZoom(true)
-                                                        webView.settings.builtInZoomControls = true
-                                                        webView.settings.displayZoomControls = false
-                                                    } else {
-                                                        webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-                                                        webView.settings.loadWithOverviewMode = true
-                                                        webView.settings.useWideViewPort = true
-                                                        webView.settings.setSupportZoom(true)
-                                                        webView.settings.builtInZoomControls = true
-                                                        webView.settings.displayZoomControls = false
-                                                    }
-                                                    webView.reload()
-                                                }
-                                            }
-                                        }
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.Laptop, null, tint = AccentColor, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Text(labelMode, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                androidx.compose.material3.HorizontalDivider(color = BorderColor)
-
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .premiumPressClick { showMenu = false; showBookmarks = true }
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.Star, null, tint = AccentColor, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Text("View Saved Bookmarks", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                androidx.compose.material3.HorizontalDivider(color = BorderColor)
-
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .premiumPressClick { showMenu = false; showHistory = true }
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.History, null, tint = AccentColor, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Text("View Browsing Logs", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                androidx.compose.material3.HorizontalDivider(color = BorderColor)
-
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .premiumPressClick {
-                                            showMenu = false
-                                            if (isHome) {
-                                                Toast.makeText(context, "Cannot search on Home page", Toast.LENGTH_SHORT).show()
-                                            } else {
-                                                showFindInPage = true
-                                                findInPageText = ""
-                                            }
-                                        }
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.Search, null, tint = AccentColor, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Text("Find in Page", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                androidx.compose.material3.HorizontalDivider(color = BorderColor)
-
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .premiumPressClick { showMenu = false; showSecretRunnerGame = true }
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.Security, null, tint = AccentColor, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Text("Play Secret Runner", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                androidx.compose.material3.HorizontalDivider(color = BorderColor)
-
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .premiumPressClick { showMenu = false; showSettings = true }
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.Settings, null, tint = SuccessColor, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Text("Secure Engine Dashboard", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                }
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(AccentColor.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Shield,
+                                    contentDescription = null,
+                                    tint = AccentColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Command Center",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                                Text(
+                                    text = "Quick navigation & privacy tools",
+                                    fontSize = 11.5.sp,
+                                    color = TextSecondary
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(LightCard)
+                                    .border(0.8.dp, BorderColor, CircleShape)
+                                    .clickable { showMenu = false },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close Menu",
+                                    tint = TextSecondary,
+                                    modifier = Modifier.size(15.dp)
+                                )
                             }
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Button(
-                            onClick = {
-                                showMenu = false
-                                try {
-                                    SecretBrowserSecureDelete.cleanTemporaryUploadsDirectory(context, secure = true)
-                                    SecretBrowserSecureDelete.cleanStaleTemporaryRemnants(context, secure = true)
-                                } catch (e: Exception) {
-                                    android.util.Log.e("SecureDelete", "Panic cleanup failed", e)
+                        // Category: BROWSER
+                        CommandCenterSectionCard(title = "BROWSER") {
+                            CommandCenterMenuItem(
+                                icon = Icons.Default.Add,
+                                iconTint = AccentColor,
+                                title = "New Tab",
+                                subtitle = "Open a private browsing tab",
+                                onClick = {
+                                    showMenu = false
+                                    openNewTab("home")
                                 }
-                                if (clearHistoryOnExit) {
-                                    viewModel.clearBrowserHistory()
+                            )
+                            androidx.compose.material3.HorizontalDivider(
+                                color = BorderColor.copy(alpha = 0.6f),
+                                thickness = 0.8.dp,
+                                modifier = Modifier.padding(horizontal = 14.dp)
+                            )
+                            CommandCenterMenuItem(
+                                icon = Icons.Default.Layers,
+                                iconTint = AccentColor,
+                                title = "Tab Overview",
+                                subtitle = "${tabs.size} active ${if (tabs.size == 1) "tab" else "tabs"}",
+                                trailingText = "${tabs.size}",
+                                onClick = {
+                                    showMenu = false
+                                    activeTabId?.let { id -> captureWebViewThumbnail(webViews[id], id) }
+                                    showTabSwitcher = true
                                 }
-                                clearAllBrowsingData(context, tabs, webViews)
-                                geckoViews.values.forEach { try { (it.parent as? android.view.ViewGroup)?.removeView(it); it.releaseSession() } catch (e: Exception) {} }
-                                geckoViews.clear()
-                                geckoSessions.clear()
-                                onPanic()
-                            },
+                            )
+                            androidx.compose.material3.HorizontalDivider(
+                                color = BorderColor.copy(alpha = 0.6f),
+                                thickness = 0.8.dp,
+                                modifier = Modifier.padding(horizontal = 14.dp)
+                            )
+                            CommandCenterMenuItem(
+                                icon = Icons.Default.Search,
+                                iconTint = AccentColor,
+                                title = "Find in Page",
+                                subtitle = "Search text in active webpage",
+                                onClick = {
+                                    showMenu = false
+                                    if (isHome) {
+                                        Toast.makeText(context, "Cannot search on Start page", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        showFindInPage = true
+                                        findInPageText = ""
+                                    }
+                                }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Category: LIBRARY
+                        CommandCenterSectionCard(title = "LIBRARY") {
+                            CommandCenterMenuItem(
+                                icon = Icons.Default.Star,
+                                iconTint = AccentColor,
+                                title = "Bookmarks",
+                                subtitle = "${browserBookmarks.size} saved pages",
+                                onClick = {
+                                    showMenu = false
+                                    showBookmarks = true
+                                }
+                            )
+                            androidx.compose.material3.HorizontalDivider(
+                                color = BorderColor.copy(alpha = 0.6f),
+                                thickness = 0.8.dp,
+                                modifier = Modifier.padding(horizontal = 14.dp)
+                            )
+                            CommandCenterMenuItem(
+                                icon = Icons.Default.History,
+                                iconTint = AccentColor,
+                                title = "Browsing History",
+                                subtitle = "${browserHistory.size} visit logs",
+                                onClick = {
+                                    showMenu = false
+                                    showHistory = true
+                                }
+                            )
+                            androidx.compose.material3.HorizontalDivider(
+                                color = BorderColor.copy(alpha = 0.6f),
+                                thickness = 0.8.dp,
+                                modifier = Modifier.padding(horizontal = 14.dp)
+                            )
+                            CommandCenterMenuItem(
+                                icon = Icons.Default.StarBorder,
+                                iconTint = TextSecondary,
+                                title = "Reading Later",
+                                subtitle = "Offline article reader archive",
+                                badgeText = "Soon",
+                                isEnabled = false,
+                                onClick = {}
+                            )
+                            androidx.compose.material3.HorizontalDivider(
+                                color = BorderColor.copy(alpha = 0.6f),
+                                thickness = 0.8.dp,
+                                modifier = Modifier.padding(horizontal = 14.dp)
+                            )
+                            CommandCenterMenuItem(
+                                icon = Icons.Default.Download,
+                                iconTint = AccentColor,
+                                title = "Vault Downloads",
+                                subtitle = "Encrypted downloaded files",
+                                onClick = {
+                                    showMenu = false
+                                    showDownloads = true
+                                }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Category: PRIVACY & SETTINGS
+                        CommandCenterSectionCard(title = "PRIVACY & SETTINGS") {
+                            CommandCenterMenuItem(
+                                icon = Icons.Default.Settings,
+                                iconTint = SuccessColor,
+                                title = "Browser Settings",
+                                subtitle = "Shields, tracking & preferences",
+                                onClick = {
+                                    showMenu = false
+                                    showSettings = true
+                                }
+                            )
+                            androidx.compose.material3.HorizontalDivider(
+                                color = BorderColor.copy(alpha = 0.6f),
+                                thickness = 0.8.dp,
+                                modifier = Modifier.padding(horizontal = 14.dp)
+                            )
+                            CommandCenterMenuItem(
+                                icon = Icons.Default.DeleteSweep,
+                                iconTint = DangerColor,
+                                title = "Clear Browsing Data",
+                                subtitle = "History, cookies & cache",
+                                isDestructive = true,
+                                onClick = {
+                                    showMenu = false
+                                    showMenuClearBrowsingDataDialog = true
+                                }
+                            )
+                            androidx.compose.material3.HorizontalDivider(
+                                color = BorderColor.copy(alpha = 0.6f),
+                                thickness = 0.8.dp,
+                                modifier = Modifier.padding(horizontal = 14.dp)
+                            )
+                            CommandCenterMenuItem(
+                                icon = Icons.Default.FolderDelete,
+                                iconTint = DangerColor,
+                                title = "Clear Temporary Files",
+                                subtitle = "Wipe cached remnants securely",
+                                isDestructive = true,
+                                onClick = {
+                                    showMenu = false
+                                    showMenuClearTempFilesDialog = true
+                                }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Category: EXTRA
+                        CommandCenterSectionCard(title = "EXTRA") {
+                            val isDesktop = activeTab?.isDesktopMode == true
+                            CommandCenterMenuItem(
+                                icon = Icons.Default.Laptop,
+                                iconTint = AccentColor,
+                                title = "Desktop Site",
+                                subtitle = if (isDesktop) "Desktop user-agent enabled" else "Standard mobile rendering",
+                                trailingSwitch = isDesktop,
+                                onClick = {
+                                    showMenu = false
+                                    if (activeGeckoSession != null && activeTab != null) {
+                                        val newMode = !activeTab.isDesktopMode
+                                        val index = tabs.indexOfFirst { it.id == activeTabId }
+                                        if (index != -1) {
+                                            tabs[index] = tabs[index].copy(isDesktopMode = newMode)
+                                        }
+                                        GeckoSessionManager.setDesktopMode(activeTab.id, newMode)
+                                    } else {
+                                        val webView = webViews[activeTabId]
+                                        if (webView != null && activeTab != null) {
+                                            val newMode = !activeTab.isDesktopMode
+                                            val index = tabs.indexOfFirst { it.id == activeTabId }
+                                            if (index != -1) {
+                                                tabs[index] = tabs[index].copy(isDesktopMode = newMode)
+                                            }
+                                            webView.tag = newMode
+                                            if (newMode) {
+                                                webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                                webView.settings.loadWithOverviewMode = true
+                                                webView.settings.useWideViewPort = true
+                                                webView.settings.setSupportZoom(true)
+                                                webView.settings.builtInZoomControls = true
+                                                webView.settings.displayZoomControls = false
+                                            } else {
+                                                webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                                                webView.settings.loadWithOverviewMode = true
+                                                webView.settings.useWideViewPort = true
+                                                webView.settings.setSupportZoom(true)
+                                                webView.settings.builtInZoomControls = true
+                                                webView.settings.displayZoomControls = false
+                                            }
+                                            webView.reload()
+                                        }
+                                    }
+                                }
+                            )
+                            androidx.compose.material3.HorizontalDivider(
+                                color = BorderColor.copy(alpha = 0.6f),
+                                thickness = 0.8.dp,
+                                modifier = Modifier.padding(horizontal = 14.dp)
+                            )
+                            CommandCenterMenuItem(
+                                icon = Icons.Default.Security,
+                                iconTint = AccentColor,
+                                title = "Play Secret Runner",
+                                subtitle = "Offline privacy mini-game",
+                                onClick = {
+                                    showMenu = false
+                                    showSecretRunnerGame = true
+                                }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Panic Mode Presentation
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = DangerColor),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                                .padding(top = 2.dp, bottom = 4.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = DangerColor.copy(alpha = 0.06f)),
+                            border = BorderStroke(1.dp, DangerColor.copy(alpha = 0.25f))
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Icon(Icons.Default.Warning, "Panic Mode", tint = Color.White, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text("ACTIVATE PANIC MODE", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = "Panic Mode",
+                                        tint = DangerColor,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Panic Mode",
+                                        color = TextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Close Secret Browser and clear sensitive browsing session",
+                                    color = TextSecondary,
+                                    fontSize = 11.5.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Button(
+                                    onClick = {
+                                        showMenu = false
+                                        try {
+                                            SecretBrowserSecureDelete.cleanTemporaryUploadsDirectory(context, secure = true)
+                                            SecretBrowserSecureDelete.cleanStaleTemporaryRemnants(context, secure = true)
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("SecureDelete", "Panic cleanup failed", e)
+                                        }
+                                        if (clearHistoryOnExit) {
+                                            viewModel.clearBrowserHistory()
+                                        }
+                                        clearAllBrowsingData(context, tabs, webViews)
+                                        geckoViews.values.forEach { try { (it.parent as? android.view.ViewGroup)?.removeView(it); it.releaseSession() } catch (e: Exception) {} }
+                                        geckoViews.clear()
+                                        geckoSessions.clear()
+                                        onPanic()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = DangerColor),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth().height(40.dp)
+                                ) {
+                                    Text(
+                                        text = "Activate Panic Mode",
+                                        color = Color.White,
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                     }
                 }
             }
+        }
+
+        if (showMenuClearBrowsingDataDialog) {
+            AlertDialog(
+                onDismissRequest = { showMenuClearBrowsingDataDialog = false },
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteForever,
+                            contentDescription = null,
+                            tint = DangerColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Text("Clear Browsing Data", color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    }
+                },
+                text = {
+                    Text(
+                        "Securely wipe browsing history, cached assets, active session cookies, and temporary data from this device.",
+                        color = TextSecondary,
+                        fontSize = 13.5.sp
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showMenuClearBrowsingDataDialog = false
+                            SecretBrowserPrivacyHelper.clearBrowsingData(
+                                context = context,
+                                clearHistory = true,
+                                clearCookies = true,
+                                clearCache = true,
+                                clearSiteData = true,
+                                viewModel = viewModel,
+                                onResult = { ok: Boolean ->
+                                    if (ok) {
+                                        Toast.makeText(context, "Browsing data cleared", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Failed to clear some browsing data", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = DangerColor)
+                    ) {
+                        Text("Clear Browsing Data", color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showMenuClearBrowsingDataDialog = false }) {
+                        Text("Cancel", color = TextSecondary)
+                    }
+                },
+                containerColor = LightCard,
+                tonalElevation = 6.dp
+            )
+        }
+
+        if (showMenuClearTempFilesDialog) {
+            AlertDialog(
+                onDismissRequest = { showMenuClearTempFilesDialog = false },
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FolderDelete,
+                            contentDescription = null,
+                            tint = DangerColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Text("Clear Temporary Files", color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    }
+                },
+                text = {
+                    Text(
+                        "Permanently purge cached uploads, temporary fragments, and incomplete downloads.",
+                        color = TextSecondary,
+                        fontSize = 13.5.sp
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showMenuClearTempFilesDialog = false
+                            coroutineScope.launch(Dispatchers.IO) {
+                                val ok1 = SecretBrowserSecureDelete.cleanTemporaryUploadsDirectory(context, secure = true)
+                                val ok2 = SecretBrowserSecureDelete.cleanStaleTemporaryRemnants(context, secure = true)
+                                withContext(Dispatchers.Main) {
+                                    if (ok1 && ok2) {
+                                        Toast.makeText(context, "Temporary files cleared", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Temporary files cleared", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = DangerColor)
+                    ) {
+                        Text("Clear Temporary Files", color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showMenuClearTempFilesDialog = false }) {
+                        Text("Cancel", color = TextSecondary)
+                    }
+                },
+                containerColor = LightCard,
+                tonalElevation = 6.dp
+            )
         }
         BrowserUploadSourceDialog(viewModel = viewModel)
 

@@ -11616,8 +11616,8 @@ fun OldPrivateBrowserSection(
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column {
-                                    Text("Save Passwords", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                    Text("Offer to save passwords in browser form states", color = Color.Gray, fontSize = 11.sp)
+                                    Text("Form Autofill Prompts", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(if (savePasswords) "Active • Autofill prompts enabled in web forms" else "Disabled • Form credential prompts disabled", color = Color.Gray, fontSize = 11.sp)
                                 }
                             }
                             Switch(
