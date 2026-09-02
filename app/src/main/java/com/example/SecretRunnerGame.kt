@@ -36,6 +36,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -148,8 +150,9 @@ fun SecretRunnerGameView(
     var wallJumpTimer by remember { mutableFloatStateOf(0f) }
     var runAnimationPhase by remember { mutableFloatStateOf(0f) }
 
-    // Visual effect state
+    // Visual effect & dynamic close-camera state
     var speedLineAlpha by remember { mutableFloatStateOf(0f) }
+    var cameraOffsetY by remember { mutableFloatStateOf(0f) }
 
     // World entities
     val obstacles = remember { mutableStateListOf<RunnerObstacle>() }
@@ -163,13 +166,13 @@ fun SecretRunnerGameView(
     var midgroundOffset by remember { mutableFloatStateOf(0f) }
     var bgParallaxOffset by remember { mutableFloatStateOf(0f) }
 
-    // Physics constants (tuned for ultra-responsive parkour flow)
-    val gravity = -1950f
-    val jumpVelocity = 700f
-    val doubleJumpVelocity = 620f
-    val wallJumpBoostY = 740f
-    val baseSpeed = 380f
-    val slideDuration = 0.48f
+    // Physics constants (tuned for ultra-responsive close-camera parkour flow)
+    val gravity = -2150f
+    val jumpVelocity = 740f
+    val doubleJumpVelocity = 660f
+    val wallJumpBoostY = 780f
+    val baseSpeed = 390f
+    val slideDuration = 0.46f
 
     // Particle spawn helper
     val spawnParticles = { x: Float, y: Float, count: Int, baseColor: Color, speedScale: Float ->
@@ -200,7 +203,7 @@ fun SecretRunnerGameView(
             canDoubleJump = true
             isSliding = false
             isDoubleJumping = false
-            spawnParticles(100f, 10f, 6, Color(0xFF00E5FF), 0.8f)
+            spawnParticles(105f, 10f, 6, Color(0xFF00E5FF), 0.8f)
         } else if (gameState == RunnerGameState.PLAYING) {
             // Cancel slide if jumping
             if (isSliding) {
@@ -209,13 +212,13 @@ fun SecretRunnerGameView(
             }
 
             // Check if adjacent to a tall wall for Parkour WALL JUMP
-            val playerX = 85f
+            val playerX = 90f
             var triggeredWallJump = false
             val nearbyWall = obstacles.find { obs ->
                 obs.type == ObstacleType.WALL_STRUCTURE &&
                         !obs.wallJumped &&
-                        abs(obs.x - playerX) < 55f &&
-                        runnerY > 15f && runnerY < obs.height + 25f
+                        abs(obs.x - playerX) < 60f &&
+                        runnerY > 15f && runnerY < obs.height + 30f
             }
 
             if (nearbyWall != null) {
@@ -226,13 +229,13 @@ fun SecretRunnerGameView(
                 isWallJumping = true
                 wallJumpTimer = 0.35f
                 triggeredWallJump = true
-                spawnParticles(playerX + 20f, runnerY + 20f, 12, Color(0xFFFF6A00), 1.2f)
+                spawnParticles(playerX + 22f, runnerY + 22f, 12, Color(0xFFFF6A00), 1.2f)
                 scorePopups.add(
                     ScorePopup(
                         id = nextEntityId++,
                         text = "WALL LEAP!",
                         x = playerX,
-                        y = runnerY + 45f,
+                        y = runnerY + 48f,
                         color = Color(0xFFFF6A00)
                     )
                 )
@@ -244,18 +247,18 @@ fun SecretRunnerGameView(
                     isGrounded = false
                     canDoubleJump = true
                     isDoubleJumping = false
-                    spawnParticles(100f, 10f, 6, Color(0xFF00E5FF), 0.8f)
+                    spawnParticles(105f, 10f, 6, Color(0xFF00E5FF), 0.8f)
                 } else if (canDoubleJump) {
                     runnerVelocity = doubleJumpVelocity
                     canDoubleJump = false
                     isDoubleJumping = true
-                    spawnParticles(100f, runnerY + 15f, 10, Color(0xFF00E5FF), 1.1f)
+                    spawnParticles(105f, runnerY + 16f, 10, Color(0xFF00E5FF), 1.1f)
                     scorePopups.add(
                         ScorePopup(
                             id = nextEntityId++,
                             text = "AIR VAULT!",
-                            x = 90f,
-                            y = runnerY + 40f,
+                            x = 95f,
+                            y = runnerY + 45f,
                             color = Color(0xFF00E5FF)
                         )
                     )
@@ -270,9 +273,9 @@ fun SecretRunnerGameView(
             slideTimer = slideDuration
             if (!isGrounded) {
                 // Fast dive if in mid-air
-                runnerVelocity = -800f
+                runnerVelocity = -850f
             }
-            spawnParticles(95f, 8f, 8, Color(0xFFFFB300), 0.9f)
+            spawnParticles(100f, 8f, 8, Color(0xFFFFB300), 0.9f)
         }
     }
 
@@ -285,6 +288,7 @@ fun SecretRunnerGameView(
         bonusScore = 0
         runnerY = 0f
         runnerVelocity = 0f
+        cameraOffsetY = 0f
         isGrounded = true
         canDoubleJump = true
         isDoubleJumping = false
@@ -293,7 +297,7 @@ fun SecretRunnerGameView(
         isWallJumping = false
         wallJumpTimer = 0f
         runAnimationPhase = 0f
-        nextSpawnDistance = 480f
+        nextSpawnDistance = 460f
         isNewRecord = false
         gameState = RunnerGameState.PLAYING
     }
@@ -379,15 +383,19 @@ fun SecretRunnerGameView(
                     isWallJumping = false
 
                     if (wasAirborne) {
-                        spawnParticles(100f, 4f, 5, Color(0xFF94A3B8), 0.6f)
+                        spawnParticles(105f, 4f, 5, Color(0xFF94A3B8), 0.6f)
                     }
                 } else {
                     isGrounded = false
                 }
 
+                // Dynamic Smooth Camera Tracking on Jump/Leap
+                val targetCameraY = if (runnerY > 55f) (runnerY - 55f) * 0.40f else 0f
+                cameraOffsetY += (targetCameraY - cameraOffsetY) * (dt * 8.5f).coerceAtMost(1f)
+
                 // Run leg stride animation
                 if (isGrounded && !isSliding) {
-                    runAnimationPhase += dt * (18f * currentSpeedMultiplier)
+                    runAnimationPhase += dt * (19f * currentSpeedMultiplier)
                 }
 
                 // Parallax offsets
@@ -395,10 +403,10 @@ fun SecretRunnerGameView(
                 midgroundOffset = (midgroundOffset + currentSpeed * 0.45f * dt) % 180f
                 bgParallaxOffset = (bgParallaxOffset + currentSpeed * 0.18f * dt) % 240f
 
-                // Spawning Obstacles & Collectibles
+                // Spawning Obstacles & Collectibles (Scaled for close-camera action)
                 nextSpawnDistance -= currentSpeed * dt
                 if (nextSpawnDistance <= 0f) {
-                    val spawnX = 960f
+                    val spawnX = 760f
                     val roll = Random.nextFloat()
 
                     if (roll < 0.65f) {
@@ -410,11 +418,11 @@ fun SecretRunnerGameView(
                         }
 
                         val (w, h, yOff) = when (typeChoice) {
-                            ObstacleType.LOW_VAULT_BOX -> Triple(38f, 32f, 0f)
-                            ObstacleType.HIGH_OVERHEAD_LASER -> Triple(52f, 24f, 38f) // Above ground -> must slide
-                            ObstacleType.CYBER_SPIRE -> Triple(32f, 50f, 0f)
-                            ObstacleType.WALL_STRUCTURE -> Triple(36f, 74f, 0f) // Tall wall -> wall jump or double jump
-                            ObstacleType.SECURITY_LASER_GATE -> Triple(46f, 48f, 0f)
+                            ObstacleType.LOW_VAULT_BOX -> Triple(44f, 36f, 0f)
+                            ObstacleType.HIGH_OVERHEAD_LASER -> Triple(58f, 26f, 44f) // Above ground -> must slide
+                            ObstacleType.CYBER_SPIRE -> Triple(36f, 54f, 0f)
+                            ObstacleType.WALL_STRUCTURE -> Triple(44f, 88f, 0f) // Tall wall -> wall jump or double jump
+                            ObstacleType.SECURITY_LASER_GATE -> Triple(48f, 52f, 0f)
                         }
 
                         obstacles.add(
@@ -431,9 +439,9 @@ fun SecretRunnerGameView(
                         // Spawn Collectible
                         val cRand = Random.nextFloat()
                         val (cType, pts, yPos) = when {
-                            cRand < 0.50f -> Triple(CollectibleType.SHIELD_TOKEN, 25, if (Random.nextBoolean()) 20f else 65f)
-                            cRand < 0.85f -> Triple(CollectibleType.PRIVACY_STAR, 50, if (Random.nextBoolean()) 35f else 85f)
-                            else -> Triple(CollectibleType.ENCRYPTED_CORE, 100, 75f)
+                            cRand < 0.50f -> Triple(CollectibleType.SHIELD_TOKEN, 25, if (Random.nextBoolean()) 22f else 72f)
+                            cRand < 0.85f -> Triple(CollectibleType.PRIVACY_STAR, 50, if (Random.nextBoolean()) 38f else 92f)
+                            else -> Triple(CollectibleType.ENCRYPTED_CORE, 100, 82f)
                         }
                         collectibles.add(
                             RunnerCollectible(
@@ -446,14 +454,14 @@ fun SecretRunnerGameView(
                         )
                     }
 
-                    // Next spawn interval between 340px and 580px
-                    nextSpawnDistance = Random.nextFloat() * 240f + 340f
+                    // Next spawn interval between 360px and 540px for generous reaction time
+                    nextSpawnDistance = Random.nextFloat() * 180f + 360f
                 }
 
                 // Update Obstacles & Collision Check
-                val playerX = 85f
-                val playerWidth = 30f
-                val playerHeight = if (isSliding) 22f else 48f
+                val playerX = 90f
+                val playerWidth = 32f
+                val playerHeight = if (isSliding) 24f else 50f
                 val playerBottom = runnerY
                 val playerTop = runnerY + playerHeight
 
@@ -462,18 +470,18 @@ fun SecretRunnerGameView(
                     val obs = obsIterator.next()
                     obs.x -= currentSpeed * dt
 
-                    val obsLeft = obs.x + 4f
-                    val obsRight = obs.x + obs.width - 4f
+                    val obsLeft = obs.x + 4.5f
+                    val obsRight = obs.x + obs.width - 4.5f
                     val obsBottom = obs.yOffset
                     val obsTop = obs.yOffset + obs.height
 
-                    // AABB Collision check
+                    // AABB Collision check with fair padding
                     val isOverlapX = (playerX + playerWidth > obsLeft) && (playerX < obsRight)
-                    val isOverlapY = (playerTop > obsBottom + 3f) && (playerBottom < obsTop - 3f)
+                    val isOverlapY = (playerTop > obsBottom + 3.5f) && (playerBottom < obsTop - 3.5f)
 
                     if (isOverlapX && isOverlapY) {
                         gameState = RunnerGameState.GAME_OVER
-                        spawnParticles(playerX + 15f, playerBottom + 20f, 25, Color(0xFFFF5252), 1.4f)
+                        spawnParticles(playerX + 16f, playerBottom + 22f, 25, Color(0xFFFF5252), 1.4f)
                         break
                     }
 
@@ -489,15 +497,15 @@ fun SecretRunnerGameView(
                     col.x -= currentSpeed * dt
 
                     if (!col.isCollected) {
-                        val colCenterX = col.x + 14f
-                        val colCenterY = col.y + 14f
+                        val colCenterX = col.x + 15f
+                        val colCenterY = col.y + 15f
                         val playerCenterX = playerX + playerWidth / 2f
                         val playerCenterY = playerBottom + playerHeight / 2f
 
                         val dx = abs(colCenterX - playerCenterX)
                         val dy = abs(colCenterY - playerCenterY)
 
-                        if (dx < 26f && dy < 32f) {
+                        if (dx < 30f && dy < 36f) {
                             col.isCollected = true
                             bonusScore += col.points
                             val colColor = when (col.type) {
@@ -572,118 +580,96 @@ fun SecretRunnerGameView(
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val canvasWidth = constraints.maxWidth.toFloat()
             val canvasHeight = constraints.maxHeight.toFloat()
-            val groundY = canvasHeight * 0.73f
+            val groundY = canvasHeight * 0.68f
 
-            // Game Graphics Canvas
+            // Game Graphics Canvas with Close-Camera Parkour Scaling
             Canvas(modifier = Modifier.fillMaxSize()) {
-                // 1. Layer 1: Distant Cyber Skyline (Parallax Deep Background)
-                drawCyberSkyline(
-                    width = canvasWidth,
-                    groundY = groundY,
-                    offset = bgParallaxOffset,
-                    isDark = isDark
-                )
-
-                // 2. Layer 2: Midground Facility Corridor (Pillars & Data Cables)
-                drawMidgroundCorridor(
-                    width = canvasWidth,
-                    groundY = groundY,
-                    offset = midgroundOffset,
-                    isDark = isDark
-                )
-
-                // 3. Layer 3: Speed lines at high velocity
-                if (speedLineAlpha > 0f) {
-                    drawSpeedStreaks(
-                        width = canvasWidth,
-                        groundY = groundY,
-                        alpha = speedLineAlpha,
-                        isDark = isDark
-                    )
-                }
-
-                // 4. Ground Foundation & Neon Power Conduits
-                drawRect(
-                    color = groundColor,
-                    topLeft = Offset(0f, groundY),
-                    size = Size(canvasWidth, canvasHeight - groundY)
-                )
-                // Glowing Cyberline
-                drawLine(
-                    color = groundLineColor,
-                    start = Offset(0f, groundY),
-                    end = Offset(canvasWidth, groundY),
-                    strokeWidth = 3.5.dp.toPx()
-                )
-                // Sub-glow line
-                drawLine(
-                    color = groundLineColor.copy(alpha = 0.35f),
-                    start = Offset(0f, groundY + 4f),
-                    end = Offset(canvasWidth, groundY + 4f),
-                    strokeWidth = 2.dp.toPx()
-                )
-
-                // Track circuit ticks
-                var tickX = -groundOffset
-                while (tickX < canvasWidth + 40f) {
-                    if (tickX >= 0f) {
-                        drawLine(
-                            color = groundLineColor.copy(alpha = 0.45f),
-                            start = Offset(tickX, groundY),
-                            end = Offset(tickX + 14f, groundY + 16f),
-                            strokeWidth = 1.5.dp.toPx()
-                        )
-                    }
-                    tickX += 38f
-                }
-
-                // 5. Draw Obstacles
-                obstacles.forEach { obs ->
-                    drawParkourObstacle(
-                        obstacle = obs,
-                        groundY = groundY,
-                        accentColor = playerVisorColor,
-                        isDark = isDark
-                    )
-                }
-
-                // 6. Draw Collectibles
-                collectibles.forEach { col ->
-                    if (!col.isCollected) {
-                        drawParkourCollectible(
-                            collectible = col,
+                translate(top = cameraOffsetY) {
+                    scale(
+                        scaleX = 2.05f,
+                        scaleY = 2.05f,
+                        pivot = Offset(110f, groundY - 35f)
+                    ) {
+                        // 1. Layer 1: Distant Cyber Skyline (Parallax Deep Background)
+                        drawCyberSkyline(
+                            width = canvasWidth,
                             groundY = groundY,
+                            offset = bgParallaxOffset,
+                            isDark = isDark
+                        )
+
+                        // 2. Layer 2: Midground Facility Corridor (Pillars & Data Cables)
+                        drawMidgroundCorridor(
+                            width = canvasWidth,
+                            groundY = groundY,
+                            offset = midgroundOffset,
+                            isDark = isDark
+                        )
+
+                        // 3. Layer 3: Speed lines at high velocity
+                        if (speedLineAlpha > 0f) {
+                            drawSpeedStreaks(
+                                width = canvasWidth,
+                                groundY = groundY,
+                                alpha = speedLineAlpha,
+                                isDark = isDark
+                            )
+                        }
+
+                        // 4. Ground Foundation: Kenney Terrain Grass & Stone Blocks
+                        drawKenneyTerrainGround(
+                            canvasWidth = canvasWidth,
+                            canvasHeight = canvasHeight,
+                            groundY = groundY,
+                            offset = groundOffset,
+                            isDark = isDark
+                        )
+
+                        // 5. Draw Obstacles: Kenney block_spikes, saw_a/b, door_closed, spikes
+                        obstacles.forEach { obs ->
+                            drawKenneyObstacle(
+                                obstacle = obs,
+                                groundY = groundY,
+                                accentColor = playerVisorColor,
+                                isDark = isDark
+                            )
+                        }
+
+                        // 6. Draw Collectibles: Kenney gem_blue, coin_gold, key_blue
+                        collectibles.forEach { col ->
+                            if (!col.isCollected) {
+                                drawKenneyCollectible(
+                                    collectible = col,
+                                    groundY = groundY
+                                )
+                            }
+                        }
+
+                        // 7. Draw Active Particles
+                        particles.forEach { p ->
+                            drawCircle(
+                                color = p.color.copy(alpha = p.alpha),
+                                radius = p.radius,
+                                center = Offset(p.x, groundY - p.y)
+                            )
+                        }
+
+                        // 8. Draw Kenney Purple Character (All 7 animation states connected)
+                        drawKenneyPurpleCharacter(
+                            playerX = 90f,
+                            groundY = groundY,
+                            runnerY = runnerY,
+                            gameState = gameState,
+                            isGrounded = isGrounded,
+                            isSliding = isSliding,
+                            isDoubleJumping = isDoubleJumping,
+                            isWallJumping = isWallJumping,
+                            phase = runAnimationPhase,
                             shieldColor = shieldGlowColor,
-                            starColor = starColor,
-                            coreColor = coreColor
+                            isDark = isDark
                         )
                     }
                 }
-
-                // 7. Draw Active Particles
-                particles.forEach { p ->
-                    drawCircle(
-                        color = p.color.copy(alpha = p.alpha),
-                        radius = p.radius,
-                        center = Offset(p.x, groundY - p.y)
-                    )
-                }
-
-                // 8. Draw Secret Privacy Runner Mascot (Parkour Animation)
-                drawParkourRunnerMascot(
-                    playerX = 85f,
-                    groundY = groundY,
-                    runnerY = runnerY,
-                    isGrounded = isGrounded,
-                    isSliding = isSliding,
-                    isDoubleJumping = isDoubleJumping,
-                    isWallJumping = isWallJumping,
-                    phase = runAnimationPhase,
-                    suitColor = playerSuitColor,
-                    visorColor = playerVisorColor,
-                    shieldColor = shieldGlowColor,
-                    isDark = isDark
-                )
             }
 
             // Top HUD Bar
@@ -1086,46 +1072,61 @@ fun SecretRunnerGameView(
     }
 }
 
-// Draw Layer 1: Parallax Distant Cyber Skyline
+// 1. Parallax Distant Cyber Skyline & Hills (Kenney Backgrounds)
 private fun DrawScope.drawCyberSkyline(
     width: Float,
     groundY: Float,
     offset: Float,
     isDark: Boolean
 ) {
-    val colColor = if (isDark) Color(0xFF101728) else Color(0xFFD8E1ED)
-    val gridColor = if (isDark) Color(0xFF19253F).copy(alpha = 0.4f) else Color(0xFFC7D3E2).copy(alpha = 0.5f)
+    val hillColor = if (isDark) Color(0xFF101728) else Color(0xFFD8E1ED)
+    val cloudColor = if (isDark) Color(0xFF1A263D).copy(alpha = 0.5f) else Color(0xFFE2E8F0).copy(alpha = 0.65f)
 
-    val towerWidth = 48f
-    val spacing = 80f
+    // Floating Kenney clouds
+    val cloudSpacing = 160f
+    var cx = -offset * 0.5f
+    var cIdx = 0
+    while (cx < width + cloudSpacing) {
+        val cy = groundY - 140f - ((cIdx * 29) % 55)
+        val cSize = 44f + ((cIdx * 17) % 24)
+        drawCircle(
+            color = cloudColor,
+            radius = cSize * 0.35f,
+            center = Offset(cx, cy)
+        )
+        drawCircle(
+            color = cloudColor,
+            radius = cSize * 0.45f,
+            center = Offset(cx + cSize * 0.3f, cy - 4f)
+        )
+        drawCircle(
+            color = cloudColor,
+            radius = cSize * 0.35f,
+            center = Offset(cx + cSize * 0.6f, cy)
+        )
+        cx += cloudSpacing
+        cIdx++
+    }
+
+    // Kenney rolling background hills
+    val hillWidth = 90f
+    val spacing = 75f
     var x = -offset
     var index = 0
     while (x < width + spacing) {
-        val towerHeight = ((index * 43) % 120 + 45).toFloat()
-        drawRect(
-            color = colColor,
-            topLeft = Offset(x, groundY - towerHeight),
-            size = Size(towerWidth, towerHeight)
-        )
-        // Window rows
-        drawLine(
-            color = gridColor,
-            start = Offset(x + 8f, groundY - towerHeight + 12f),
-            end = Offset(x + towerWidth - 8f, groundY - towerHeight + 12f),
-            strokeWidth = 2f
-        )
-        drawLine(
-            color = gridColor,
-            start = Offset(x + 8f, groundY - towerHeight + 24f),
-            end = Offset(x + towerWidth - 8f, groundY - towerHeight + 24f),
-            strokeWidth = 2f
-        )
+        val hillHeight = ((index * 37) % 95 + 40).toFloat()
+        val path = Path().apply {
+            moveTo(x - 20f, groundY)
+            quadraticTo(x + hillWidth * 0.5f, groundY - hillHeight, x + hillWidth + 20f, groundY)
+            close()
+        }
+        drawPath(path, hillColor)
         x += spacing
         index++
     }
 }
 
-// Draw Layer 2: Midground Facility Corridor
+// 2. Midground Facility Corridor & Platformer Pillars
 private fun DrawScope.drawMidgroundCorridor(
     width: Float,
     groundY: Float,
@@ -1135,21 +1136,22 @@ private fun DrawScope.drawMidgroundCorridor(
     val pillarColor = if (isDark) Color(0xFF16233B) else Color(0xFFCBD6E4)
     val beaconColor = if (isDark) Color(0xFF00E5FF).copy(alpha = 0.35f) else Color(0xFF0284C7).copy(alpha = 0.3f)
 
-    val pWidth = 22f
+    val pWidth = 24f
     val spacing = 160f
     var x = -offset
     var idx = 0
     while (x < width + spacing) {
         val pH = 110f
-        drawRect(
+        drawRoundRect(
             color = pillarColor,
             topLeft = Offset(x, groundY - pH),
-            size = Size(pWidth, pH)
+            size = Size(pWidth, pH),
+            cornerRadius = CornerRadius(4f, 4f)
         )
         // Neon beacon dot
         drawCircle(
             color = beaconColor,
-            radius = 3.5f,
+            radius = 4f,
             center = Offset(x + pWidth / 2f, groundY - pH + 12f)
         )
         x += spacing
@@ -1157,7 +1159,7 @@ private fun DrawScope.drawMidgroundCorridor(
     }
 }
 
-// Draw Layer 3: High speed streaks
+// 3. High speed streaks
 private fun DrawScope.drawSpeedStreaks(
     width: Float,
     groundY: Float,
@@ -1178,8 +1180,63 @@ private fun DrawScope.drawSpeedStreaks(
     }
 }
 
-// Draw Parkour Obstacles
-private fun DrawScope.drawParkourObstacle(
+// 4. Ground Foundation: Kenney Terrain Grass & Stone Blocks
+private fun DrawScope.drawKenneyTerrainGround(
+    canvasWidth: Float,
+    canvasHeight: Float,
+    groundY: Float,
+    offset: Float,
+    isDark: Boolean
+) {
+    val dirtColor = if (isDark) Color(0xFF1E2638) else Color(0xFF8D6E63)
+    val grassTopColor = if (isDark) Color(0xFF10B981) else Color(0xFF4CAF50)
+    val grassEdgeColor = if (isDark) Color(0xFF059669) else Color(0xFF388E3C)
+    val stoneColor = if (isDark) Color(0xFF151C2C) else Color(0xFF6D4C41)
+
+    // Base earth dirt mass
+    drawRect(
+        color = dirtColor,
+        topLeft = Offset(-100f, groundY),
+        size = Size(canvasWidth + 200f, canvasHeight - groundY + 100f)
+    )
+
+    // Sub-surface stone strata line
+    drawRect(
+        color = stoneColor,
+        topLeft = Offset(-100f, groundY + 22f),
+        size = Size(canvasWidth + 200f, canvasHeight - groundY + 80f)
+    )
+
+    // Kenney grass block top cap
+    drawRect(
+        color = grassTopColor,
+        topLeft = Offset(-100f, groundY),
+        size = Size(canvasWidth + 200f, 9f)
+    )
+    // Darker grass trim
+    drawLine(
+        color = grassEdgeColor,
+        start = Offset(-100f, groundY + 9f),
+        end = Offset(canvasWidth + 200f, groundY + 9f),
+        strokeWidth = 2f
+    )
+
+    // Kenney scalloped grass fringe tufts
+    var tuftX = -offset - 100f
+    while (tuftX < canvasWidth + 140f) {
+        val tuftPath = Path().apply {
+            moveTo(tuftX, groundY + 9f)
+            lineTo(tuftX + 7f, groundY + 16f)
+            lineTo(tuftX + 14f, groundY + 9f)
+            close()
+        }
+        drawPath(tuftPath, grassEdgeColor)
+        tuftX += 24f
+    }
+}
+
+// 5. Draw Kenney Obstacles (block_spikes, saw_a/b, door_closed, spikes)
+private fun DrawScope.drawKenneyObstacle(
     obstacle: RunnerObstacle,
     groundY: Float,
     accentColor: Color,
@@ -1187,347 +1244,547 @@ private fun DrawScope.drawParkourObstacle(
 ) {
     val obsBottom = groundY - obstacle.yOffset
     val obsTop = obsBottom - obstacle.height
-    val dangerColor = if (isDark) Color(0xFFFF5252) else Color(0xFFDC2626)
 
     when (obstacle.type) {
         ObstacleType.LOW_VAULT_BOX -> {
-            // Low Vault Box / Crate
+            // Kenney block_spikes: Stone crate block with sharp metal spikes on top
+            val blockTop = obsTop + 14f
+            val blockHeight = obstacle.height - 14f
+
+            // Stone base block
             drawRoundRect(
-                color = dangerColor,
-                topLeft = Offset(obstacle.x, obsTop),
-                size = Size(obstacle.width, obstacle.height),
-                cornerRadius = CornerRadius(6f, 6f)
+                color = if (isDark) Color(0xFF334155) else Color(0xFF64748B),
+                topLeft = Offset(obstacle.x, blockTop),
+                size = Size(obstacle.width, blockHeight),
+                cornerRadius = CornerRadius(4f, 4f)
             )
-            // Top vault stripe
+            // Block bevel inner
             drawRoundRect(
-                color = accentColor,
-                topLeft = Offset(obstacle.x + 3f, obsTop + 3f),
-                size = Size(obstacle.width - 6f, 5f),
-                cornerRadius = CornerRadius(2.5f, 2.5f)
+                color = if (isDark) Color(0xFF1E293B) else Color(0xFF475569),
+                topLeft = Offset(obstacle.x + 3f, blockTop + 3f),
+                size = Size(obstacle.width - 6f, blockHeight - 6f),
+                cornerRadius = CornerRadius(2f, 2f)
             )
+
+            // 3 Sharp silver steel spikes on top (Kenney style)
+            val spikeCount = 3
+            val spikeW = obstacle.width / spikeCount
+            for (i in 0 until spikeCount) {
+                val sx = obstacle.x + i * spikeW
+                val spikePath = Path().apply {
+                    moveTo(sx, blockTop)
+                    lineTo(sx + spikeW * 0.5f, obsTop)
+                    lineTo(sx + spikeW, blockTop)
+                    close()
+                }
+                drawPath(spikePath, Color(0xFFCBD5E1))
+                // Spike shadow / highlight facet
+                val highlightPath = Path().apply {
+                    moveTo(sx, blockTop)
+                    lineTo(sx + spikeW * 0.5f, obsTop)
+                    lineTo(sx + spikeW * 0.5f, blockTop)
+                    close()
+                }
+                drawPath(highlightPath, Color(0xFFFFFFFF).copy(alpha = 0.6f))
+                drawPath(spikePath, Color(0xFF475569), style = Stroke(width = 1f))
+            }
         }
 
         ObstacleType.HIGH_OVERHEAD_LASER -> {
-            // Overhead laser beam (Requires Slide)
-            val beamHeight = obstacle.height
-            // Twin hanging emitters
-            drawRect(
-                color = if (isDark) Color(0xFF334155) else Color(0xFF64748B),
-                topLeft = Offset(obstacle.x, obsTop),
-                size = Size(6f, beamHeight)
-            )
-            drawRect(
-                color = if (isDark) Color(0xFF334155) else Color(0xFF64748B),
-                topLeft = Offset(obstacle.x + obstacle.width - 6f, obsTop),
-                size = Size(6f, beamHeight)
-            )
-            // Glowing laser across
+            // Kenney saw_a / saw_b: Rotating circular steel saw with security hazard beam
+            val centerX = obstacle.x + obstacle.width * 0.5f
+            val centerY = obsTop + obstacle.height * 0.5f
+            val radius = obstacle.height * 0.5f
+
+            // Rotating saw blade teeth (Kenney saw_a & saw_b)
+            val toothCount = 8
+            val angleOffset = (obstacle.x * 0.08f) % (2f * PI.toFloat())
+            val sawPath = Path()
+            for (i in 0 until toothCount) {
+                val a1 = angleOffset + i * (2f * PI.toFloat() / toothCount)
+                val a2 = a1 + (PI.toFloat() / toothCount)
+                val outerX = centerX + cos(a1) * radius
+                val outerY = centerY + sin(a1) * radius
+                val innerX = centerX + cos(a2) * (radius * 0.65f)
+                val innerY = centerY + sin(a2) * (radius * 0.65f)
+
+                if (i == 0) sawPath.moveTo(outerX, outerY) else sawPath.lineTo(outerX, outerY)
+                sawPath.lineTo(innerX, innerY)
+            }
+            sawPath.close()
+
+            drawPath(sawPath, Color(0xFFE2E8F0))
+            drawPath(sawPath, Color(0xFF64748B), style = Stroke(width = 1.2f))
+
+            // Center steel hub and red indicator dot
+            drawCircle(color = Color(0xFF475569), radius = radius * 0.38f, center = Offset(centerX, centerY))
+            drawCircle(color = Color(0xFFFF1744), radius = radius * 0.18f, center = Offset(centerX, centerY))
+
+            // Overhead mounting beam
             drawLine(
-                color = Color(0xFFFF1744),
-                start = Offset(obstacle.x + 6f, obsTop + beamHeight / 2f),
-                end = Offset(obstacle.x + obstacle.width - 6f, obsTop + beamHeight / 2f),
-                strokeWidth = 5f
-            )
-            drawLine(
-                color = Color(0xFFFF8A80),
-                start = Offset(obstacle.x + 6f, obsTop + beamHeight / 2f),
-                end = Offset(obstacle.x + obstacle.width - 6f, obsTop + beamHeight / 2f),
-                strokeWidth = 2.5f
-            )
-            // Downward danger beam indicators
-            drawCircle(
-                color = Color(0xFFFF1744).copy(alpha = 0.4f),
-                radius = 8f,
-                center = Offset(obstacle.x + obstacle.width / 2f, obsTop + beamHeight / 2f)
+                color = if (isDark) Color(0xFF334155) else Color(0xFF94A3B8),
+                start = Offset(centerX, obsTop - 15f),
+                end = Offset(centerX, obsTop),
+                strokeWidth = 3f
             )
         }
 
         ObstacleType.CYBER_SPIRE -> {
-            // Triangular Spire
-            val path = Path().apply {
-                moveTo(obstacle.x, obsBottom)
-                lineTo(obstacle.x + obstacle.width * 0.5f, obsTop)
-                lineTo(obstacle.x + obstacle.width, obsBottom)
-                close()
+            // Kenney ground spikes: Triple metallic ground spikes
+            val spikeCount = 2
+            val spikeW = obstacle.width / spikeCount
+            for (i in 0 until spikeCount) {
+                val sx = obstacle.x + i * spikeW
+                val path = Path().apply {
+                    moveTo(sx, obsBottom)
+                    lineTo(sx + spikeW * 0.5f, obsTop)
+                    lineTo(sx + spikeW, obsBottom)
+                    close()
+                }
+                drawPath(path, Color(0xFFE2E8F0))
+                // Facet bevel
+                val facetPath = Path().apply {
+                    moveTo(sx, obsBottom)
+                    lineTo(sx + spikeW * 0.5f, obsTop)
+                    lineTo(sx + spikeW * 0.5f, obsBottom)
+                    close()
+                }
+                drawPath(facetPath, Color(0xFFFFFFFF).copy(alpha = 0.5f))
+                drawPath(path, Color(0xFF475569), style = Stroke(width = 1.2f))
             }
-            drawPath(path, dangerColor)
-            // Core accent line
-            drawLine(
-                color = Color.White.copy(alpha = 0.85f),
-                start = Offset(obstacle.x + obstacle.width * 0.5f, obsTop + 6f),
-                end = Offset(obstacle.x + obstacle.width * 0.5f, obsBottom - 4f),
-                strokeWidth = 2.5f
-            )
         }
 
         ObstacleType.WALL_STRUCTURE -> {
-            // Tall Wall Structure (Suitable for Wall Jump)
+            // Kenney door_closed & stone wall block: Wooden platformer door with iron studs
             drawRoundRect(
                 color = if (isDark) Color(0xFF1E293B) else Color(0xFF475569),
                 topLeft = Offset(obstacle.x, obsTop),
                 size = Size(obstacle.width, obstacle.height),
                 cornerRadius = CornerRadius(4f, 4f)
             )
-            // Neon grip ledge
+            // Wooden door inlay
+            drawRoundRect(
+                color = Color(0xFF795548),
+                topLeft = Offset(obstacle.x + 4f, obsTop + 6f),
+                size = Size(obstacle.width - 8f, obstacle.height - 6f),
+                cornerRadius = CornerRadius(3f, 3f)
+            )
+            // Iron reinforcement bands
             drawLine(
-                color = accentColor,
-                start = Offset(obstacle.x + 2f, obsTop + 14f),
-                end = Offset(obstacle.x + obstacle.width - 2f, obsTop + 14f),
+                color = Color(0xFF37474F),
+                start = Offset(obstacle.x + 4f, obsTop + 18f),
+                end = Offset(obstacle.x + obstacle.width - 4f, obsTop + 18f),
                 strokeWidth = 3.5f
             )
             drawLine(
+                color = Color(0xFF37474F),
+                start = Offset(obstacle.x + 4f, obsTop + 44f),
+                end = Offset(obstacle.x + obstacle.width - 4f, obsTop + 44f),
+                strokeWidth = 3.5f
+            )
+            // Keyhole / handle
+            drawCircle(
+                color = Color(0xFFFFD600),
+                radius = 2.5f,
+                center = Offset(obstacle.x + obstacle.width - 9f, obsTop + 32f)
+            )
+            // Parkour neon grip ledge
+            drawLine(
                 color = accentColor,
-                start = Offset(obstacle.x + 2f, obsTop + 36f),
-                end = Offset(obstacle.x + obstacle.width - 2f, obsTop + 36f),
+                start = Offset(obstacle.x + 2f, obsTop + 2f),
+                end = Offset(obstacle.x + obstacle.width - 2f, obsTop + 2f),
                 strokeWidth = 3f
             )
         }
 
         ObstacleType.SECURITY_LASER_GATE -> {
-            // Security Gate
+            // Security laser gate with rotating mini hazard blade
             drawRoundRect(
-                color = dangerColor,
+                color = if (isDark) Color(0xFF334155) else Color(0xFF64748B),
                 topLeft = Offset(obstacle.x, obsTop),
-                size = Size(8f, obstacle.height),
-                cornerRadius = CornerRadius(4f, 4f)
+                size = Size(7f, obstacle.height),
+                cornerRadius = CornerRadius(3f, 3f)
             )
             drawRoundRect(
-                color = dangerColor,
-                topLeft = Offset(obstacle.x + obstacle.width - 8f, obsTop),
-                size = Size(8f, obstacle.height),
-                cornerRadius = CornerRadius(4f, 4f)
+                color = if (isDark) Color(0xFF334155) else Color(0xFF64748B),
+                topLeft = Offset(obstacle.x + obstacle.width - 7f, obsTop),
+                size = Size(7f, obstacle.height),
+                cornerRadius = CornerRadius(3f, 3f)
+            )
+            // Red laser beams
+            drawLine(
+                color = Color(0xFFFF1744),
+                start = Offset(obstacle.x + 7f, obsTop + 12f),
+                end = Offset(obstacle.x + obstacle.width - 7f, obsTop + 12f),
+                strokeWidth = 3.5f
             )
             drawLine(
                 color = Color(0xFFFF1744),
-                start = Offset(obstacle.x + 8f, obsTop + 12f),
-                end = Offset(obstacle.x + obstacle.width - 8f, obsTop + 12f),
-                strokeWidth = 4f
-            )
-            drawLine(
-                color = Color(0xFFFF1744),
-                start = Offset(obstacle.x + 8f, obsTop + 28f),
-                end = Offset(obstacle.x + obstacle.width - 8f, obsTop + 28f),
+                start = Offset(obstacle.x + 7f, obsTop + 30f),
+                end = Offset(obstacle.x + obstacle.width - 7f, obsTop + 30f),
                 strokeWidth = 3f
             )
         }
     }
 }
 
-// Draw Collectibles
-private fun DrawScope.drawParkourCollectible(
+// 6. Draw Kenney Collectibles (gem_blue, coin_gold, key_blue)
+private fun DrawScope.drawKenneyCollectible(
     collectible: RunnerCollectible,
-    groundY: Float,
-    shieldColor: Color,
-    starColor: Color,
-    coreColor: Color
+    groundY: Float
 ) {
     val center = Offset(collectible.x + 14f, groundY - collectible.y - 14f)
 
     when (collectible.type) {
         CollectibleType.SHIELD_TOKEN -> {
+            // Kenney gem_blue.svg: Faceted blue crystal diamond
             drawCircle(
-                color = shieldColor.copy(alpha = 0.25f),
+                color = Color(0xFF00E5FF).copy(alpha = 0.25f),
                 radius = 16f,
                 center = center
             )
-            val path = Path().apply {
-                moveTo(center.x, center.y - 11f)
-                lineTo(center.x + 9f, center.y - 6f)
-                lineTo(center.x + 7f, center.y + 5f)
-                lineTo(center.x, center.y + 11f)
-                lineTo(center.x - 7f, center.y + 5f)
-                lineTo(center.x - 9f, center.y - 6f)
+            val gemPath = Path().apply {
+                moveTo(center.x, center.y - 12f)
+                lineTo(center.x + 11f, center.y - 4f)
+                lineTo(center.x + 9f, center.y + 7f)
+                lineTo(center.x, center.y + 12f)
+                lineTo(center.x - 9f, center.y + 7f)
+                lineTo(center.x - 11f, center.y - 4f)
                 close()
             }
-            drawPath(path, shieldColor)
-            drawPath(path, Color.White, style = Stroke(width = 1.5f))
+            drawPath(gemPath, Color(0xFF0288D1))
+
+            // Upper facet highlight
+            val topFacet = Path().apply {
+                moveTo(center.x, center.y - 12f)
+                lineTo(center.x + 11f, center.y - 4f)
+                lineTo(center.x, center.y)
+                lineTo(center.x - 11f, center.y - 4f)
+                close()
+            }
+            drawPath(topFacet, Color(0xFF4FC3F7))
+
+            // Diamond shine sparkle
+            drawCircle(color = Color.White, radius = 2f, center = Offset(center.x - 3f, center.y - 5f))
+            drawPath(gemPath, Color(0xFF01579B), style = Stroke(width = 1.2f))
         }
 
         CollectibleType.PRIVACY_STAR -> {
+            // Kenney coin_gold.svg: Gold coin with inner star emblem
             drawCircle(
-                color = starColor.copy(alpha = 0.3f),
-                radius = 16f,
+                color = Color(0xFFFFD600).copy(alpha = 0.3f),
+                radius = 15f,
                 center = center
             )
-            val path = Path().apply {
-                moveTo(center.x, center.y - 12f)
-                lineTo(center.x + 4f, center.y - 4f)
-                lineTo(center.x + 12f, center.y)
-                lineTo(center.x + 4f, center.y + 4f)
-                lineTo(center.x, center.y + 12f)
-                lineTo(center.x - 4f, center.y + 4f)
-                lineTo(center.x - 12f, center.y)
-                lineTo(center.x - 4f, center.y - 4f)
+            // Outer golden disc
+            drawCircle(color = Color(0xFFF59E0B), radius = 12f, center = center)
+            // Inner golden rim
+            drawCircle(color = Color(0xFFFBBF24), radius = 9.5f, center = center)
+
+            // Inner star
+            val starPath = Path().apply {
+                moveTo(center.x, center.y - 6f)
+                lineTo(center.x + 2f, center.y - 2f)
+                lineTo(center.x + 6f, center.y - 2f)
+                lineTo(center.x + 3f, center.y + 1f)
+                lineTo(center.x + 4f, center.y + 5f)
+                lineTo(center.x, center.y + 2.5f)
+                lineTo(center.x - 4f, center.y + 5f)
+                lineTo(center.x - 3f, center.y + 1f)
+                lineTo(center.x - 6f, center.y - 2f)
+                lineTo(center.x - 2f, center.y - 2f)
                 close()
             }
-            drawPath(path, starColor)
-            drawCircle(color = Color.White, radius = 2.5f, center = center)
+            drawPath(starPath, Color(0xFFFFFBEB))
+            drawCircle(color = Color(0xFFD97706), radius = 12f, style = Stroke(width = 1.2f))
         }
 
         CollectibleType.ENCRYPTED_CORE -> {
+            // Kenney key_blue.svg: Classic blue security key
             drawCircle(
-                color = coreColor.copy(alpha = 0.3f),
+                color = Color(0xFF38BDF8).copy(alpha = 0.25f),
                 radius = 16f,
                 center = center
             )
-            // Diamond polygon
-            val path = Path().apply {
-                moveTo(center.x, center.y - 11f)
-                lineTo(center.x + 11f, center.y)
-                lineTo(center.x, center.y + 11f)
-                lineTo(center.x - 11f, center.y)
-                close()
-            }
-            drawPath(path, coreColor)
-            drawCircle(color = Color.White, radius = 3f, center = center)
+            // Circular Bow Head
+            drawCircle(
+                color = Color(0xFF0284C7),
+                radius = 7.5f,
+                center = Offset(center.x - 5f, center.y - 5f)
+            )
+            drawCircle(
+                color = Color.White,
+                radius = 3f,
+                center = Offset(center.x - 5f, center.y - 5f)
+            )
+            // Key shaft
+            drawLine(
+                color = Color(0xFF0284C7),
+                start = Offset(center.x - 2f, center.y - 2f),
+                end = Offset(center.x + 9f, center.y + 9f),
+                strokeWidth = 3.5f
+            )
+            // Key teeth
+            drawLine(
+                color = Color(0xFF0284C7),
+                start = Offset(center.x + 6f, center.y + 6f),
+                end = Offset(center.x + 9f, center.y + 3f),
+                strokeWidth = 2.5f
+            )
+            drawLine(
+                color = Color(0xFF0284C7),
+                start = Offset(center.x + 8.5f, center.y + 8.5f),
+                end = Offset(center.x + 11.5f, center.y + 5.5f),
+                strokeWidth = 2.5f
+            )
         }
     }
 }
 
-// Draw Mascot with Parkour Animation Poses
-private fun DrawScope.drawParkourRunnerMascot(
+// 7. Draw Kenney Purple Character (Faithful 7 Animation States: idle, walk_a, walk_b, jump, double jump, duck/slide, climb_a/b, hit)
+private fun DrawScope.drawKenneyPurpleCharacter(
     playerX: Float,
     groundY: Float,
     runnerY: Float,
+    gameState: RunnerGameState,
     isGrounded: Boolean,
     isSliding: Boolean,
     isDoubleJumping: Boolean,
     isWallJumping: Boolean,
     phase: Float,
-    suitColor: Color,
-    visorColor: Color,
     shieldColor: Color,
     isDark: Boolean
 ) {
-    if (isSliding) {
-        // SLIDE POSE: Low, elongated horizontal silhouette with friction sparks
-        val slideTop = groundY - 20f
+    // Kenney Purple Character Palette:
+    val purpleBody = Color(0xFF8E44AD)
+    val purpleDarkOutline = Color(0xFF512E5F)
+    val purpleBelly = Color(0xFFBB8FCE)
+    val pinkAntennaeTip = Color(0xFFF48FB1)
+    val darkShoe = Color(0xFF2C3E50)
+    val shoeSole = Color(0xFFE2E8F0)
 
-        // Horizontal body
+    // A. STATE: character_purple_duck (SLIDE / DUCK)
+    if (isSliding) {
+        val slideTop = groundY - 24f
+        val slideW = 44f
+        val slideH = 20f
+
+        // Flattened purple body
         drawRoundRect(
-            color = suitColor,
-            topLeft = Offset(playerX - 6f, slideTop + 4f),
-            size = Size(38f, 15f),
-            cornerRadius = CornerRadius(6f, 6f)
+            color = purpleBody,
+            topLeft = Offset(playerX - 8f, slideTop + 4f),
+            size = Size(slideW, slideH),
+            cornerRadius = CornerRadius(9f, 9f)
+        )
+        // Belly patch
+        drawRoundRect(
+            color = purpleBelly,
+            topLeft = Offset(playerX + 2f, slideTop + 7f),
+            size = Size(20f, 10f),
+            cornerRadius = CornerRadius(4f, 4f)
         )
         // Head tilted forward
         drawCircle(
-            color = suitColor,
-            radius = 8f,
-            center = Offset(playerX + 34f, slideTop + 10f)
+            color = purpleBody,
+            radius = 9f,
+            center = Offset(playerX + 32f, slideTop + 10f)
         )
-        // Visor
-        drawRoundRect(
-            color = visorColor,
-            topLeft = Offset(playerX + 34f, slideTop + 8f),
-            size = Size(8f, 4f),
-            cornerRadius = CornerRadius(2f, 2f)
-        )
-        // Trailing leg line
+        // Determined squinting eye
         drawLine(
-            color = suitColor,
-            start = Offset(playerX - 6f, slideTop + 12f),
-            end = Offset(playerX - 16f, slideTop + 18f),
-            strokeWidth = 4f
+            color = Color.White,
+            start = Offset(playerX + 30f, slideTop + 9f),
+            end = Offset(playerX + 36f, slideTop + 9f),
+            strokeWidth = 3f
+        )
+        drawCircle(
+            color = darkShoe,
+            radius = 1.5f,
+            center = Offset(playerX + 34f, slideTop + 9f)
+        )
+        // Horns tilted back
+        drawCircle(
+            color = pinkAntennaeTip,
+            radius = 3f,
+            center = Offset(playerX + 24f, slideTop + 3f)
+        )
+        // Trailing slide shoe
+        drawRoundRect(
+            color = darkShoe,
+            topLeft = Offset(playerX - 12f, slideTop + 13f),
+            size = Size(10f, 6f),
+            cornerRadius = CornerRadius(2.5f, 2.5f)
+        )
+        // Body outline
+        drawRoundRect(
+            color = purpleDarkOutline,
+            topLeft = Offset(playerX - 8f, slideTop + 4f),
+            size = Size(slideW, slideH),
+            cornerRadius = CornerRadius(9f, 9f),
+            style = Stroke(width = 1.5f)
         )
         return
     }
 
-    val playerY = groundY - runnerY - 48f
-    val bodyCenterX = playerX + 16f
-    val bodyCenterY = playerY + 20f
+    val playerY = groundY - runnerY - 50f
+    val centerX = playerX + 16f
+    val centerY = playerY + 22f
 
-    // 1. Torso & Hoodie Silhouette
-    drawRoundRect(
-        color = suitColor,
-        topLeft = Offset(playerX + 6f, playerY + 12f),
-        size = Size(18f, 22f),
-        cornerRadius = CornerRadius(6f, 6f)
-    )
+    // B. STATE: character_purple_hit (GAME OVER)
+    if (gameState == RunnerGameState.GAME_OVER) {
+        // Tumbled backward pose with dizzy X eyes and stars
+        val hitY = playerY + 8f
 
-    // 2. Head / Stealth Helmet
-    drawCircle(
-        color = suitColor,
-        radius = 9f,
-        center = Offset(bodyCenterX, playerY + 9f)
-    )
+        // Body tilted back
+        drawRoundRect(
+            color = purpleBody,
+            topLeft = Offset(playerX + 2f, hitY + 12f),
+            size = Size(24f, 28f),
+            cornerRadius = CornerRadius(10f, 10f)
+        )
+        // Head
+        drawCircle(
+            color = purpleBody,
+            radius = 12f,
+            center = Offset(centerX + 2f, hitY + 10f)
+        )
+        // Dizzy X eyes
+        val eyeX = centerX + 4f
+        val eyeY = hitY + 9f
+        drawLine(color = Color(0xFFFF1744), start = Offset(eyeX - 4f, eyeY - 4f), end = Offset(eyeX + 4f, eyeY + 4f), strokeWidth = 2.5f)
+        drawLine(color = Color(0xFFFF1744), start = Offset(eyeX - 4f, eyeY + 4f), end = Offset(eyeX + 4f, eyeY - 4f), strokeWidth = 2.5f)
 
-    // 3. Cyber Visor
-    drawRoundRect(
-        color = visorColor,
-        topLeft = Offset(bodyCenterX, playerY + 6f),
-        size = Size(10f, 5f),
-        cornerRadius = CornerRadius(2.5f, 2.5f)
-    )
+        // Dizzy wobbly mouth
+        val mouthPath = Path().apply {
+            moveTo(eyeX - 4f, eyeY + 8f)
+            lineTo(eyeX, eyeY + 6f)
+            lineTo(eyeX + 4f, eyeY + 8f)
+        }
+        drawPath(mouthPath, purpleDarkOutline, style = Stroke(width = 2f))
 
-    // 4. Holographic Arm Shield
-    val shieldPath = Path().apply {
-        moveTo(playerX + 22f, bodyCenterY - 6f)
-        lineTo(playerX + 28f, bodyCenterY - 2f)
-        lineTo(playerX + 26f, bodyCenterY + 6f)
-        lineTo(playerX + 22f, bodyCenterY + 10f)
-        lineTo(playerX + 18f, bodyCenterY + 6f)
-        lineTo(playerX + 18f, bodyCenterY - 2f)
-        close()
+        // Impact dizziness stars
+        drawCircle(color = Color(0xFFFFD600), radius = 2.5f, center = Offset(centerX - 10f, hitY - 2f))
+        drawCircle(color = Color(0xFFFFD600), radius = 3.5f, center = Offset(centerX + 12f, hitY - 6f))
+
+        // Outline
+        drawCircle(color = purpleDarkOutline, radius = 12f, center = Offset(centerX + 2f, hitY + 10f), style = Stroke(width = 1.5f))
+        return
     }
-    drawPath(shieldPath, shieldColor.copy(alpha = 0.85f))
-    drawPath(shieldPath, Color.White, style = Stroke(width = 1.2f))
 
-    // 5. Double Jump Energy Ring
+    // C. GENERAL BODY / HEAD / EARS FOR IDLE, WALK A/B, JUMP, CLIMB
+    val isWalkA = isGrounded && (sin(phase) >= 0f)
+
+    // 1. Cute Antennae / Horns with Pink Tips (Kenney Mascot Feature)
+    val horn1X = centerX - 6f
+    val horn2X = centerX + 6f
+    val hornY = playerY + 2f
+
+    drawLine(color = purpleBody, start = Offset(centerX - 4f, playerY + 8f), end = Offset(horn1X, hornY), strokeWidth = 3.5f)
+    drawLine(color = purpleBody, start = Offset(centerX + 4f, playerY + 8f), end = Offset(horn2X, hornY), strokeWidth = 3.5f)
+    drawCircle(color = pinkAntennaeTip, radius = 3f, center = Offset(horn1X, hornY))
+    drawCircle(color = pinkAntennaeTip, radius = 3f, center = Offset(horn2X, hornY))
+
+    // 2. Character Body & Head (Kenney Oval Capsule)
+    drawRoundRect(
+        color = purpleBody,
+        topLeft = Offset(playerX + 4f, playerY + 8f),
+        size = Size(24f, 32f),
+        cornerRadius = CornerRadius(11f, 11f)
+    )
+    // Cute lighter purple belly
+    drawRoundRect(
+        color = purpleBelly,
+        topLeft = Offset(playerX + 8f, playerY + 18f),
+        size = Size(16f, 18f),
+        cornerRadius = CornerRadius(7f, 7f)
+    )
+
+    // 3. Expressive Big Cartoon Eyes
+    val eyeCenterX = centerX + 4f
+    val eyeCenterY = playerY + 15f
+    drawCircle(color = Color.White, radius = 5.5f, center = Offset(eyeCenterX, eyeCenterY))
+    drawCircle(color = darkShoe, radius = 3f, center = Offset(eyeCenterX + 1.2f, eyeCenterY))
+    // Glossy eye reflection catchlight
+    drawCircle(color = Color.White, radius = 1.2f, center = Offset(eyeCenterX + 0.5f, eyeCenterY - 1f))
+
+    // 4. Character Mouth State
+    if (!isGrounded) {
+        // Open excited "O" mouth for jump
+        drawCircle(color = purpleDarkOutline, radius = 2.5f, center = Offset(eyeCenterX, eyeCenterY + 7f))
+    } else {
+        // Cheerful smile
+        val smilePath = Path().apply {
+            moveTo(eyeCenterX - 3f, eyeCenterY + 6f)
+            quadraticTo(eyeCenterX, eyeCenterY + 8.5f, eyeCenterX + 3f, eyeCenterY + 6f)
+        }
+        drawPath(smilePath, purpleDarkOutline, style = Stroke(width = 1.5f))
+    }
+
+    // 5. Double Jump Halo / Sparkle Ring
     if (isDoubleJumping && !isGrounded) {
         drawCircle(
-            color = shieldColor.copy(alpha = 0.45f),
-            radius = 18f,
-            center = Offset(bodyCenterX, bodyCenterY),
-            style = Stroke(width = 2f)
+            color = shieldColor.copy(alpha = 0.6f),
+            radius = 20f,
+            center = Offset(centerX, centerY),
+            style = Stroke(width = 2.5f)
         )
+        drawCircle(color = Color.White, radius = 2f, center = Offset(centerX + 18f, centerY - 8f))
+        drawCircle(color = Color.White, radius = 2f, center = Offset(centerX - 16f, centerY + 10f))
     }
 
-    // 6. Legs / Motion Stride
-    if (isGrounded) {
-        val legSwing = sin(phase) * 12f
-
-        // Front leg
-        drawLine(
-            color = suitColor,
-            start = Offset(playerX + 11f, playerY + 32f),
-            end = Offset(playerX + 12f + legSwing, playerY + 46f),
-            strokeWidth = 4f
-        )
-        // Back leg
-        drawLine(
-            color = suitColor.copy(alpha = 0.8f),
-            start = Offset(playerX + 19f, playerY + 32f),
-            end = Offset(playerX + 18f - legSwing, playerY + 46f),
-            strokeWidth = 4f
-        )
-    } else if (isWallJumping) {
-        // Wall Jump Acrobatic Kick Pose
-        drawLine(
-            color = suitColor,
-            start = Offset(playerX + 11f, playerY + 32f),
-            end = Offset(playerX + 24f, playerY + 44f),
-            strokeWidth = 4f
-        )
-        drawLine(
-            color = suitColor,
-            start = Offset(playerX + 18f, playerY + 32f),
-            end = Offset(playerX + 6f, playerY + 42f),
-            strokeWidth = 3.5f
-        )
+    // 6. Arms & Hands Animation
+    if (isWallJumping) {
+        // character_purple_climb: Arms reaching high gripping wall
+        drawLine(color = purpleBody, start = Offset(centerX + 8f, centerY), end = Offset(centerX + 16f, centerY - 12f), strokeWidth = 4f)
+        drawCircle(color = purpleBody, radius = 3f, center = Offset(centerX + 16f, centerY - 12f))
+    } else if (!isGrounded) {
+        // character_purple_jump: Both arms joyfully raised up
+        drawLine(color = purpleBody, start = Offset(centerX - 8f, centerY), end = Offset(centerX - 14f, centerY - 10f), strokeWidth = 4f)
+        drawLine(color = purpleBody, start = Offset(centerX + 8f, centerY), end = Offset(centerX + 14f, centerY - 10f), strokeWidth = 4f)
+        drawCircle(color = purpleBody, radius = 3f, center = Offset(centerX - 14f, centerY - 10f))
+        drawCircle(color = purpleBody, radius = 3f, center = Offset(centerX + 14f, centerY - 10f))
+    } else if (gameState == RunnerGameState.NOT_STARTED) {
+        // character_purple_idle: Arms resting naturally at sides
+        drawLine(color = purpleBody, start = Offset(centerX - 8f, centerY - 2f), end = Offset(centerX - 10f, centerY + 8f), strokeWidth = 3.5f)
+        drawLine(color = purpleBody, start = Offset(centerX + 8f, centerY - 2f), end = Offset(centerX + 10f, centerY + 8f), strokeWidth = 3.5f)
     } else {
-        // Airborne Tucked Jump Pose
-        drawLine(
-            color = suitColor,
-            start = Offset(playerX + 11f, playerY + 32f),
-            end = Offset(playerX + 8f, playerY + 40f),
-            strokeWidth = 4f
-        )
-        drawLine(
-            color = suitColor,
-            start = Offset(playerX + 8f, playerY + 40f),
-            end = Offset(playerX + 18f, playerY + 44f),
-            strokeWidth = 3.5f
-        )
+        // character_purple_walk_a / walk_b: Running arm swing
+        val armSwing = if (isWalkA) 8f else -8f
+        drawLine(color = purpleBody, start = Offset(centerX - 6f, centerY), end = Offset(centerX - 6f - armSwing, centerY + 6f), strokeWidth = 3.5f)
+        drawLine(color = purpleBody, start = Offset(centerX + 6f, centerY), end = Offset(centerX + 6f + armSwing, centerY + 6f), strokeWidth = 3.5f)
     }
+
+    // 7. Legs & Shoes (character_purple_walk_a vs walk_b stride / jump tuck / idle)
+    val legY = playerY + 36f
+    if (isWallJumping) {
+        // Wall climb kick off
+        drawRoundRect(color = darkShoe, topLeft = Offset(centerX + 4f, legY + 4f), size = Size(10f, 6f), cornerRadius = CornerRadius(2f, 2f))
+        drawRoundRect(color = darkShoe, topLeft = Offset(centerX - 10f, legY + 8f), size = Size(9f, 6f), cornerRadius = CornerRadius(2f, 2f))
+    } else if (!isGrounded) {
+        // Jump tucked legs
+        drawRoundRect(color = darkShoe, topLeft = Offset(centerX - 8f, legY + 2f), size = Size(8f, 6f), cornerRadius = CornerRadius(2f, 2f))
+        drawRoundRect(color = darkShoe, topLeft = Offset(centerX + 2f, legY + 2f), size = Size(8f, 6f), cornerRadius = CornerRadius(2f, 2f))
+    } else if (gameState == RunnerGameState.NOT_STARTED) {
+        // Idle stance feet
+        drawRoundRect(color = darkShoe, topLeft = Offset(centerX - 8f, legY + 6f), size = Size(8f, 6f), cornerRadius = CornerRadius(2f, 2f))
+        drawRoundRect(color = darkShoe, topLeft = Offset(centerX + 2f, legY + 6f), size = Size(8f, 6f), cornerRadius = CornerRadius(2f, 2f))
+    } else {
+        // Dynamic Walk A / Walk B Stride
+        val frontFootX = if (isWalkA) centerX + 6f else centerX - 6f
+        val backFootX = if (isWalkA) centerX - 8f else centerX + 4f
+        val frontFootY = legY + 6f
+        val backFootY = legY + 4f
+
+        drawRoundRect(color = darkShoe, topLeft = Offset(frontFootX, frontFootY), size = Size(9f, 6f), cornerRadius = CornerRadius(2f, 2f))
+        drawRoundRect(color = darkShoe, topLeft = Offset(backFootX, backFootY), size = Size(8f, 6f), cornerRadius = CornerRadius(2f, 2f))
+    }
+
+    // 8. Body Dark Outline
+    drawRoundRect(
+        color = purpleDarkOutline,
+        topLeft = Offset(playerX + 4f, playerY + 8f),
+        size = Size(24f, 32f),
+        cornerRadius = CornerRadius(11f, 11f),
+        style = Stroke(width = 1.5f)
+    )
 }
+

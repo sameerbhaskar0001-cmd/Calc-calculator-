@@ -561,7 +561,7 @@ fun VaultContentScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
-                        .padding(bottom = 40.dp)
+                        .padding(bottom = 20.dp)
                 ) {
                     val contentColor = if (ThemePurple.red > 0.95f && ThemePurple.green > 0.95f && ThemePurple.blue > 0.95f) BrandBg else Color.White
                     Button(
@@ -1257,18 +1257,19 @@ fun PremiumVaultEmptyState(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 40.dp),
+            .padding(horizontal = 32.dp)
+            .padding(bottom = 70.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Box(
-            modifier = Modifier.size(260.dp),
+            modifier = Modifier.size(190.dp),
             contentAlignment = Alignment.Center
         ) {
             // 1. Ripple wave ring
             Box(
                 modifier = Modifier
-                    .size(220.dp)
+                    .size(170.dp)
                     .scale(rippleScale)
                     .clip(CircleShape)
                     .background(ThemePurple.copy(alpha = rippleAlpha * 0.08f))
@@ -1278,7 +1279,7 @@ fun PremiumVaultEmptyState(
             // 2. Middle breathing ring
             Box(
                 modifier = Modifier
-                    .size(170.dp)
+                    .size(130.dp)
                     .scale(middleScale)
                     .clip(CircleShape)
                     .background(
@@ -1296,7 +1297,7 @@ fun PremiumVaultEmptyState(
             // 3. Inner core solid button
             Box(
                 modifier = Modifier
-                    .size(100.dp)
+                    .size(80.dp)
                     .scale(coreScale)
                     .clip(CircleShape)
                     .background(Color(0xFF141A29))
@@ -1319,33 +1320,33 @@ fun PremiumVaultEmptyState(
                 Icon(
                     imageVector = emptyIcon,
                     contentDescription = null,
-                    modifier = Modifier.size(46.dp),
+                    modifier = Modifier.size(36.dp),
                     tint = ThemePurple
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Title text
         Text(
             text = if (searchQuery.isNotEmpty()) "No results found" else emptyTitle,
             color = Color.White,
-            fontSize = 24.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.ExtraBold,
-            letterSpacing = (-0.5).sp,
+            letterSpacing = (-0.3).sp,
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Subtitle text
         Text(
             text = if (searchQuery.isNotEmpty()) "Try adjusting your search terms." else emptySubtitle,
             color = Color.White.copy(alpha = 0.6f),
-            fontSize = 15.sp,
+            fontSize = 13.sp,
             textAlign = TextAlign.Center,
-            lineHeight = 22.sp,
+            lineHeight = 18.sp,
             fontWeight = FontWeight.Normal
         )
     }

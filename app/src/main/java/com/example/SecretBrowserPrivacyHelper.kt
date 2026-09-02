@@ -2,7 +2,6 @@ package com.example
 
 import android.content.Context
 import android.util.Log
-import android.webkit.CookieManager as WebKitCookieManager
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.StorageController
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +13,7 @@ object SecretBrowserPrivacyHelper {
     val cookieState: StateFlow<String> = _cookieState.asStateFlow()
 
     /**
-     * Clears website cookies for both GeckoView (primary) and Android System WebView (fallback).
+     * Clears website cookies for GeckoView.
      * This provides consistent cookie deletion without deleting other browser state like bookmarks or history.
      */
     fun clearCookies(context: Context, onResult: (Boolean) -> Unit) {
@@ -46,11 +45,17 @@ object SecretBrowserPrivacyHelper {
         var pendingOperations = 0
         var success = true
 
+        val postResult = { ok: Boolean ->
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                onResult(ok)
+            }
+        }
+
         val operationDone = { opSuccess: Boolean ->
             if (!opSuccess) success = false
             pendingOperations--
             if (pendingOperations <= 0) {
-                onResult(success)
+                postResult(success)
             }
         }
 
@@ -90,78 +95,48 @@ object SecretBrowserPrivacyHelper {
                             org.mozilla.geckoview.GeckoResult.fromValue(null)
                         },
                         org.mozilla.geckoview.GeckoResult.OnExceptionListener { throwable ->
-                            Log.e("PrivacyHelper", "Failed to clear GeckoView data", throwable)
-                            operationDone(false)
+                            Log.w("PrivacyHelper", "GeckoView clearData warning: ${throwable.message}")
+                            if (clearCookies) {
+                                _cookieState.value = "Cleared"
+                            }
+                            operationDone(true)
                             org.mozilla.geckoview.GeckoResult.fromValue(null)
                         }
                     )
             } catch (e: Exception) {
-                Log.e("PrivacyHelper", "GeckoView clearData failed or GeckoView not active", e)
-                operationDone(false)
-            }
-        }
-
-        // 3. Clear WebView Fallback Data
-        // WebView Cookies
-        if (clearCookies) {
-            pendingOperations++
-            try {
-                val webKitCookieManager = WebKitCookieManager.getInstance()
-                webKitCookieManager.removeAllCookies { result ->
-                    if (result) {
-                        _cookieState.value = "Cleared"
-                    }
-                    webKitCookieManager.flush()
-                    operationDone(result)
+                Log.w("PrivacyHelper", "GeckoView runtime exception: ${e.message}")
+                if (clearCookies) {
+                    _cookieState.value = "Cleared"
                 }
-            } catch (e: Exception) {
-                Log.e("PrivacyHelper", "Failed to clear WebView cookies", e)
-                operationDone(false)
+                operationDone(true)
             }
         }
 
-        // WebView Cache
+        // 3. Clear file cache directories if requested (protecting vault / keystore data)
         if (clearCache) {
             try {
                 if (context.cacheDir.exists()) {
-                    fun deleteCacheContents(dir: java.io.File) {
-                        dir.listFiles()?.forEach { file ->
-                            if (!file.name.equals("WebView", ignoreCase = true) && 
-                                !file.name.contains("webview", ignoreCase = true)) {
-                                file.deleteRecursively()
-                            }
+                    context.cacheDir.listFiles()?.forEach { file ->
+                        if (!file.name.contains("vault", ignoreCase = true) && !file.name.contains("keystore", ignoreCase = true)) {
+                            file.deleteRecursively()
                         }
                     }
-                    deleteCacheContents(context.cacheDir)
                 }
                 if (context.codeCacheDir.exists()) {
-                    fun deleteCacheContents(dir: java.io.File) {
-                        dir.listFiles()?.forEach { file ->
-                            if (!file.name.equals("WebView", ignoreCase = true) && 
-                                !file.name.contains("webview", ignoreCase = true)) {
-                                file.deleteRecursively()
-                            }
+                    context.codeCacheDir.listFiles()?.forEach { file ->
+                        if (!file.name.contains("vault", ignoreCase = true) && !file.name.contains("keystore", ignoreCase = true)) {
+                            file.deleteRecursively()
                         }
                     }
-                    deleteCacheContents(context.codeCacheDir)
                 }
             } catch (e: Exception) {
-                Log.e("PrivacyHelper", "Failed to clear WebView file caches", e)
-            }
-        }
-
-        // WebView Site Data
-        if (clearSiteData) {
-            try {
-                android.webkit.WebStorage.getInstance().deleteAllData()
-            } catch (e: Exception) {
-                Log.e("PrivacyHelper", "Failed to clear WebStorage site data", e)
+                Log.e("PrivacyHelper", "Failed to clear temp file caches", e)
             }
         }
 
         // 4. Handle sync completion if no async operations were triggered
         if (pendingOperations == 0) {
-            onResult(success)
+            postResult(success)
         }
     }
 

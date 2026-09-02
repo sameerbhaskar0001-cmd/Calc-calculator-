@@ -82,22 +82,174 @@ object TabThumbnailCache {
     }
 }
 
-fun captureWebViewThumbnail(webView: android.webkit.WebView?, tabId: String) {
-    if (webView == null) return
+fun captureViewThumbnail(view: android.view.View?, tabId: String, onComplete: (() -> Unit)? = null) {
+    if (view == null || tabId.isEmpty()) {
+        onComplete?.invoke()
+        return
+    }
     try {
-        val w = webView.width
-        val h = webView.height
-        if (w > 20 && h > 20) {
-            val scale = (360f / w).coerceAtMost(1f)
-            val tw = (w * scale).toInt().coerceAtLeast(60)
-            val th = (h * scale).toInt().coerceAtLeast(60)
+        if (!view.isAttachedToWindow) {
+            onComplete?.invoke()
+            return
+        }
+        val w = view.width
+        val h = view.height
+        if (w <= 20 || h <= 20) {
+            onComplete?.invoke()
+            return
+        }
+
+        val scale = (380f / w).coerceAtMost(1f)
+        val tw = (w * scale).toInt().coerceAtLeast(80)
+        val th = (h * scale).toInt().coerceAtLeast(80)
+
+        fun findGeckoView(v: android.view.View): org.mozilla.geckoview.GeckoView? {
+            if (v is org.mozilla.geckoview.GeckoView) return v
+            if (v is android.view.ViewGroup) {
+                for (i in 0 until v.childCount) {
+                    val gv = findGeckoView(v.getChildAt(i))
+                    if (gv != null) return gv
+                }
+            }
+            return null
+        }
+
+        val geckoView = findGeckoView(view)
+        if (geckoView != null) {
+            try {
+                geckoView.capturePixels().then(
+                    org.mozilla.geckoview.GeckoResult.OnValueListener<android.graphics.Bitmap, Void> { bmp ->
+                        if (bmp != null && bmp.width > 0 && bmp.height > 0) {
+                            val scaled = if (bmp.width != tw || bmp.height != th) {
+                                android.graphics.Bitmap.createScaledBitmap(bmp, tw, th, true)
+                            } else {
+                                bmp
+                            }
+                            TabThumbnailCache.setThumbnail(tabId, scaled)
+                        }
+                        onComplete?.invoke()
+                        null
+                    },
+                    org.mozilla.geckoview.GeckoResult.OnExceptionListener<Void> { err ->
+                        android.util.Log.w("TabThumbnail", "GeckoView capturePixels error for $tabId: ${err?.message}")
+                        onComplete?.invoke()
+                        null
+                    }
+                )
+                return
+            } catch (e: Throwable) {
+                android.util.Log.w("TabThumbnail", "capturePixels exception for $tabId", e)
+            }
+        }
+
+        // Find SurfaceView inside view hierarchy if any
+        fun findSurfaceView(v: android.view.View): android.view.SurfaceView? {
+            if (v is android.view.SurfaceView) return v
+            if (v is android.view.ViewGroup) {
+                for (i in 0 until v.childCount) {
+                    val sv = findSurfaceView(v.getChildAt(i))
+                    if (sv != null) return sv
+                }
+            }
+            return null
+        }
+
+        fun findTextureView(v: android.view.View): android.view.TextureView? {
+            if (v is android.view.TextureView) return v
+            if (v is android.view.ViewGroup) {
+                for (i in 0 until v.childCount) {
+                    val tv = findTextureView(v.getChildAt(i))
+                    if (tv != null) return tv
+                }
+            }
+            return null
+        }
+
+        val textureView = findTextureView(view)
+        if (textureView != null && textureView.isAvailable) {
+            val bmp = textureView.getBitmap(tw, th)
+            if (bmp != null) {
+                TabThumbnailCache.setThumbnail(tabId, bmp)
+                onComplete?.invoke()
+                return
+            }
+        }
+
+        val surfaceView = findSurfaceView(view)
+        val window = (view.context as? android.app.Activity)?.window
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val destBitmap = android.graphics.Bitmap.createBitmap(tw, th, android.graphics.Bitmap.Config.ARGB_8888)
+            if (surfaceView != null && surfaceView.holder.surface.isValid) {
+                android.view.PixelCopy.request(
+                    surfaceView,
+                    destBitmap,
+                    { copyResult ->
+                        if (copyResult == android.view.PixelCopy.SUCCESS) {
+                            TabThumbnailCache.setThumbnail(tabId, destBitmap)
+                            onComplete?.invoke()
+                        } else if (window != null && view.isAttachedToWindow) {
+                            val location = IntArray(2)
+                            view.getLocationInWindow(location)
+                            val viewRect = android.graphics.Rect(location[0], location[1], location[0] + w, location[1] + h)
+                            try {
+                                android.view.PixelCopy.request(
+                                    window,
+                                    viewRect,
+                                    destBitmap,
+                                    { winResult ->
+                                        if (winResult == android.view.PixelCopy.SUCCESS) {
+                                            TabThumbnailCache.setThumbnail(tabId, destBitmap)
+                                        }
+                                        onComplete?.invoke()
+                                    },
+                                    handler
+                                )
+                            } catch (e: Throwable) {
+                                onComplete?.invoke()
+                            }
+                        } else {
+                            onComplete?.invoke()
+                        }
+                    },
+                    handler
+                )
+            } else if (window != null && view.isAttachedToWindow) {
+                val location = IntArray(2)
+                view.getLocationInWindow(location)
+                val viewRect = android.graphics.Rect(location[0], location[1], location[0] + w, location[1] + h)
+                try {
+                    android.view.PixelCopy.request(
+                        window,
+                        viewRect,
+                        destBitmap,
+                        { copyResult ->
+                            if (copyResult == android.view.PixelCopy.SUCCESS) {
+                                TabThumbnailCache.setThumbnail(tabId, destBitmap)
+                            }
+                            onComplete?.invoke()
+                        },
+                        handler
+                    )
+                } catch (e: Throwable) {
+                    onComplete?.invoke()
+                }
+            } else {
+                onComplete?.invoke()
+            }
+        } else {
             val bmp = android.graphics.Bitmap.createBitmap(tw, th, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bmp)
             canvas.scale(scale, scale)
-            webView.draw(canvas)
+            view.draw(canvas)
             TabThumbnailCache.setThumbnail(tabId, bmp)
+            onComplete?.invoke()
         }
-    } catch (e: Throwable) {}
+    } catch (e: Throwable) {
+        android.util.Log.w("TabThumbnail", "Error capturing thumbnail for $tabId: ${e.message}")
+        onComplete?.invoke()
+    }
 }
 
 // BRAND & COLORS CONSTANTS
@@ -113,16 +265,19 @@ val SuccessColor = Color(0xFF2E7D32)
 @Composable
 fun YouTubeBrandIcon(modifier: Modifier = Modifier, sizeDp: Int = 34) {
     Box(
-        modifier = modifier
-            .size(sizeDp.dp)
-            .background(Color(0xFFFF0000), RoundedCornerShape((sizeDp * 0.26f).dp)),
+        modifier = modifier.size(sizeDp.dp),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size((sizeDp * 0.44f).dp)) {
+        Canvas(modifier = Modifier.size((sizeDp * 0.82f).dp, (sizeDp * 0.58f).dp)) {
+            val corner = size.height * 0.32f
+            drawRoundRect(
+                color = Color(0xFFFF0000),
+                cornerRadius = CornerRadius(corner, corner)
+            )
             val path = Path().apply {
-                moveTo(size.width * 0.28f, size.height * 0.16f)
-                lineTo(size.width * 0.84f, size.height * 0.50f)
-                lineTo(size.width * 0.28f, size.height * 0.84f)
+                moveTo(size.width * 0.38f, size.height * 0.28f)
+                lineTo(size.width * 0.68f, size.height * 0.50f)
+                lineTo(size.width * 0.38f, size.height * 0.72f)
                 close()
             }
             drawPath(path, color = Color.White)
@@ -149,8 +304,8 @@ fun InstagramBrandIcon(modifier: Modifier = Modifier, sizeDp: Int = 34) {
             .background(brush, RoundedCornerShape((sizeDp * 0.28f).dp)),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size((sizeDp * 0.54f).dp)) {
-            val strokeW = (sizeDp * 0.058f).dp.toPx()
+        Canvas(modifier = Modifier.size((sizeDp * 0.56f).dp)) {
+            val strokeW = (sizeDp * 0.062f).dp.toPx()
             drawRoundRect(
                 color = Color.White,
                 topLeft = Offset(strokeW / 2, strokeW / 2),
@@ -160,14 +315,14 @@ fun InstagramBrandIcon(modifier: Modifier = Modifier, sizeDp: Int = 34) {
             )
             drawCircle(
                 color = Color.White,
-                radius = size.width * 0.24f,
+                radius = size.width * 0.23f,
                 center = center,
                 style = Stroke(width = strokeW)
             )
             drawCircle(
                 color = Color.White,
                 radius = (sizeDp * 0.038f).dp.toPx(),
-                center = Offset(size.width * 0.74f, size.height * 0.26f)
+                center = Offset(size.width * 0.75f, size.height * 0.25f)
             )
         }
     }
@@ -178,29 +333,30 @@ fun FacebookBrandIcon(modifier: Modifier = Modifier, sizeDp: Int = 34) {
     Box(
         modifier = modifier
             .size(sizeDp.dp)
-            .background(Color(0xFF0866FF), CircleShape),
+            .background(Color(0xFF1877F2), CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size((sizeDp * 0.62f).dp)) {
+        Canvas(modifier = Modifier.size((sizeDp * 0.64f).dp)) {
             val w = size.width
             val h = size.height
             val path = Path().apply {
-                moveTo(w * 0.68f, h * 0.98f)
-                lineTo(w * 0.48f, h * 0.98f)
+                moveTo(w * 0.70f, h)
+                lineTo(w * 0.48f, h)
                 lineTo(w * 0.48f, h * 0.55f)
                 lineTo(w * 0.34f, h * 0.55f)
-                lineTo(w * 0.34f, h * 0.39f)
-                lineTo(w * 0.48f, h * 0.39f)
-                lineTo(w * 0.48f, h * 0.26f)
-                cubicTo(w * 0.48f, h * 0.12f, w * 0.56f, h * 0.04f, w * 0.72f, h * 0.04f)
-                lineTo(w * 0.84f, h * 0.04f)
-                lineTo(w * 0.84f, h * 0.19f)
-                lineTo(w * 0.74f, h * 0.19f)
-                cubicTo(w * 0.67f, h * 0.19f, w * 0.65f, h * 0.23f, w * 0.65f, h * 0.29f)
-                lineTo(w * 0.65f, h * 0.39f)
-                lineTo(w * 0.83f, h * 0.39f)
-                lineTo(w * 0.80f, h * 0.55f)
-                lineTo(w * 0.68f, h * 0.55f)
+                lineTo(w * 0.34f, h * 0.38f)
+                lineTo(w * 0.48f, h * 0.38f)
+                lineTo(w * 0.48f, h * 0.24f)
+                cubicTo(w * 0.48f, h * 0.10f, w * 0.58f, h * 0.02f, w * 0.74f, h * 0.02f)
+                lineTo(w * 0.86f, h * 0.02f)
+                lineTo(w * 0.86f, h * 0.18f)
+                lineTo(w * 0.75f, h * 0.18f)
+                cubicTo(w * 0.67f, h * 0.18f, w * 0.65f, h * 0.22f, w * 0.65f, h * 0.28f)
+                lineTo(w * 0.65f, h * 0.38f)
+                lineTo(w * 0.85f, h * 0.38f)
+                lineTo(w * 0.81f, h * 0.55f)
+                lineTo(w * 0.65f, h * 0.55f)
+                lineTo(w * 0.65f, h)
                 close()
             }
             drawPath(path, color = Color.White)
@@ -213,28 +369,28 @@ fun TelegramBrandIcon(modifier: Modifier = Modifier, sizeDp: Int = 34) {
     Box(
         modifier = modifier
             .size(sizeDp.dp)
-            .background(Color(0xFF229ED9), CircleShape),
+            .background(Color(0xFF24A1DE), CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size((sizeDp * 0.56f).dp)) {
+        Canvas(modifier = Modifier.size((sizeDp * 0.58f).dp)) {
             val w = size.width
             val h = size.height
             
             val underPath = Path().apply {
-                moveTo(w * 0.42f, h * 0.62f)
-                lineTo(w * 0.39f, h * 0.88f)
-                lineTo(w * 0.53f, h * 0.74f)
+                moveTo(w * 0.41f, h * 0.61f)
+                lineTo(w * 0.38f, h * 0.86f)
+                lineTo(w * 0.53f, h * 0.73f)
                 close()
             }
             drawPath(underPath, color = Color(0xFFB0D6F5))
 
             val planePath = Path().apply {
-                moveTo(w * 0.90f, h * 0.14f)
-                lineTo(w * 0.10f, h * 0.48f)
-                lineTo(w * 0.39f, h * 0.62f)
-                lineTo(w * 0.78f, h * 0.28f)
-                lineTo(w * 0.45f, h * 0.66f)
-                lineTo(w * 0.84f, h * 0.86f)
+                moveTo(w * 0.92f, h * 0.12f)
+                lineTo(w * 0.08f, h * 0.47f)
+                lineTo(w * 0.38f, h * 0.61f)
+                lineTo(w * 0.79f, h * 0.26f)
+                lineTo(w * 0.45f, h * 0.65f)
+                lineTo(w * 0.85f, h * 0.87f)
                 close()
             }
             drawPath(planePath, color = Color.White)
@@ -2739,462 +2895,83 @@ private fun TabPreviewWindow(
     domainText: String,
     modifier: Modifier = Modifier
 ) {
-    val lowerUrl = tab.url.lowercase()
-    val isHome = tab.url == "home" || tab.url.isEmpty()
-    val isYouTube = lowerUrl.contains("youtube") || lowerUrl.contains("youtu.be")
-    val isInstagram = lowerUrl.contains("instagram")
-    val isFacebook = lowerUrl.contains("facebook") || lowerUrl.contains("fb.com")
-    val isTelegram = lowerUrl.contains("telegram") || lowerUrl.contains("t.me")
-    val isPinterest = lowerUrl.contains("pinterest")
-    val isSearch = lowerUrl.contains("google") || lowerUrl.contains("duckduckgo") || lowerUrl.contains("bing") || lowerUrl.contains("search")
+    val isHome = tab.url == "home" || tab.url.isEmpty() || tab.url == "about:blank"
+    val cacheVersion = TabThumbnailCache.version.value
+    val liveScreenshot = if (cacheVersion >= 0) TabThumbnailCache.getThumbnail(tab.id) else null
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(LightCard)
-            .border(0.8.dp, BorderColor.copy(alpha = 0.9f), RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
+            .background(LightBg),
+        contentAlignment = Alignment.Center
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Simulated Mini Webpage App Bar
-            Row(
+        if (liveScreenshot != null && !isHome) {
+            Image(
+                bitmap = liveScreenshot.asImageBitmap(),
+                contentDescription = "Webpage Snapshot Preview",
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.TopCenter,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (isHome) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(20.dp)
-                    .background(Color(0xFFF1F3F5))
-                    .padding(horizontal = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .background(LightCard)
+                    .padding(8.dp)
             ) {
-                Icon(
-                    imageVector = if (isHome) Icons.Default.Shield else Icons.Default.Lock,
-                    contentDescription = null,
-                    tint = if (isHome) AccentColor else SuccessColor,
-                    modifier = Modifier.size(9.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = if (isHome) "Secret Home" else domainText,
-                    fontSize = 8.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary.copy(alpha = 0.85f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                if (tab.blockedCount > 0) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(AccentColor.copy(alpha = 0.15f))
-                            .padding(horizontal = 3.dp, vertical = 0.5.dp)
-                    ) {
-                        Text(
-                            text = "${tab.blockedCount} blocked",
-                            fontSize = 7.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentColor
-                        )
-                    }
-                }
-            }
-
-            // Webpage Loading Indicator
-            if (tab.isLoading) {
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp),
-                    color = AccentColor,
-                    trackColor = Color.Transparent
-                )
-            } else {
-                HorizontalDivider(thickness = 0.5.dp, color = BorderColor)
-            }
-
-            // Rich Visual Content / Glimpse ("Jhalak")
-            val cacheVersion = TabThumbnailCache.version.value
-            val liveScreenshot = if (cacheVersion >= 0) TabThumbnailCache.getThumbnail(tab.id) else null
-            if (liveScreenshot != null && !isHome) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
-                ) {
-                    Image(
-                        bitmap = liveScreenshot.asImageBitmap(),
-                        contentDescription = "Webpage Snapshot Preview",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(8.dp),
+                        .size(36.dp)
+                        .background(AccentColor.copy(alpha = 0.08f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    when {
-                    isHome -> {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .background(AccentColor.copy(alpha = 0.1f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Security,
-                                    contentDescription = null,
-                                    tint = AccentColor,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Start Page",
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            // Mini search bar preview
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.85f)
-                                    .height(18.dp)
-                                    .background(LightBg, RoundedCornerShape(9.dp))
-                                    .border(0.6.dp, BorderColor, RoundedCornerShape(9.dp))
-                                    .padding(horizontal = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(8.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("Search or type URL", fontSize = 7.5.sp, color = TextSecondary)
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            // Mini 5 site icon row
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                YouTubeBrandIcon(sizeDp = 12)
-                                InstagramBrandIcon(sizeDp = 12)
-                                FacebookBrandIcon(sizeDp = 12)
-                                TelegramBrandIcon(sizeDp = 12)
-                                PinterestBrandIcon(sizeDp = 12)
-                            }
-                        }
-                    }
-
-                    isYouTube -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            // Video player frame preview
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(52.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFF1E1E1E)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .background(Color(0xFFFF0000), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .padding(4.dp)
-                                        .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(3.dp))
-                                        .padding(horizontal = 3.dp, vertical = 1.dp)
-                                ) {
-                                    Text("HD", color = Color.White, fontSize = 6.5.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(5.dp))
-                            Text(
-                                text = if (tab.title.isNotEmpty() && tab.title != "YouTube") tab.title else "YouTube Video Stream",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(3.dp)
-                            ) {
-                                Box(modifier = Modifier.size(10.dp).background(Color(0xFFE53935), CircleShape))
-                                Text("Official Channel", fontSize = 7.5.sp, color = TextSecondary)
-                            }
-                        }
-                    }
-
-                    isInstagram -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                InstagramBrandIcon(sizeDp = 14)
-                                Text("Instagram Feed", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(44.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(
-                                                Color(0xFF833AB4).copy(alpha = 0.25f),
-                                                Color(0xFFFD1D1D).copy(alpha = 0.25f),
-                                                Color(0xFFFCAF45).copy(alpha = 0.25f)
-                                            )
-                                        )
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color(0xFFE1306C), modifier = Modifier.size(18.dp))
-                            }
-                            Spacer(modifier = Modifier.height(3.dp))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.Favorite, contentDescription = null, tint = DangerColor, modifier = Modifier.size(9.dp))
-                                Icon(Icons.Default.ChatBubble, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(8.dp))
-                                Icon(Icons.Default.Send, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(8.dp))
-                            }
-                        }
-                    }
-
-                    isFacebook -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                FacebookBrandIcon(sizeDp = 14)
-                                Text("Facebook", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(44.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFF1877F2).copy(alpha = 0.12f))
-                                    .padding(6.dp)
-                            ) {
-                                Column {
-                                    Box(modifier = Modifier.fillMaxWidth(0.8f).height(4.dp).background(TextPrimary.copy(alpha = 0.2f), RoundedCornerShape(2.dp)))
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Box(modifier = Modifier.fillMaxWidth(0.95f).height(3.dp).background(TextSecondary.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Box(modifier = Modifier.fillMaxWidth(0.5f).height(3.dp).background(TextSecondary.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(3.dp))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.ThumbUp, contentDescription = null, tint = Color(0xFF1877F2), modifier = Modifier.size(9.dp))
-                                Icon(Icons.Default.Comment, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(8.dp))
-                                Icon(Icons.Default.Share, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(8.dp))
-                            }
-                        }
-                    }
-
-                    isTelegram -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                TelegramBrandIcon(sizeDp = 14)
-                                Text("Telegram Web", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(3.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.75f)
-                                        .background(Color(0xFF24A1DE).copy(alpha = 0.12f), RoundedCornerShape(6.dp))
-                                        .padding(horizontal = 5.dp, vertical = 3.dp)
-                                ) {
-                                    Text("Encrypted message...", fontSize = 7.5.sp, color = TextPrimary)
-                                }
-                                Row(
-                                    modifier = Modifier
-                                        .align(Alignment.End)
-                                        .fillMaxWidth(0.65f)
-                                        .background(AccentColor.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
-                                        .padding(horizontal = 5.dp, vertical = 3.dp)
-                                ) {
-                                    Text("Private response ✓✓", fontSize = 7.5.sp, color = TextPrimary)
-                                }
-                            }
-                        }
-                    }
-
-                    isPinterest -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                PinterestBrandIcon(sizeDp = 14)
-                                Text("Pinterest Visuals", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(48.dp)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(Color(0xFFE60023).copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.PushPin, contentDescription = null, tint = Color(0xFFE60023), modifier = Modifier.size(14.dp))
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(48.dp)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(AccentColor.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Collections, contentDescription = null, tint = AccentColor, modifier = Modifier.size(14.dp))
-                                }
-                            }
-                        }
-                    }
-
-                    isSearch -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            // Search result card simulation
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(LightBg, RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 5.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.Search, contentDescription = null, tint = AccentColor, modifier = Modifier.size(8.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("Search Query Results", fontSize = 7.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                            }
-                            Spacer(modifier = Modifier.height(5.dp))
-                            Box(modifier = Modifier.fillMaxWidth(0.75f).height(4.5.dp).background(Color(0xFF1A0DAB).copy(alpha = 0.7f), RoundedCornerShape(2.dp)))
-                            Spacer(modifier = Modifier.height(2.5.dp))
-                            Box(modifier = Modifier.fillMaxWidth(0.95f).height(3.dp).background(TextSecondary.copy(alpha = 0.2f), RoundedCornerShape(2.dp)))
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Box(modifier = Modifier.fillMaxWidth(0.6f).height(3.dp).background(TextSecondary.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
-                            Spacer(modifier = Modifier.height(5.dp))
-                            Box(modifier = Modifier.fillMaxWidth(0.7f).height(4.5.dp).background(Color(0xFF1A0DAB).copy(alpha = 0.7f), RoundedCornerShape(2.dp)))
-                        }
-                    }
-
-                    else -> {
-                        // General Webpage rich preview
-                        Column(
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(12.dp)
-                                        .background(AccentColor.copy(alpha = 0.12f), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Public, contentDescription = null, tint = AccentColor, modifier = Modifier.size(7.dp))
-                                }
-                                Text(
-                                    text = domainText,
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(5.dp))
-                            // Large article heading
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.82f)
-                                    .height(6.dp)
-                                    .background(TextPrimary.copy(alpha = 0.25f), RoundedCornerShape(2.dp))
-                            )
-                            Spacer(modifier = Modifier.height(3.dp))
-                            // Paragraph lines
-                            Box(modifier = Modifier.fillMaxWidth(0.95f).height(3.5.dp).background(TextSecondary.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
-                            Spacer(modifier = Modifier.height(2.5.dp))
-                            Box(modifier = Modifier.fillMaxWidth(0.90f).height(3.5.dp).background(TextSecondary.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
-                            Spacer(modifier = Modifier.height(2.5.dp))
-                            Box(modifier = Modifier.fillMaxWidth(0.65f).height(3.5.dp).background(TextSecondary.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
-                            Spacer(modifier = Modifier.height(6.dp))
-                            // Image box placeholder
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(22.dp)
-                                    .background(AccentColor.copy(alpha = 0.06f), RoundedCornerShape(4.dp))
-                                    .border(0.5.dp, AccentColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                ) {
-                                    Icon(Icons.Default.Image, contentDescription = null, tint = AccentColor.copy(alpha = 0.6f), modifier = Modifier.size(9.dp))
-                                    Text("Encrypted Media", fontSize = 6.5.sp, color = AccentColor.copy(alpha = 0.8f))
-                                }
-                            }
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Security,
+                        contentDescription = null,
+                        tint = AccentColor,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "New Secret Tab",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = "Private Tab",
+                    fontSize = 9.sp,
+                    color = TextSecondary
+                )
+            }
+        } else {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(LightCard)
+                    .padding(8.dp)
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = AccentColor,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = if (tab.isLoading) "Loading..." else "Rendering...",
+                    fontSize = 9.sp,
+                    color = TextSecondary
+                )
             }
         }
     }
-}
 }
 
 @Composable
@@ -3370,7 +3147,9 @@ fun SecretBrowserTabSwitcherScreen(
             ) {
                 items(tabs, key = { it.id }) { tab ->
                     val isActive = tab.id == activeTabId
-                    val domainText = formatTabDomain(tab.url)
+                    val isStartPage = tab.url == "home" || tab.url.isEmpty() || tab.url == "about:blank"
+                    val domainText = if (isStartPage) "Start Page" else formatTabDomain(tab.url)
+                    val displayTitle = if (isStartPage) "Private Tab" else tab.title.ifEmpty { domainText }
 
                     Card(
                         modifier = Modifier
@@ -3379,7 +3158,7 @@ fun SecretBrowserTabSwitcherScreen(
                             .premiumPressClick { onSelectTab(tab.id) },
                         shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isActive) AccentColor.copy(alpha = 0.06f) else LightCard
+                            containerColor = LightCard
                         ),
                         border = BorderStroke(
                             if (isActive) 2.dp else 1.dp,
@@ -3402,7 +3181,7 @@ fun SecretBrowserTabSwitcherScreen(
                                 TabCardFavicon(url = tab.url, isActive = isActive, sizeDp = 22)
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = domainText,
+                                    text = displayTitle,
                                     fontSize = 11.5.sp,
                                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
                                     color = TextPrimary,
@@ -3441,7 +3220,7 @@ fun SecretBrowserTabSwitcherScreen(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Spacious Visual Preview ("Jhalak") Area
+                            // Visual Preview Area
                             TabPreviewWindow(
                                 tab = tab,
                                 domainText = domainText,
@@ -3450,24 +3229,17 @@ fun SecretBrowserTabSwitcherScreen(
 
                             Spacer(modifier = Modifier.height(7.dp))
 
-                            // Bottom Info Area
-                            Text(
-                                text = if (tab.url == "home" || tab.url.isEmpty()) "Secret Home" else tab.title.ifEmpty { domainText },
-                                fontSize = 11.5.sp,
-                                fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
-                                color = TextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            // Bottom Info Area (Clean single domain line + tracker shield)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = if (tab.url == "home" || tab.url.isEmpty()) "Internal Start Page" else domainText,
-                                    fontSize = 9.5.sp,
+                                    text = domainText,
+                                    fontSize = 10.sp,
                                     color = if (isActive) AccentColor else TextSecondary,
+                                    fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f)
@@ -3481,7 +3253,7 @@ fun SecretBrowserTabSwitcherScreen(
                                             imageVector = Icons.Default.Shield,
                                             contentDescription = null,
                                             tint = AccentColor,
-                                            modifier = Modifier.size(8.5.dp)
+                                            modifier = Modifier.size(9.dp)
                                         )
                                         Text(
                                             text = "${tab.blockedCount}",
@@ -3510,7 +3282,6 @@ fun PrivateBrowserSection(
 ) {
     val context = LocalContext.current
     val tabs = viewModel.browserTabs
-    val webViews = remember { mutableStateMapOf<String, android.webkit.WebView>() }
     val geckoViews = remember { mutableStateMapOf<String, org.mozilla.geckoview.GeckoView>() }
     val geckoSessions = remember { 
         mutableStateMapOf<String, org.mozilla.geckoview.GeckoSession>().apply {
@@ -3584,7 +3355,6 @@ fun PrivateBrowserSection(
     val totalTrackersBlocked by viewModel.totalTrackersBlocked.collectAsStateWithLifecycle()
 
     var showSearchEngineDialog by remember { mutableStateOf(false) }
-    var activePopupWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
     var pendingDownload by remember { mutableStateOf<PendingDownloadData?>(null) }
     var showSiteSecurityDialog by remember { mutableStateOf(false) }
     var showSecretRunnerGame by remember { mutableStateOf(false) }
@@ -3604,27 +3374,17 @@ fun PrivateBrowserSection(
 
     val activeTab = tabs.find { it.id == activeTabId } ?: tabs.find { it.id == viewModel.activeTabId } ?: tabs.firstOrNull()
 
-    LaunchedEffect(Unit) {
-        viewModel.memoryPressureEvent.collectLatest { level ->
-            if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
-                // Free up RAM memory for WebView fallback instances (leaves disk cache intact)
-                webViews.values.forEach { webView ->
-                    try {
-                        webView.clearCache(false)
-                    } catch (e: Exception) {
-                        android.util.Log.e("SecretBrowser", "Failed to clear WebView memory", e)
-                    }
-                }
-                
-                try {
-                    activePopupWebView?.clearCache(false)
-                } catch (e: Exception) {
-                    android.util.Log.e("SecretBrowser", "Failed to clear popup WebView memory", e)
-                }
-                
-                // GeckoRuntime internally registers its ComponentCallbacks2 to manage its memory safely.
-                // We do not force-close GeckoSessions as that destroys user navigation state.
-                android.util.Log.i("SecretBrowser", "Low memory signal received (level $level). Cleared WebView RAM caches safely. Preserved GeckoSessions.")
+    // Automatically capture thumbnail when page finish loading or tab updates
+    LaunchedEffect(activeTab?.isLoading, activeTab?.url) {
+        val currentTab = activeTab
+        if (currentTab != null && !currentTab.isLoading && currentTab.url != "home" && currentTab.url != "about:blank" && currentTab.url.isNotEmpty()) {
+            kotlinx.coroutines.delay(350)
+            geckoViews[currentTab.id]?.let { gv ->
+                captureViewThumbnail(gv, currentTab.id)
+            }
+            kotlinx.coroutines.delay(850)
+            geckoViews[currentTab.id]?.let { gv ->
+                captureViewThumbnail(gv, currentTab.id)
             }
         }
     }
@@ -3639,53 +3399,56 @@ fun PrivateBrowserSection(
         }
     }
 
-    LaunchedEffect(activeTabId, webViews.size) {
-        webViews.forEach { (id, webView) ->
-            try {
-                if (id == activeTabId) {
-                    webView.onResume()
-                } else {
-                    webView.onPause()
+    fun getOrCreateTabSession(tab: TabState): org.mozilla.geckoview.GeckoSession {
+        val existing = geckoSessions[tab.id] ?: GeckoSessionManager.getSession(tab.id)
+        if (existing != null && existing.isOpen) {
+            geckoSessions[tab.id] = existing
+            return existing
+        }
+        val session = createPrivateGeckoSession(
+            ctx = context,
+            tabId = tab.id,
+            initialUrl = tab.url,
+            isDesktopMode = tab.isDesktopMode,
+            onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
+                pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+            },
+            onCrash = {
+                geckoSessions.remove(tab.id)
+            }
+        ) { transform ->
+            val index = tabs.indexOfFirst { it.id == tab.id }
+            if (index != -1) {
+                val oldTab = tabs[index]
+                val newTab = transform(oldTab)
+                if (newTab.url != oldTab.url && oldTab.url.isNotEmpty() && oldTab.url != "home" && oldTab.url != "about:blank") {
+                    TabThumbnailCache.removeThumbnail(tab.id)
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("WebViewActiveState", "Failed to set active state for $id", e)
+                tabs[index] = newTab
+                val currentUrl = newTab.url
+                val currentTitle = newTab.title
+                if (!newTab.isLoading && oldTab.isLoading) {
+                    if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty() &&
+                        !currentUrl.startsWith("data:") && !currentUrl.startsWith("file:") && !currentUrl.startsWith("about:")) {
+                        viewModel.addBrowserHistory(currentTitle, currentUrl)
+                    }
+                    geckoViews[tab.id]?.let { gv ->
+                        gv.postDelayed({
+                            captureViewThumbnail(gv, tab.id)
+                        }, 350)
+                        gv.postDelayed({
+                            captureViewThumbnail(gv, tab.id)
+                        }, 1100)
+                    }
+                }
             }
         }
+        geckoSessions[tab.id] = session
+        return session
     }
 
-    LaunchedEffect(tabs.map { it.id }, activeTabId, useGeckoView) {
+    LaunchedEffect(tabs.map { it.id }, activeTabId) {
         val currentTabIds = tabs.map { it.id }.toSet()
-
-        if (useGeckoView) {
-            // Safe clean up of fallback WebView resources on transition
-            webViews.values.forEach { webView ->
-                try {
-                    webView.stopLoading()
-                    (webView.parent as? android.view.ViewGroup)?.removeView(webView)
-                    webView.webViewClient = android.webkit.WebViewClient()
-                    webView.webChromeClient = android.webkit.WebChromeClient()
-                    webView.setDownloadListener(null)
-                    webView.clearHistory()
-                    webView.clearCache(true)
-                    webView.loadUrl("about:blank")
-                    webView.destroy()
-                } catch (e: Exception) {}
-            }
-            webViews.clear()
-        } else {
-            // Safe clean up of primary GeckoView resources on transition
-            geckoViews.values.forEach { gv ->
-                try {
-                    (gv.parent as? android.view.ViewGroup)?.removeView(gv)
-                    gv.releaseSession()
-                } catch (e: Exception) {}
-            }
-            geckoViews.clear()
-            geckoSessions.keys.forEach { tabId ->
-                GeckoSessionManager.removeAndDestroySession(tabId)
-            }
-            geckoSessions.clear()
-        }
 
         // Clean up closed tabs
         val removedGecko = geckoSessions.keys.filter { it !in currentTabIds }
@@ -3698,121 +3461,11 @@ fun PrivateBrowserSection(
             GeckoSessionManager.removeAndDestroySession(tabId)
         }
         geckoSessions.keys.retainAll(currentTabIds)
-        
-        val removedWebViews = webViews.keys.filter { it !in currentTabIds }
-        removedWebViews.forEach { webViews[it]?.destroy() }
-        webViews.keys.retainAll(currentTabIds)
 
-        // Only initialize the active tab to optimize startup and memory
+        // Pre-initialize active tab's GeckoSession
         val activeTab = tabs.find { it.id == activeTabId }
         if (activeTab != null) {
-            val tab = activeTab
-            if (useGeckoView) {
-                if (!geckoSessions.containsKey(tab.id)) {
-                    val session = createPrivateGeckoSession(
-                        ctx = context,
-                        tabId = tab.id,
-                        initialUrl = tab.url,
-                        isDesktopMode = tab.isDesktopMode,
-                        onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-                            pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
-                        },
-                        onCrash = {
-                            // Remove session from compose map to trigger recreation in next composition
-                            geckoSessions.remove(tab.id)
-                        }
-                    ) { transform ->
-                        val index = tabs.indexOfFirst { it.id == tab.id }
-                        if (index != -1) {
-                            val oldTab = tabs[index]
-                            val newTab = transform(oldTab)
-                            tabs[index] = newTab
-                            val currentUrl = newTab.url
-                            val currentTitle = newTab.title
-                            if (!newTab.isLoading && oldTab.isLoading) {
-                                if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty() &&
-                                    !currentUrl.startsWith("data:") && !currentUrl.startsWith("file:") && !currentUrl.startsWith("about:")) {
-                                    viewModel.addBrowserHistory(currentTitle, currentUrl)
-                                }
-                            }
-                        }
-                    }
-                    geckoSessions[tab.id] = session
-                }
-            } else {
-                if (!webViews.containsKey(tab.id)) {
-                    val webView = createPrivateWebView(
-                        ctx = context,
-                        tabId = tab.id,
-                        initialUrl = tab.url,
-                        savePasswords = savePasswords,
-                        isDesktopMode = tab.isDesktopMode,
-                        onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-                            pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
-                        },
-                        onCreatePopup = { activePopupWebView = it },
-                        onShowCustomView = { view, callback ->
-                            val activity = context as? android.app.Activity
-                            if (activity != null) {
-                                val decor = activity.window.decorView as? android.widget.FrameLayout
-                                if (decor != null) {
-                                    try { (view.parent as? android.view.ViewGroup)?.removeView(view) } catch(e: Exception) {}
-                                    view.setBackgroundColor(android.graphics.Color.BLACK)
-                                    view.layoutParams = android.widget.FrameLayout.LayoutParams(
-                                        android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                                        android.widget.FrameLayout.LayoutParams.MATCH_PARENT
-                                    )
-                                    decor.addView(view)
-                                    view.requestFocus()
-                                    viewModel.browserCustomView = view
-                                    viewModel.browserCustomViewCallback = callback
-                                    activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
-                                    setSystemBarsVisibility(activity, false)
-                                    // Update state
-                                    val index = tabs.indexOfFirst { it.id == tab.id }
-                                    if (index != -1) tabs[index] = tabs[index].copy(isFullScreen = true)
-                                }
-                            }
-                        },
-                        onHideCustomView = {
-                            val viewToRemove = viewModel.browserCustomView
-                            if (viewToRemove != null) {
-                                try { (viewToRemove.parent as? android.view.ViewGroup)?.removeView(viewToRemove) } catch(e: Exception) {}
-                            }
-                            viewModel.browserCustomView = null
-                            viewModel.browserCustomViewCallback = null
-                            val activity = context as? android.app.Activity
-                            activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                            setSystemBarsVisibility(activity, true)
-                            // Update state
-                            val index = tabs.indexOfFirst { it.id == tab.id }
-                            if (index != -1) tabs[index] = tabs[index].copy(isFullScreen = false)
-                        },
-                        onCrash = {
-                            webViews.remove(tab.id)
-                        }
-                    ) { transform ->
-                        val index = tabs.indexOfFirst { it.id == tab.id }
-                        if (index != -1) {
-                            val oldTab = tabs[index]
-                            val newTab = transform(oldTab)
-                            tabs[index] = newTab
-                            val currentUrl = newTab.url
-                            val currentTitle = newTab.title
-                            if (!newTab.isLoading && oldTab.isLoading) {
-                                if (currentUrl != "home" && currentUrl != "about:blank" && currentUrl.isNotEmpty() &&
-                                    !currentUrl.startsWith("data:") && !currentUrl.startsWith("file:") && !currentUrl.startsWith("about:")) {
-                                    viewModel.addBrowserHistory(currentTitle, currentUrl)
-                                }
-                                webViews[tab.id]?.let { wv ->
-                                    wv.postDelayed({ captureWebViewThumbnail(wv, tab.id) }, 400)
-                                }
-                            }
-                        }
-                    }
-                    webViews[tab.id] = webView
-                }
-            }
+            getOrCreateTabSession(activeTab)
         }
     }
 
@@ -3837,21 +3490,6 @@ fun PrivateBrowserSection(
         } catch (e: Exception) {}
         GeckoSessionManager.removeAndDestroySession(tabId)
         geckoSessions.remove(tabId)
-        val wv = webViews[tabId]
-        if (wv != null) {
-            try {
-                wv.stopLoading()
-                (wv.parent as? android.view.ViewGroup)?.removeView(wv)
-                wv.webViewClient = android.webkit.WebViewClient()
-                wv.webChromeClient = android.webkit.WebChromeClient()
-                wv.setDownloadListener(null)
-                wv.clearHistory()
-                wv.clearCache(true)
-                wv.loadUrl("about:blank")
-                wv.destroy()
-            } catch (e: Exception) {}
-            webViews.remove(tabId)
-        }
         val tIndex = tabs.indexOfFirst { it.id == tabId }
         if (tIndex != -1) {
             tabs.removeAt(tIndex)
@@ -3888,18 +3526,11 @@ fun PrivateBrowserSection(
             }
             if (currentClearHistoryOnExit) {
                 viewModel.clearBrowserHistory()
-                clearAllBrowsingData(context, tabs, webViews)
+                clearAllBrowsingData(context, tabs)
                 geckoViews.values.forEach { try { (it.parent as? android.view.ViewGroup)?.removeView(it); it.releaseSession() } catch (e: Exception) {} }
                 geckoViews.clear()
                 GeckoSessionManager.destroyAllSessions()
             } else {
-                webViews.values.forEach { webView ->
-                    try {
-                        (webView.parent as? android.view.ViewGroup)?.removeView(webView)
-                        webView.destroy()
-                    } catch (e: Exception) {}
-                }
-                webViews.clear()
                 geckoViews.values.forEach { try { (it.parent as? android.view.ViewGroup)?.removeView(it) } catch (e: Exception) {} }
                 geckoSessions.values.forEach { it.setActive(false) }
             }
@@ -3913,7 +3544,7 @@ fun PrivateBrowserSection(
         val activity = context as? android.app.Activity
         if (activity != null) {
             if (isFullScreen) {
-                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                 setSystemBarsVisibility(activity, false)
             } else {
                 activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -3923,11 +3554,8 @@ fun PrivateBrowserSection(
     }
 
     val currentActiveId = activeTabId
-    val activeWebView = currentActiveId?.let { webViews[it] }
-    val activeGeckoSession = if (useGeckoView && currentActiveId != null) {
-        geckoSessions[currentActiveId] ?: GeckoSessionManager.getSession(currentActiveId)?.also {
-            geckoSessions[currentActiveId] = it
-        }
+    val activeGeckoSession = if (currentActiveId != null && activeTab != null) {
+        getOrCreateTabSession(activeTab)
     } else {
         null
     }
@@ -3983,65 +3611,35 @@ fun PrivateBrowserSection(
                     }
                 }
             }
-        } else if (activeWebView != null) {
-            val webView = activeWebView
-            if (query.isEmpty()) {
-                webView.clearMatches()
-                findInPageMatchCurrent = 0
-                findInPageMatchTotal = 0
-            } else {
-                webView.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
-                    if (numberOfMatches > 0) {
-                        findInPageMatchCurrent = activeMatchOrdinal + 1
-                        findInPageMatchTotal = numberOfMatches
-                    } else {
-                        findInPageMatchCurrent = 0
-                        findInPageMatchTotal = 0
-                    }
-                }
-                if (forward) {
-                    webView.findAllAsync(query)
-                } else {
-                    webView.findNext(false)
-                }
-            }
         }
     }
 
     val findNextMatch: () -> Unit = {
         val query = findInPageText
-        if (query.isNotEmpty()) {
-            if (activeGeckoSession != null) {
-                activeGeckoSession.getFinder().find(query, 0).accept { result ->
-                    if (result != null) {
-                        findInPageMatchCurrent = result.current
-                        findInPageMatchTotal = result.total
-                    } else {
-                        findInPageMatchCurrent = 0
-                        findInPageMatchTotal = 0
-                    }
+        if (query.isNotEmpty() && activeGeckoSession != null) {
+            activeGeckoSession.getFinder().find(query, 0).accept { result ->
+                if (result != null) {
+                    findInPageMatchCurrent = result.current
+                    findInPageMatchTotal = result.total
+                } else {
+                    findInPageMatchCurrent = 0
+                    findInPageMatchTotal = 0
                 }
-            } else if (activeWebView != null) {
-                activeWebView.findNext(true)
             }
         }
     }
 
     val findPreviousMatch: () -> Unit = {
         val query = findInPageText
-        if (query.isNotEmpty()) {
-            if (activeGeckoSession != null) {
-                activeGeckoSession.getFinder().find(query, org.mozilla.geckoview.GeckoSession.FINDER_FIND_BACKWARDS).accept { result ->
-                    if (result != null) {
-                        findInPageMatchCurrent = result.current
-                        findInPageMatchTotal = result.total
-                    } else {
-                        findInPageMatchCurrent = 0
-                        findInPageMatchTotal = 0
-                    }
+        if (query.isNotEmpty() && activeGeckoSession != null) {
+            activeGeckoSession.getFinder().find(query, org.mozilla.geckoview.GeckoSession.FINDER_FIND_BACKWARDS).accept { result ->
+                if (result != null) {
+                    findInPageMatchCurrent = result.current
+                    findInPageMatchTotal = result.total
+                } else {
+                    findInPageMatchCurrent = 0
+                    findInPageMatchTotal = 0
                 }
-            } else if (activeWebView != null) {
-                activeWebView.findNext(false)
             }
         }
     }
@@ -4051,19 +3649,11 @@ fun PrivateBrowserSection(
         findInPageText = ""
         findInPageMatchCurrent = 0
         findInPageMatchTotal = 0
-        if (activeGeckoSession != null) {
-            activeGeckoSession.getFinder().clear()
-        } else if (activeWebView != null) {
-            activeWebView.clearMatches()
-        }
+        activeGeckoSession?.getFinder()?.clear()
     }
 
     val stopLoading: () -> Unit = {
-        if (activeGeckoSession != null) {
-            activeGeckoSession.stop()
-        } else {
-            activeWebView?.stopLoading()
-        }
+        activeGeckoSession?.stop()
         val index = tabs.indexOfFirst { it.id == activeTabId }
         if (index != -1) {
             tabs[index] = tabs[index].copy(isLoading = false, progress = 100)
@@ -4105,15 +3695,11 @@ fun PrivateBrowserSection(
                     title = "New Tab",
                     progress = 0,
                     isLoading = false,
-                    canGoBack = activeTab?.canGoBack == true || activeWebView?.canGoBack() == true,
-                    canGoForward = activeTab?.canGoForward == true || activeWebView?.canGoForward() == true
+                    canGoBack = activeTab?.canGoBack == true,
+                    canGoForward = activeTab?.canGoForward == true
                 )
             }
-            if (activeGeckoSession != null) {
-                activeGeckoSession.loadUri("about:blank")
-            } else {
-                activeWebView?.loadUrl("about:blank")
-            }
+            activeGeckoSession?.loadUri("about:blank")
         } else {
             val index = tabs.indexOfFirst { it.id == activeTabId }
             var shouldLoad = true
@@ -4130,54 +3716,32 @@ fun PrivateBrowserSection(
                 }
             }
             if (shouldLoad) {
-                if (activeGeckoSession != null) {
-                    activeGeckoSession.loadUri(formatted)
-                } else {
-                    activeWebView?.loadUrl(formatted)
-                }
+                activeGeckoSession?.loadUri(formatted)
             }
         }
     }
 
     val reload: () -> Unit = {
-        if (activeGeckoSession != null) {
-            activeGeckoSession.reload()
-        } else {
-            activeWebView?.reload()
-        }
+        activeGeckoSession?.reload()
     }
     val goBack: () -> Unit = {
         if (activeTab?.url == "home") {
             if (activeGeckoSession != null && activeTab.canGoBack) {
                 activeGeckoSession.goBack()
-            } else if (activeWebView != null && activeWebView.canGoBack()) {
-                activeWebView.goBack()
             }
         } else {
-            if (activeGeckoSession != null) {
-                activeGeckoSession.goBack()
-            } else {
-                activeWebView?.goBack()
-            }
+            activeGeckoSession?.goBack()
         }
     }
     val goForward: () -> Unit = {
-        if (activeGeckoSession != null) {
-            activeGeckoSession.goForward()
-        } else {
-            activeWebView?.goForward()
-        }
+        activeGeckoSession?.goForward()
     }
 
     val goBackOrExit = {
         if (showSecretRunnerGame) {
             showSecretRunnerGame = false
         } else if (activeTab?.isFullScreen == true) {
-            if (activeGeckoSession != null) {
-                activeGeckoSession.exitFullScreen()
-            } else if (viewModel.browserCustomViewCallback != null) {
-                viewModel.browserCustomViewCallback?.onCustomViewHidden()
-            }
+            activeGeckoSession?.exitFullScreen()
             val index = tabs.indexOfFirst { it.id == activeTabId }
             if (index != -1) {
                 tabs[index] = tabs[index].copy(isFullScreen = false)
@@ -4205,15 +3769,11 @@ fun PrivateBrowserSection(
         } else if (activeTab?.url == "home") {
             if (activeGeckoSession != null && activeTab.canGoBack) {
                 activeGeckoSession.goBack()
-            } else if (activeWebView != null && activeWebView.canGoBack()) {
-                activeWebView.goBack()
             } else {
                 onExit()
             }
         } else if (activeGeckoSession != null && activeTab?.canGoBack == true) {
             activeGeckoSession.goBack()
-        } else if (activeWebView != null && activeWebView.canGoBack()) {
-            activeWebView.goBack()
         } else {
             loadUrl("home")
         }
@@ -5102,7 +4662,7 @@ fun PrivateBrowserSection(
                             if (clearHistoryOnExit) {
                                 viewModel.clearBrowserHistory()
                             }
-                            clearAllBrowsingData(context, tabs, webViews)
+                            clearAllBrowsingData(context, tabs)
                             geckoViews.values.forEach { try { (it.parent as? android.view.ViewGroup)?.removeView(it); it.releaseSession() } catch (e: Exception) {} }
                             geckoViews.clear()
                             geckoSessions.clear()
@@ -5135,21 +4695,18 @@ fun PrivateBrowserSection(
                             key(currentActiveId) {
                                 AndroidView(
                                     factory = { ctx ->
-                                        val gv = geckoViews.getOrPut(currentActiveId) {
-                                            org.mozilla.geckoview.GeckoView(ctx).apply {
-                                                setSession(activeGeckoSession)
-                                            }
-                                        }
-                                        (gv.parent as? android.view.ViewGroup)?.removeView(gv)
+                                        val gv = org.mozilla.geckoview.GeckoView(ctx)
+                                        geckoViews[currentActiveId] = gv
                                         try {
                                             activeGeckoSession.setActive(true)
-                                            if (gv.session != activeGeckoSession) {
-                                                gv.setSession(activeGeckoSession)
-                                            }
-                                        } catch (e: Exception) {}
+                                            gv.setSession(activeGeckoSession)
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("GeckoViewAttach", "Failed in factory", e)
+                                        }
                                         gv
                                     },
                                     update = { geckoView ->
+                                        geckoViews[currentActiveId] = geckoView
                                         try {
                                             activeGeckoSession.setActive(true)
                                             if (geckoView.session != activeGeckoSession) {
@@ -5161,41 +4718,9 @@ fun PrivateBrowserSection(
                                     },
                                     onRelease = { geckoView ->
                                         try {
+                                            geckoViews.remove(currentActiveId)
+                                            geckoView.releaseSession()
                                             (geckoView.parent as? android.view.ViewGroup)?.removeView(geckoView)
-                                        } catch (e: Exception) {}
-                                    },
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                            if (progressAlpha > 0f && activeTab?.isFullScreen != true) {
-                                LinearProgressIndicator(
-                                    progress = { animatedProgress },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(3.dp)
-                                        .align(Alignment.TopCenter)
-                                        .graphicsLayer { alpha = progressAlpha },
-                                    color = AccentColor,
-                                    trackColor = AccentColor.copy(alpha = 0.12f)
-                                )
-                            }
-                        }
-                    } else if (activeWebView != null) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            key(activeWebView.hashCode()) {
-                                AndroidView(
-                                    factory = { _ ->
-                                        (activeWebView.parent as? android.view.ViewGroup)?.removeView(activeWebView)
-                                        try { activeWebView.onResume() } catch (e: Exception) {}
-                                        activeWebView
-                                    },
-                                    update = { webView ->
-                                        try { webView.onResume() } catch (e: Exception) {}
-                                    },
-                                    onRelease = { webView ->
-                                        try {
-                                            (webView.parent as? android.view.ViewGroup)?.removeView(webView)
-                                            webView.onPause()
                                         } catch (e: Exception) {}
                                     },
                                     modifier = Modifier.fillMaxSize()
@@ -5299,7 +4824,7 @@ fun PrivateBrowserSection(
                                 .size(38.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .premiumPressClick {
-                                    activeTabId?.let { id -> captureWebViewThumbnail(webViews[id], id) }
+                                    activeTabId?.let { id -> captureViewThumbnail(geckoViews[id], id) }
                                     showTabSwitcher = true
                                 },
                             contentAlignment = Alignment.Center
@@ -5443,7 +4968,7 @@ fun PrivateBrowserSection(
                                 trailingText = "${tabs.size}",
                                 onClick = {
                                     showMenu = false
-                                    activeTabId?.let { id -> captureWebViewThumbnail(webViews[id], id) }
+                                    activeTabId?.let { id -> captureViewThumbnail(geckoViews[id], id) }
                                     showTabSwitcher = true
                                 }
                             )
@@ -5597,32 +5122,6 @@ fun PrivateBrowserSection(
                                             tabs[index] = tabs[index].copy(isDesktopMode = newMode)
                                         }
                                         GeckoSessionManager.setDesktopMode(activeTab.id, newMode)
-                                    } else {
-                                        val webView = webViews[activeTabId]
-                                        if (webView != null && activeTab != null) {
-                                            val newMode = !activeTab.isDesktopMode
-                                            val index = tabs.indexOfFirst { it.id == activeTabId }
-                                            if (index != -1) {
-                                                tabs[index] = tabs[index].copy(isDesktopMode = newMode)
-                                            }
-                                            webView.tag = newMode
-                                            if (newMode) {
-                                                webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                                                webView.settings.loadWithOverviewMode = true
-                                                webView.settings.useWideViewPort = true
-                                                webView.settings.setSupportZoom(true)
-                                                webView.settings.builtInZoomControls = true
-                                                webView.settings.displayZoomControls = false
-                                            } else {
-                                                webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-                                                webView.settings.loadWithOverviewMode = true
-                                                webView.settings.useWideViewPort = true
-                                                webView.settings.setSupportZoom(true)
-                                                webView.settings.builtInZoomControls = true
-                                                webView.settings.displayZoomControls = false
-                                            }
-                                            webView.reload()
-                                        }
                                     }
                                 }
                             )
@@ -5699,7 +5198,7 @@ fun PrivateBrowserSection(
                                         if (clearHistoryOnExit) {
                                             viewModel.clearBrowserHistory()
                                         }
-                                        clearAllBrowsingData(context, tabs, webViews)
+                                        clearAllBrowsingData(context, tabs)
                                         geckoViews.values.forEach { try { (it.parent as? android.view.ViewGroup)?.removeView(it); it.releaseSession() } catch (e: Exception) {} }
                                         geckoViews.clear()
                                         geckoSessions.clear()
