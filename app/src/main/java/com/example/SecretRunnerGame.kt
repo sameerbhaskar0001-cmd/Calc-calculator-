@@ -681,11 +681,12 @@ fun SecretRunnerGameView(
                 }
             }
 
-            // Top HUD Bar
+            // Top HUD Bar - safely padded below status bar & camera notch
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {

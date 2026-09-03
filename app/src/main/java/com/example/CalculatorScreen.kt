@@ -7543,12 +7543,20 @@ fun VaultTabUnlockedContent(
                                                     android.widget.Toast.makeText(context, "Name cannot be empty", android.widget.Toast.LENGTH_SHORT).show()
                                                 }
                                             },
-                                            colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (IsWhiteTheme) Color(0xFF6C5CE7) else ThemePurple,
+                                                contentColor = if (IsLightColor && !IsWhiteTheme) Color(0xFF0F172A) else Color.White
+                                            ),
                                             shape = RoundedCornerShape(14.dp),
                                             elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
                                             contentPadding = PaddingValues(horizontal = 22.dp, vertical = 10.dp)
                                         ) {
-                                            Text("Save Changes", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                                            Text(
+                                                text = "Save Changes",
+                                                color = if (IsLightColor && !IsWhiteTheme) Color(0xFF0F172A) else Color.White,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.5.sp
+                                            )
                                         }
                                     }
                                 }
@@ -8020,10 +8028,14 @@ fun VaultTabUnlockedContent(
                                             contentScale = androidx.compose.ui.layout.ContentScale.Fit
                                         )
                                     } else if (mimeType.startsWith("video/") || originalName.lowercase().endsWith(".mp4")) {
-                                        // Video Player
+                                        // Video Player - Custom Clean Compose Controls
                                         var playbackPosition by androidx.compose.runtime.saveable.rememberSaveable(path) { androidx.compose.runtime.mutableIntStateOf(0) }
                                         var videoViewRef by remember { mutableStateOf<android.widget.VideoView?>(null) }
-                                        var mediaControllerRef by remember { mutableStateOf<android.widget.MediaController?>(null) }
+                                        var isPlaying by remember { mutableStateOf(true) }
+                                        var currentPosMs by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+                                        var durationMs by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+                                        var isSeeking by remember { mutableStateOf(false) }
+                                        var seekSliderValue by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
                                         var hudText by remember { mutableStateOf("") }
                                         var hudIcon by remember { mutableStateOf<androidx.compose.ui.graphics.vector.ImageVector?>(null) }
                                         var hudVisible by remember { mutableStateOf(false) }
@@ -8037,8 +8049,15 @@ fun VaultTabUnlockedContent(
                                         }
                                         LaunchedEffect(videoViewRef) {
                                             while (true) {
-                                                kotlinx.coroutines.delay(1000)
-                                                videoViewRef?.let { if (it.isPlaying) playbackPosition = it.currentPosition }
+                                                kotlinx.coroutines.delay(250)
+                                                videoViewRef?.let { vv ->
+                                                    if (!isSeeking) {
+                                                        currentPosMs = vv.currentPosition
+                                                        durationMs = vv.duration
+                                                        isPlaying = vv.isPlaying
+                                                        playbackPosition = vv.currentPosition
+                                                    }
+                                                }
                                             }
                                         }
 
@@ -8047,14 +8066,13 @@ fun VaultTabUnlockedContent(
                                                 factory = { ctx ->
                                                     android.widget.VideoView(ctx).apply {
                                                         setVideoPath(path)
-                                                        val mediaController = android.widget.MediaController(ctx)
-                                                        mediaController.setAnchorView(this)
-                                                        setMediaController(mediaController)
-                                                        mediaControllerRef = mediaController
+                                                        setMediaController(null)
                                                         setOnPreparedListener { mp ->
                                                             mp.isLooping = true
+                                                            durationMs = mp.duration
                                                             seekTo(playbackPosition)
                                                             start()
+                                                            isPlaying = true
                                                         }
                                                         videoViewRef = this
                                                     }
@@ -8063,9 +8081,9 @@ fun VaultTabUnlockedContent(
                                                 onRelease = {
                                                     playbackPosition = it.currentPosition
                                                     videoViewRef = null
-                                                    mediaControllerRef = null
                                                 }
-                                             )
+                                            )
+                                             // Touch Gestures Layer (Tap to toggle UI, double-tap to seek, vertical swipe for volume/brightness)
                                              Box(
                                                  modifier = Modifier
                                                      .fillMaxSize()
@@ -8079,12 +8097,13 @@ fun VaultTabUnlockedContent(
                                                                      val newPos = (vv.currentPosition + delta).coerceIn(0, vv.duration)
                                                                      vv.seekTo(newPos)
                                                                      playbackPosition = newPos
+                                                                     currentPosMs = newPos
                                                                      hudIcon = if (isLeft) Icons.Default.FastRewind else Icons.Default.FastForward
                                                                      hudText = if (isLeft) "-10s" else "+10s"
                                                                  }
                                                              },
                                                              onTap = {
-                                                                 mediaControllerRef?.let { mc -> if (mc.isShowing) mc.hide() else mc.show(3000) }
+                                                                 isViewerUiVisible = !isViewerUiVisible
                                                              }
                                                          )
                                                      }
@@ -8131,29 +8150,166 @@ fun VaultTabUnlockedContent(
                                                              }
                                                          )
                                                      }
+                                             )
+
+                                             // Subtle Non-Obstructive Top HUD Pill (Never covers faces or video center!)
+                                             AnimatedVisibility(
+                                                 visible = hudVisible,
+                                                 enter = fadeIn(animationSpec = tween(150)),
+                                                 exit = fadeOut(animationSpec = tween(250)),
+                                                 modifier = Modifier
+                                                     .align(Alignment.TopCenter)
+                                                     .statusBarsPadding()
+                                                     .padding(top = 56.dp)
                                              ) {
-                                                 AnimatedVisibility(
-                                                     visible = hudVisible,
-                                                     enter = fadeIn(animationSpec = tween(150)),
-                                                     exit = fadeOut(animationSpec = tween(250)),
-                                                     modifier = Modifier.align(Alignment.Center)
+                                                 Surface(
+                                                     color = Color.Black.copy(alpha = 0.82f),
+                                                     shape = RoundedCornerShape(20.dp),
+                                                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                                                     shadowElevation = 4.dp
                                                  ) {
-                                                     Card(
-                                                         colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.75f)),
-                                                         shape = RoundedCornerShape(16.dp),
-                                                         border = BorderStroke(1.dp, ThemePurple.copy(alpha = 0.3f))
+                                                     Row(
+                                                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                                                         verticalAlignment = Alignment.CenterVertically
                                                      ) {
-                                                         Column(
-                                                             modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                                                             horizontalAlignment = Alignment.CenterHorizontally,
-                                                             verticalArrangement = Arrangement.Center
-                                                         ) {
-                                                             hudIcon?.let { icon ->
-                                                                 Icon(imageVector = icon, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(36.dp))
-                                                                 Spacer(modifier = Modifier.height(8.dp))
-                                                             }
-                                                             Text(text = hudText, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                                         hudIcon?.let { icon ->
+                                                             Icon(imageVector = icon, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(18.dp))
+                                                             Spacer(modifier = Modifier.width(8.dp))
                                                          }
+                                                         Text(text = hudText, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                                     }
+                                                 }
+                                             }
+
+                                             // Sleek Modern Bottom Playback Bar (Visible when UI is active)
+                                             AnimatedVisibility(
+                                                 visible = isViewerUiVisible,
+                                                 enter = fadeIn(tween(180)),
+                                                 exit = fadeOut(tween(180)),
+                                                 modifier = Modifier.align(Alignment.BottomCenter)
+                                             ) {
+                                                 Column(
+                                                     modifier = Modifier
+                                                         .fillMaxWidth()
+                                                         .background(
+                                                             androidx.compose.ui.graphics.Brush.verticalGradient(
+                                                                 listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f))
+                                                             )
+                                                         )
+                                                         .navigationBarsPadding()
+                                                         .padding(horizontal = 16.dp, vertical = 12.dp)
+                                                 ) {
+                                                     // Scrubber Seekbar
+                                                     val effectivePos = if (isSeeking) seekSliderValue else currentPosMs.toFloat()
+                                                     val effectiveDur = if (durationMs > 0) durationMs.toFloat() else 1f
+                                                     Slider(
+                                                         value = effectivePos.coerceIn(0f, effectiveDur),
+                                                         onValueChange = {
+                                                             isSeeking = true
+                                                             seekSliderValue = it
+                                                         },
+                                                         onValueChangeFinished = {
+                                                             videoViewRef?.let { vv ->
+                                                                 val targetMs = seekSliderValue.toInt().coerceIn(0, vv.duration)
+                                                                 vv.seekTo(targetMs)
+                                                                 currentPosMs = targetMs
+                                                                 playbackPosition = targetMs
+                                                             }
+                                                             isSeeking = false
+                                                         },
+                                                         valueRange = 0f..effectiveDur,
+                                                         colors = SliderDefaults.colors(
+                                                             thumbColor = ThemePurple,
+                                                             activeTrackColor = ThemePurple,
+                                                             inactiveTrackColor = Color.White.copy(alpha = 0.25f)
+                                                         ),
+                                                         modifier = Modifier.fillMaxWidth().height(28.dp)
+                                                     )
+
+                                                     Row(
+                                                         modifier = Modifier.fillMaxWidth(),
+                                                         horizontalArrangement = Arrangement.SpaceBetween,
+                                                         verticalAlignment = Alignment.CenterVertically
+                                                     ) {
+                                                         Row(verticalAlignment = Alignment.CenterVertically) {
+                                                             // Play/Pause Button
+                                                             IconButton(
+                                                                 onClick = {
+                                                                     videoViewRef?.let { vv ->
+                                                                         if (vv.isPlaying) {
+                                                                             vv.pause()
+                                                                             isPlaying = false
+                                                                         } else {
+                                                                             vv.start()
+                                                                             isPlaying = true
+                                                                         }
+                                                                     }
+                                                                 },
+                                                                 modifier = Modifier.size(36.dp)
+                                                             ) {
+                                                                 Icon(
+                                                                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                                     contentDescription = if (isPlaying) "Pause" else "Play",
+                                                                     tint = Color.White,
+                                                                     modifier = Modifier.size(24.dp)
+                                                                 )
+                                                             }
+
+                                                             Spacer(modifier = Modifier.width(4.dp))
+
+                                                             // -10s Rewind
+                                                             IconButton(
+                                                                 onClick = {
+                                                                     videoViewRef?.let { vv ->
+                                                                         val newPos = (vv.currentPosition - 10000).coerceAtLeast(0)
+                                                                         vv.seekTo(newPos)
+                                                                         currentPosMs = newPos
+                                                                         playbackPosition = newPos
+                                                                         hudIcon = Icons.Default.FastRewind
+                                                                         hudText = "-10s"
+                                                                     }
+                                                                 },
+                                                                 modifier = Modifier.size(32.dp)
+                                                             ) {
+                                                                 Icon(
+                                                                     imageVector = Icons.Default.FastRewind,
+                                                                     contentDescription = "Rewind 10s",
+                                                                     tint = Color.White.copy(alpha = 0.85f),
+                                                                     modifier = Modifier.size(20.dp)
+                                                                 )
+                                                             }
+
+                                                             // +10s Forward
+                                                             IconButton(
+                                                                 onClick = {
+                                                                     videoViewRef?.let { vv ->
+                                                                         val newPos = (vv.currentPosition + 10000).coerceAtMost(vv.duration)
+                                                                         vv.seekTo(newPos)
+                                                                         currentPosMs = newPos
+                                                                         playbackPosition = newPos
+                                                                         hudIcon = Icons.Default.FastForward
+                                                                         hudText = "+10s"
+                                                                     }
+                                                                 },
+                                                                 modifier = Modifier.size(32.dp)
+                                                             ) {
+                                                                 Icon(
+                                                                     imageVector = Icons.Default.FastForward,
+                                                                     contentDescription = "Forward 10s",
+                                                                     tint = Color.White.copy(alpha = 0.85f),
+                                                                     modifier = Modifier.size(20.dp)
+                                                                 )
+                                                             }
+                                                         }
+
+                                                         // Time display: 00:15 / 02:45
+                                                         Text(
+                                                             text = "${formatDuration(currentPosMs)} / ${formatDuration(durationMs)}",
+                                                             color = Color.White.copy(alpha = 0.85f),
+                                                             fontSize = 12.sp,
+                                                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                                             fontWeight = FontWeight.Medium
+                                                         )
                                                      }
                                                  }
                                              }

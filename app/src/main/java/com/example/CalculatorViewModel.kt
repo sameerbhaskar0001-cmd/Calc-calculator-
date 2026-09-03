@@ -4769,29 +4769,85 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
             var inputStream: java.io.InputStream? = null
             var connection: java.net.HttpURLConnection? = null
             try {
-                val urlObj = java.net.URL(url)
-                connection = urlObj.openConnection() as java.net.HttpURLConnection
-                activeDownloadConnections[taskId] = connection
-                connection.instanceFollowRedirects = true
-                connection.connectTimeout = 15000
-                connection.readTimeout = 30000
-                connection.setRequestProperty("User-Agent", userAgent)
-                connection.setRequestProperty("Accept-Encoding", "identity")
-                try {
-                    val cookie = android.webkit.CookieManager.getInstance().getCookie(url)
-                    if (!cookie.isNullOrEmpty()) {
-                        connection.setRequestProperty("Cookie", cookie)
-                    }
-                } catch (e: Exception) {}
-
+                var currentUrl = url
                 var append = false
-                val startByte = if (isResume && partFile.exists() && partFile.length() > 0) partFile.length() else 0L
-                if (startByte > 0) {
-                    connection.setRequestProperty("Range", "bytes=$startByte-")
-                }
+                var startByte = if (isResume && partFile.exists() && partFile.length() > 0) partFile.length() else 0L
+                var responseCode = -1
+                var connectAttempts = 0
+                val defaultUa = "Mozilla/5.0 (Linux; Android 14; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0"
+                val chromeUa = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
 
-                connection.connect()
-                val responseCode = connection.responseCode
+                while (connectAttempts < 6) {
+                    val urlObj = java.net.URL(currentUrl)
+                    connection = urlObj.openConnection() as java.net.HttpURLConnection
+                    activeDownloadConnections[taskId] = connection
+                    connection.instanceFollowRedirects = true
+                    connection.connectTimeout = 25000
+                    connection.readTimeout = 40000
+                    
+                    val reqUa = if (connectAttempts in 2..3) chromeUa else (if (userAgent.isNotBlank()) userAgent else defaultUa)
+                    connection.setRequestProperty("User-Agent", reqUa)
+                    connection.setRequestProperty("Accept", "*/*")
+                    connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
+                    connection.setRequestProperty("Accept-Encoding", "identity")
+                    connection.setRequestProperty("Connection", "keep-alive")
+                    
+                    // Attempt 0: full browser sec-fetch headers + Referer
+                    // If server blocks sec-fetch or strict referer, attempt 3+ strips custom sec-fetch headers for standard direct download
+                    if (connectAttempts < 3) {
+                        connection.setRequestProperty("Sec-Fetch-Dest", "document")
+                        connection.setRequestProperty("Sec-Fetch-Mode", "navigate")
+                        connection.setRequestProperty("Sec-Fetch-Site", "cross-site")
+                        try {
+                            val hostOrigin = "${urlObj.protocol}://${urlObj.host}/"
+                            connection.setRequestProperty("Referer", hostOrigin)
+                            connection.setRequestProperty("Origin", hostOrigin.removeSuffix("/"))
+                        } catch (e: Exception) {}
+                    }
+                    
+                    try {
+                        val cookie = android.webkit.CookieManager.getInstance().getCookie(currentUrl)
+                        if (!cookie.isNullOrEmpty()) {
+                            connection.setRequestProperty("Cookie", cookie)
+                        }
+                    } catch (e: Exception) {}
+
+                    if (startByte > 0) {
+                        connection.setRequestProperty("Range", "bytes=$startByte-")
+                    }
+
+                    connection.connect()
+                    responseCode = connection.responseCode
+
+                    // Handle redirects (across protocols/domains)
+                    if (responseCode in listOf(301, 302, 303, 307, 308)) {
+                        val location = connection.getHeaderField("Location")
+                        if (!location.isNullOrEmpty()) {
+                            currentUrl = java.net.URL(urlObj, location).toString()
+                            try { connection.disconnect() } catch (e: Exception) {}
+                            connectAttempts++
+                            continue
+                        }
+                    }
+
+                    // If server rejects Range requests with 403 Forbidden, 416 Range Not Satisfiable, or 400, fall back to clean GET from byte 0
+                    if ((responseCode == 403 || responseCode == 416 || responseCode == 400) && startByte > 0) {
+                        try { connection.disconnect() } catch (e: Exception) {}
+                        try { partFile.delete() } catch (e: Exception) {}
+                        startByte = 0L
+                        connectAttempts++
+                        continue
+                    }
+
+                    // If 403 Forbidden: try switching User-Agent and stripping headers
+                    if (responseCode == 403 && connectAttempts < 4) {
+                        try { connection.disconnect() } catch (e: Exception) {}
+                        connectAttempts++
+                        continue
+                    }
+
+                    break
+                }
 
                 var totalLength: Long
                 var currentDownloaded: Long
@@ -4799,21 +4855,27 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                 if (responseCode == 206) {
                     append = true
                     currentDownloaded = startByte
-                    val serverRemaining = connection.contentLength.toLong()
+                    val serverRemaining = connection?.contentLength?.toLong() ?: 0L
                     totalLength = if (initialTotal > 0) initialTotal else (if (serverRemaining > 0) startByte + serverRemaining else 0L)
                 } else if (responseCode in 200..299) {
                     append = false
                     currentDownloaded = 0L
-                    totalLength = if (contentLength > 0) contentLength else connection.contentLength.toLong()
+                    val respLength = connection?.contentLength?.toLong() ?: 0L
+                    totalLength = if (contentLength > 0) contentLength else respLength
                 } else {
-                    throw java.io.IOException("HTTP error: $responseCode ${connection.responseMessage}")
+                    val connMsg = connection?.responseMessage ?: ""
+                    throw java.io.IOException("HTTP error: $responseCode $connMsg")
                 }
 
-                inputStream = connection.inputStream.buffered()
+                val safeConnection = connection ?: throw java.io.IOException("Connection is null")
+                inputStream = safeConnection.inputStream.buffered()
                 fileOutputStream = java.io.FileOutputStream(partFile, append).buffered()
 
-                val buffer = ByteArray(65536) // 64 KB memory-safe bounded buffer
+                val buffer = ByteArray(131072) // 128 KB high-throughput memory-safe bounded buffer
                 var lastUiUpdateTime = 0L
+                var speedWindowStartTime = android.os.SystemClock.uptimeMillis()
+                var speedWindowStartBytes = currentDownloaded
+                var currentSpeedStr = ""
 
                 while (kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]?.isActive == true) {
                     val currentTask = _downloads.value.find { it.id == taskId }
@@ -4826,12 +4888,24 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     currentDownloaded += bytesRead
 
                     val now = android.os.SystemClock.uptimeMillis()
-                    if (now - lastUiUpdateTime > 200 || (totalLength > 0 && currentDownloaded >= totalLength)) {
+                    val timeDelta = now - speedWindowStartTime
+                    if (timeDelta >= 1000) {
+                        val bytesInDelta = currentDownloaded - speedWindowStartBytes
+                        val bytesPerSec = (bytesInDelta * 1000L) / timeDelta.coerceAtLeast(1L)
+                        currentSpeedStr = if (bytesPerSec > 0) "${formatFileSize(bytesPerSec)}/s" else ""
+                        speedWindowStartTime = now
+                        speedWindowStartBytes = currentDownloaded
+                    }
+
+                    if (now - lastUiUpdateTime > 400 || (totalLength > 0 && currentDownloaded >= totalLength)) {
                         lastUiUpdateTime = now
                         val progressValue = if (totalLength > 0) (currentDownloaded.toFloat() / totalLength.toFloat()).coerceIn(0f, 1f) else 0f
                         val downloadedStr = formatFileSize(currentDownloaded)
                         val totalStr = if (totalLength > 0) formatFileSize(totalLength) else ""
-                        val sizeDisplay = if (totalStr.isNotEmpty()) "$downloadedStr / $totalStr" else downloadedStr
+                        var sizeDisplay = if (totalStr.isNotEmpty()) "$downloadedStr / $totalStr" else downloadedStr
+                        if (currentSpeedStr.isNotEmpty()) {
+                            sizeDisplay += " • $currentSpeedStr"
+                        }
 
                         _downloads.value = _downloads.value.map { task ->
                             if (task.id == taskId) {
@@ -4859,7 +4933,7 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     return@launch
                 }
 
-                val finalMime = connection.contentType ?: mimeType
+                val finalMime = safeConnection.contentType ?: mimeType
                 val downloadHandler = VaultDownloadHandler(context)
                 val targetFilePath = downloadHandler.saveDownloadedFile(
                     filename = finalFilename,
@@ -4916,7 +4990,12 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     }
                     _downloads.value = finalDownloads
                     saveDownloads(finalDownloads)
-                    android.widget.Toast.makeText(context, "Download error: ${e.localizedMessage ?: "Network error"}", android.widget.Toast.LENGTH_SHORT).show()
+                    val errorText = if (e.localizedMessage?.contains("403") == true) {
+                        "Download expired or forbidden (403). Please click download again on the website for a fresh link."
+                    } else {
+                        "Download error: ${e.localizedMessage ?: "Network error"}"
+                    }
+                    android.widget.Toast.makeText(context, errorText, android.widget.Toast.LENGTH_LONG).show()
                 }
             } finally {
                 try { fileOutputStream?.close() } catch (e: Exception) {}
