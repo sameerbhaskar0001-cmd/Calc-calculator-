@@ -4706,14 +4706,19 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
         isResume: Boolean = false
     ) {
         val taskId = existingTaskId ?: java.util.UUID.randomUUID().toString()
-        var filename = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType)
-        if (filename.isNullOrEmpty() || filename == "downloadfile.bin") {
+        var rawFilename = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType)
+        if (rawFilename.isNullOrEmpty() || rawFilename == "downloadfile.bin") {
             val lastPathSegment = Uri.parse(url).lastPathSegment
             if (!lastPathSegment.isNullOrEmpty()) {
-                filename = lastPathSegment
+                rawFilename = lastPathSegment
             } else {
-                filename = "downloaded_file"
+                rawFilename = "downloaded_file"
             }
+        }
+        var filename = try {
+            java.net.URLDecoder.decode(rawFilename, "UTF-8")
+        } catch (e: Exception) {
+            rawFilename
         }
         
         val tempDir = java.io.File(context.filesDir, "downloads_temp")

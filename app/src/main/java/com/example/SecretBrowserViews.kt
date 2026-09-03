@@ -2666,18 +2666,32 @@ fun SecretBrowserDownloadItemCard(
     val isCompleted = task.status == "Completed"
     val isFailed = task.status == "Failed" || task.status == "Cancelled"
 
+    val lowerName = task.filename.lowercase()
+    val isVideo = task.mimeType.startsWith("video/") ||
+            lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") ||
+            lowerName.endsWith(".webm") || lowerName.endsWith(".avi") ||
+            lowerName.endsWith(".mov") || lowerName.endsWith(".m4v") ||
+            lowerName.endsWith(".flv") || lowerName.endsWith(".3gp")
+
+    val isImage = task.mimeType.startsWith("image/") ||
+            lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") ||
+            lowerName.endsWith(".png") || lowerName.endsWith(".webp") ||
+            lowerName.endsWith(".gif") || lowerName.endsWith(".bmp")
+
+    val isAudio = task.mimeType.startsWith("audio/") ||
+            lowerName.endsWith(".mp3") || lowerName.endsWith(".wav") ||
+            lowerName.endsWith(".m4a") || lowerName.endsWith(".aac") ||
+            lowerName.endsWith(".ogg") || lowerName.endsWith(".flac")
+
     val (fileIcon, iconBgColor, iconTintColor) = when {
-        task.mimeType.startsWith("image/") || task.filename.endsWith(".jpg", true) || task.filename.endsWith(".png", true) || task.filename.endsWith(".webp", true) ->
-            Triple(Icons.Default.Image, Color(0xFF2563EB).copy(alpha = 0.1f), Color(0xFF2563EB))
-        task.mimeType.startsWith("video/") || task.filename.endsWith(".mp4", true) || task.filename.endsWith(".mkv", true) ->
-            Triple(Icons.Default.VideoLibrary, Color(0xFF7C3AED).copy(alpha = 0.1f), Color(0xFF7C3AED))
-        task.mimeType.startsWith("audio/") || task.filename.endsWith(".mp3", true) || task.filename.endsWith(".wav", true) ->
-            Triple(Icons.Default.AudioFile, Color(0xFFEA580C).copy(alpha = 0.1f), Color(0xFFEA580C))
-        task.mimeType.contains("pdf") || task.filename.endsWith(".pdf", ignoreCase = true) ->
+        isImage -> Triple(Icons.Default.Image, Color(0xFF2563EB).copy(alpha = 0.1f), Color(0xFF2563EB))
+        isVideo -> Triple(Icons.Default.VideoLibrary, Color(0xFF7C3AED).copy(alpha = 0.12f), Color(0xFF7C3AED))
+        isAudio -> Triple(Icons.Default.AudioFile, Color(0xFFEA580C).copy(alpha = 0.1f), Color(0xFFEA580C))
+        task.mimeType.contains("pdf") || lowerName.endsWith(".pdf") ->
             Triple(Icons.Default.Description, Color(0xFFDC2626).copy(alpha = 0.1f), Color(0xFFDC2626))
-        task.mimeType.contains("zip") || task.mimeType.contains("rar") || task.mimeType.contains("tar") || task.mimeType.contains("archive") || task.filename.endsWith(".zip", true) ->
+        task.mimeType.contains("zip") || task.mimeType.contains("rar") || task.mimeType.contains("tar") || task.mimeType.contains("archive") || lowerName.endsWith(".zip") || lowerName.endsWith(".tar") || lowerName.endsWith(".gz") ->
             Triple(Icons.Default.FolderZip, Color(0xFFD97706).copy(alpha = 0.1f), Color(0xFFD97706))
-        task.filename.endsWith(".apk", true) || task.filename.endsWith(".bin", true) ->
+        lowerName.endsWith(".apk") ->
             Triple(Icons.Default.Android, Color(0xFF059669).copy(alpha = 0.1f), Color(0xFF059669))
         else ->
             Triple(Icons.Default.InsertDriveFile, AccentColor.copy(alpha = 0.1f), AccentColor)
@@ -2768,8 +2782,10 @@ fun SecretBrowserDownloadItemCard(
                                     else -> DangerColor
                                 },
                                 fontSize = 11.sp,
+                                maxLines = 1,
+                                softWrap = false,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
                     }
@@ -3929,43 +3945,6 @@ fun PrivateBrowserSection(
         return
     }
 
-    if (showSettings) {
-        SecretBrowserSettingsDashboard(
-            tabs = tabs,
-            browserBookmarks = browserBookmarks,
-            browserHistory = browserHistory,
-            searchEngine = searchEngine,
-            savePasswords = savePasswords,
-            clearHistoryOnExit = clearHistoryOnExit,
-            clearTempOnExit = clearTempOnExit,
-            useGeckoView = useGeckoView,
-            trackingProtectionEnabled = trackingProtectionEnabled,
-            onSetTrackingProtectionEnabled = { viewModel.setTrackingProtectionEnabled(it) },
-            totalTrackersBlocked = totalTrackersBlocked,
-            onBack = { showSettings = false },
-            onShowSearchEngineDialog = { showSearchEngineDialog = true },
-            onSetSavePasswords = { viewModel.setSavePasswords(it) },
-            onSetClearHistoryOnExit = { viewModel.setClearHistoryOnExit(it) },
-            onSetClearTempOnExit = { viewModel.setClearTempOnExit(it) },
-            onClearBrowsingData = { clearHistory, clearCookies, clearCache, clearSiteData, onResult ->
-                SecretBrowserPrivacyHelper.clearBrowsingData(
-                    context = context,
-                    clearHistory = clearHistory,
-                    clearCookies = clearCookies,
-                    clearCache = clearCache,
-                    clearSiteData = clearSiteData,
-                    viewModel = viewModel,
-                    onResult = onResult
-                )
-            },
-            onShowDownloads = {
-                showSettings = false
-                showDownloads = true
-            }
-        )
-        return
-    }
-
     if (showSearchEngineDialog) {
         androidx.compose.ui.window.Dialog(onDismissRequest = { showSearchEngineDialog = false }) {
             Card(
@@ -4063,6 +4042,43 @@ fun PrivateBrowserSection(
                 }
             }
         }
+    }
+
+    if (showSettings) {
+        SecretBrowserSettingsDashboard(
+            tabs = tabs,
+            browserBookmarks = browserBookmarks,
+            browserHistory = browserHistory,
+            searchEngine = searchEngine,
+            savePasswords = savePasswords,
+            clearHistoryOnExit = clearHistoryOnExit,
+            clearTempOnExit = clearTempOnExit,
+            useGeckoView = useGeckoView,
+            trackingProtectionEnabled = trackingProtectionEnabled,
+            onSetTrackingProtectionEnabled = { viewModel.setTrackingProtectionEnabled(it) },
+            totalTrackersBlocked = totalTrackersBlocked,
+            onBack = { showSettings = false },
+            onShowSearchEngineDialog = { showSearchEngineDialog = true },
+            onSetSavePasswords = { viewModel.setSavePasswords(it) },
+            onSetClearHistoryOnExit = { viewModel.setClearHistoryOnExit(it) },
+            onSetClearTempOnExit = { viewModel.setClearTempOnExit(it) },
+            onClearBrowsingData = { clearHistory, clearCookies, clearCache, clearSiteData, onResult ->
+                SecretBrowserPrivacyHelper.clearBrowsingData(
+                    context = context,
+                    clearHistory = clearHistory,
+                    clearCookies = clearCookies,
+                    clearCache = clearCache,
+                    clearSiteData = clearSiteData,
+                    viewModel = viewModel,
+                    onResult = onResult
+                )
+            },
+            onShowDownloads = {
+                showSettings = false
+                showDownloads = true
+            }
+        )
+        return
     }
 
     if (showSiteSecurityDialog && currentHost != null) {

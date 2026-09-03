@@ -6609,30 +6609,9 @@ fun VaultTabUnlockedContent(
                     
                     val context = androidx.compose.ui.platform.LocalContext.current
                     
-                    // Discovered built-in avatars starts with "ic_avatar_" from drawable
+                    // Discovered built-in avatars that render properly without corrupted binary data
                     val builtInAvatars = remember {
-                        val list = mutableListOf<String>()
-                        try {
-                            val packageName = context.packageName
-                            val rDrawableClass = Class.forName("$packageName.R\$drawable")
-                            for (field in rDrawableClass.fields) {
-                                val name = field.name
-                                if (name.startsWith("ic_avatar_")) {
-                                    list.add(name)
-                                }
-                            }
-                        } catch (e: Exception) {
-                            // Fallback
-                            list.add("ic_avatar_1")
-                            list.add("ic_avatar_2")
-                            list.add("ic_avatar_3")
-                            list.add("ic_avatar_4")
-                            list.add("ic_avatar_5")
-                            list.add("ic_avatar_6")
-                            list.add("ic_avatar_7")
-                            list.add("ic_avatar_8")
-                        }
-                        list.sorted()
+                        listOf("ic_avatar_2", "ic_avatar_4", "ic_avatar_6", "ic_avatar_8")
                     }
                     
                     // Resolve ownerAvatarUri to model (either drawable Int resource id or Uri String)
@@ -7411,7 +7390,7 @@ fun VaultTabUnlockedContent(
                         }
                     }
 
-                    // --- Material 3 Dialog for Name Editing ---
+                    // --- Material 3 Dialog for Name Editing (VIP Sleek Design) ---
                     if (showNameDialog) {
                         androidx.compose.ui.window.Dialog(
                             onDismissRequest = { showNameDialog = false }
@@ -7419,25 +7398,68 @@ fun VaultTabUnlockedContent(
                             androidx.compose.material3.Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp),
-                                shape = RoundedCornerShape(24.dp),
-                                color = Color(0xFF161B2B), // Explicitly force our premium dark color
-                                border = androidx.compose.foundation.BorderStroke(1.dp, ThemePurple.copy(alpha = 0.3f))
+                                    .padding(horizontal = 8.dp),
+                                shape = RoundedCornerShape(26.dp),
+                                color = Color(0xFF141926),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.2.dp,
+                                    androidx.compose.ui.graphics.Brush.linearGradient(
+                                        listOf(
+                                            ThemePurple.copy(alpha = 0.8f),
+                                            Color(0xFF38BDF8).copy(alpha = 0.4f),
+                                            Color.White.copy(alpha = 0.08f)
+                                        )
+                                    )
+                                ),
+                                shadowElevation = 16.dp
                             ) {
                                 Column(
                                     modifier = Modifier.padding(24.dp),
-                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                    verticalArrangement = Arrangement.spacedBy(18.dp)
                                 ) {
-                                    Text(
-                                        text = "Edit Display Name",
-                                        color = Color.White,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    
-                                    Column(
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    // VIP Header with Glowing Icon
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(44.dp)
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .background(
+                                                    androidx.compose.ui.graphics.Brush.linearGradient(
+                                                        listOf(ThemePurple.copy(alpha = 0.35f), Color(0xFF38BDF8).copy(alpha = 0.15f))
+                                                    )
+                                                )
+                                                .border(1.dp, ThemePurple.copy(alpha = 0.5f), RoundedCornerShape(14.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Person,
+                                                contentDescription = null,
+                                                tint = Color(0xFFE2E8F0),
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+
+                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            Text(
+                                                text = "Edit Display Name",
+                                                color = Color.White,
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 0.2.sp
+                                            )
+                                            Text(
+                                                text = "Your private vault identity",
+                                                color = Color(0xFF94A3B8),
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                    }
+
+                                    // Input Field with Character Limit & Clear Affordance
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         OutlinedTextField(
                                             value = nameInput,
                                             onValueChange = {
@@ -7445,41 +7467,72 @@ fun VaultTabUnlockedContent(
                                                     nameInput = it
                                                 }
                                             },
+                                            placeholder = {
+                                                Text("Enter your name", color = Color.White.copy(alpha = 0.35f), fontSize = 14.5.sp)
+                                            },
+                                            trailingIcon = {
+                                                if (nameInput.isNotEmpty()) {
+                                                    IconButton(
+                                                        onClick = { nameInput = "" },
+                                                        modifier = Modifier.size(24.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Close,
+                                                            contentDescription = "Clear",
+                                                            tint = Color.White.copy(alpha = 0.45f),
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                            },
                                             singleLine = true,
+                                            shape = RoundedCornerShape(14.dp),
                                             colors = OutlinedTextFieldDefaults.colors(
                                                 focusedTextColor = Color.White,
                                                 unfocusedTextColor = Color.White,
-                                                focusedContainerColor = Color(0xFF0C0F1A),
-                                                unfocusedContainerColor = Color(0xFF0C0F1A),
+                                                focusedContainerColor = Color(0xFF0C101B),
+                                                unfocusedContainerColor = Color(0xFF0C101B),
                                                 focusedBorderColor = ThemePurple,
-                                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                                                unfocusedBorderColor = Color.White.copy(alpha = 0.16f),
                                                 cursorColor = ThemePurple
                                             ),
                                             modifier = Modifier.fillMaxWidth()
                                         )
+
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.End
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
-                                                text = "${nameInput.length}/25",
+                                                text = "Visible only to you inside Vault",
                                                 color = Color.White.copy(alpha = 0.4f),
-                                                fontSize = 12.sp
+                                                fontSize = 11.5.sp
+                                            )
+                                            Text(
+                                                text = "${nameInput.length}/25",
+                                                color = if (nameInput.length >= 25) Color(0xFFFF5252) else Color.White.copy(alpha = 0.5f),
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.SemiBold
                                             )
                                         }
                                     }
-                                    
+
+                                    // Action Buttons Row
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.End,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         TextButton(
-                                            onClick = { showNameDialog = false }
+                                            onClick = { showNameDialog = false },
+                                            shape = RoundedCornerShape(12.dp)
                                         ) {
-                                            Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                                            Text("Cancel", color = Color.White.copy(alpha = 0.7f), fontWeight = FontWeight.Medium)
                                         }
-                                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(8.dp))
+
+                                        Spacer(modifier = Modifier.width(10.dp))
+
                                         Button(
                                             onClick = {
                                                 val trimmed = nameInput.trim()
@@ -7491,9 +7544,11 @@ fun VaultTabUnlockedContent(
                                                 }
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = ThemePurple),
-                                            shape = RoundedCornerShape(12.dp)
+                                            shape = RoundedCornerShape(14.dp),
+                                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                                            contentPadding = PaddingValues(horizontal = 22.dp, vertical = 10.dp)
                                         ) {
-                                            Text("Save", color = if (IsWhiteTheme) Color(0xFF161B2B) else Color.White, fontWeight = FontWeight.Bold)
+                                            Text("Save Changes", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
                                         }
                                     }
                                 }

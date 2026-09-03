@@ -47,11 +47,17 @@ fun SecretBrowserDownloadConfirmDialog(
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
 
-    val guessedFilename = android.webkit.URLUtil.guessFileName(
+    val rawFilename = android.webkit.URLUtil.guessFileName(
         download.url,
         download.contentDisposition,
         download.mimeType
     ) ?: "downloaded_file"
+
+    val guessedFilename = try {
+        java.net.URLDecoder.decode(rawFilename, "UTF-8")
+    } catch (e: Exception) {
+        rawFilename
+    }
 
     val sizeText = if (download.contentLength > 0) {
         viewModel.formatFileSize(download.contentLength)
@@ -59,18 +65,32 @@ fun SecretBrowserDownloadConfirmDialog(
         "Unknown Size"
     }
 
+    val lowerName = guessedFilename.lowercase()
+    val isVideo = download.mimeType.startsWith("video/") ||
+            lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") ||
+            lowerName.endsWith(".webm") || lowerName.endsWith(".avi") ||
+            lowerName.endsWith(".mov") || lowerName.endsWith(".m4v") ||
+            lowerName.endsWith(".flv") || lowerName.endsWith(".3gp")
+
+    val isImage = download.mimeType.startsWith("image/") ||
+            lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") ||
+            lowerName.endsWith(".png") || lowerName.endsWith(".webp") ||
+            lowerName.endsWith(".gif") || lowerName.endsWith(".bmp")
+
+    val isAudio = download.mimeType.startsWith("audio/") ||
+            lowerName.endsWith(".mp3") || lowerName.endsWith(".wav") ||
+            lowerName.endsWith(".m4a") || lowerName.endsWith(".aac") ||
+            lowerName.endsWith(".ogg") || lowerName.endsWith(".flac")
+
     val (fileIcon: ImageVector, iconBg: Color, iconColor: Color, typeLabel: String) = when {
-        download.mimeType.startsWith("image/") || guessedFilename.endsWith(".jpg", true) || guessedFilename.endsWith(".png", true) || guessedFilename.endsWith(".webp", true) ->
-            Tuple4(Icons.Default.Image, Color(0xFF1E3A8A).copy(alpha = 0.2f), Color(0xFF3B82F6), "IMAGE")
-        download.mimeType.startsWith("video/") || guessedFilename.endsWith(".mp4", true) || guessedFilename.endsWith(".mkv", true) ->
-            Tuple4(Icons.Default.VideoLibrary, Color(0xFF581C87).copy(alpha = 0.2f), Color(0xFFA855F7), "VIDEO")
-        download.mimeType.startsWith("audio/") || guessedFilename.endsWith(".mp3", true) || guessedFilename.endsWith(".wav", true) ->
-            Tuple4(Icons.Default.AudioFile, Color(0xFF7C2D12).copy(alpha = 0.2f), Color(0xFFF97316), "AUDIO")
-        download.mimeType.contains("pdf") || guessedFilename.endsWith(".pdf", ignoreCase = true) ->
+        isImage -> Tuple4(Icons.Default.Image, Color(0xFF1E3A8A).copy(alpha = 0.2f), Color(0xFF3B82F6), "IMAGE")
+        isVideo -> Tuple4(Icons.Default.VideoLibrary, Color(0xFF581C87).copy(alpha = 0.2f), Color(0xFFA855F7), "VIDEO")
+        isAudio -> Tuple4(Icons.Default.AudioFile, Color(0xFF7C2D12).copy(alpha = 0.2f), Color(0xFFF97316), "AUDIO")
+        download.mimeType.contains("pdf") || lowerName.endsWith(".pdf") ->
             Tuple4(Icons.Default.Description, Color(0xFF7F1D1D).copy(alpha = 0.2f), Color(0xFFEF4444), "PDF DOC")
-        download.mimeType.contains("zip") || download.mimeType.contains("rar") || download.mimeType.contains("archive") || guessedFilename.endsWith(".zip", true) ->
+        download.mimeType.contains("zip") || download.mimeType.contains("rar") || download.mimeType.contains("archive") || lowerName.endsWith(".zip") || lowerName.endsWith(".tar") || lowerName.endsWith(".gz") ->
             Tuple4(Icons.Default.FolderZip, Color(0xFF78350F).copy(alpha = 0.2f), Color(0xFFF59E0B), "ARCHIVE")
-        guessedFilename.endsWith(".apk", true) ->
+        lowerName.endsWith(".apk") ->
             Tuple4(Icons.Default.Android, Color(0xFF064E3B).copy(alpha = 0.2f), Color(0xFF10B981), "PACKAGE")
         else ->
             Tuple4(Icons.Default.InsertDriveFile, Color(0xFFFF6A00).copy(alpha = 0.15f), Color(0xFFFF6A00), "DOCUMENT")
@@ -288,9 +308,10 @@ fun SecretBrowserDownloadConfirmDialog(
                                 Text(
                                     text = "🔒 Vault Sandbox",
                                     color = textSub,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.5.sp,
+                                    maxLines = 1,
                                     fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp)
                                 )
                             }
                         }

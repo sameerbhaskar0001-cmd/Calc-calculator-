@@ -336,8 +336,8 @@ fun SecretRunnerGameView(
                 val dt = ((frameTimeNanos - lastFrameTimeNanos) / 1_000_000_000f).coerceIn(0.001f, 0.04f)
                 lastFrameTimeNanos = frameTimeNanos
 
-                // Speed scale
-                val currentSpeedMultiplier = 1f + (distanceScore / 650f).coerceAtMost(1.85f)
+                // Natural, smooth progressive speed scaling over time and distance
+                val currentSpeedMultiplier = 1f + (distanceScore / 320f).coerceAtMost(2.2f)
                 val currentSpeed = baseSpeed * currentSpeedMultiplier
 
                 speedLineAlpha = if (currentSpeedMultiplier > 1.35f) {
@@ -685,8 +685,7 @@ fun SecretRunnerGameView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -723,22 +722,6 @@ fun SecretRunnerGameView(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Current Biome Sector Badge
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = currentBiome.accentColor.copy(alpha = 0.15f),
-                        border = BorderStroke(1.dp, currentBiome.accentColor.copy(alpha = 0.5f))
-                    ) {
-                        Text(
-                            text = currentBiome.sectorName,
-                            color = currentBiome.accentColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-                        )
-                    }
-
                     // Best Score Pill
                     Surface(
                         shape = RoundedCornerShape(12.dp),
