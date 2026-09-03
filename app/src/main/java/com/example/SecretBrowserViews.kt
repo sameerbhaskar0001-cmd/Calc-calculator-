@@ -61,10 +61,15 @@ import java.util.concurrent.ConcurrentHashMap
 object TabThumbnailCache {
     private val cache = ConcurrentHashMap<String, android.graphics.Bitmap>()
     val version = mutableStateOf(0)
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     fun setThumbnail(tabId: String, bitmap: android.graphics.Bitmap) {
         cache[tabId] = bitmap
-        version.value++
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            version.value++
+        } else {
+            mainHandler.post { version.value++ }
+        }
     }
 
     fun getThumbnail(tabId: String): android.graphics.Bitmap? {
@@ -73,12 +78,20 @@ object TabThumbnailCache {
 
     fun removeThumbnail(tabId: String) {
         cache.remove(tabId)
-        version.value++
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            version.value++
+        } else {
+            mainHandler.post { version.value++ }
+        }
     }
 
     fun clear() {
         cache.clear()
-        version.value++
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            version.value++
+        } else {
+            mainHandler.post { version.value++ }
+        }
     }
 }
 
@@ -86,10 +99,17 @@ private fun isValidRenderedBitmap(bitmap: android.graphics.Bitmap): Boolean {
     if (bitmap.width < 20 || bitmap.height < 20) return false
     val w = bitmap.width
     val h = bitmap.height
-    val centerPixel = bitmap.getPixel(w / 2, h / 2)
-    val alpha = android.graphics.Color.alpha(centerPixel)
-    if (alpha < 30) return false
-    return true
+    val samplePoints = intArrayOf(
+        bitmap.getPixel(w / 2, h / 2),
+        bitmap.getPixel(w / 4, h / 4),
+        bitmap.getPixel((3 * w) / 4, (3 * h) / 4),
+        bitmap.getPixel(w / 2, h / 4),
+        bitmap.getPixel(w / 2, (3 * h) / 4)
+    )
+    for (pixel in samplePoints) {
+        if (android.graphics.Color.alpha(pixel) > 30) return true
+    }
+    return false
 }
 
 fun captureViewThumbnail(view: android.view.View?, tabId: String, onComplete: (() -> Unit)? = null) {
@@ -2532,6 +2552,8 @@ fun SecretBrowserDownloadsScreen(
                         onOpen = { viewModel.openDownload(context, task) },
                         onDelete = { viewModel.deleteDownload(task) },
                         onRetry = { viewModel.retryDownload(context, task) },
+                        onResume = { viewModel.resumeDownload(context, task) },
+                        onPause = { viewModel.pauseDownload(task) },
                         onCancel = { viewModel.cancelDownload(task) },
                         onShowDetail = { selectedTaskForDetail = task }
                     )
@@ -2635,9 +2657,12 @@ fun SecretBrowserDownloadItemCard(
     onDelete: () -> Unit,
     onRetry: () -> Unit,
     onCancel: () -> Unit,
-    onShowDetail: () -> Unit = {}
+    onShowDetail: () -> Unit = {},
+    onResume: () -> Unit = {},
+    onPause: () -> Unit = {}
 ) {
     val isDownloading = task.status == "Downloading"
+    val isPaused = task.status == "Paused"
     val isCompleted = task.status == "Completed"
     val isFailed = task.status == "Failed" || task.status == "Cancelled"
 
@@ -2723,19 +2748,22 @@ fun SecretBrowserDownloadItemCard(
                             shape = RoundedCornerShape(4.dp),
                             color = when {
                                 isDownloading -> AccentColor.copy(alpha = 0.09f)
+                                isPaused -> Color(0xFFD97706).copy(alpha = 0.09f)
                                 isCompleted -> SuccessColor.copy(alpha = 0.09f)
                                 else -> DangerColor.copy(alpha = 0.09f)
                             }
                         ) {
                             Text(
                                 text = when {
-                                    isDownloading -> "${(task.progress * 100).toInt()}% • Transferring"
+                                    isDownloading -> "${(task.progress * 100).toInt()}% • Downloading"
+                                    isPaused -> "${(task.progress * 100).toInt()}% • Paused"
                                     isCompleted -> "Completed"
                                     task.status == "Cancelled" -> "Cancelled"
                                     else -> "Failed"
                                 },
                                 color = when {
                                     isDownloading -> AccentColor
+                                    isPaused -> Color(0xFFD97706)
                                     isCompleted -> SuccessColor
                                     else -> DangerColor
                                 },
@@ -2754,6 +2782,17 @@ fun SecretBrowserDownloadItemCard(
                 ) {
                     if (isDownloading) {
                         IconButton(
+                            onClick = onPause,
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Pause,
+                                contentDescription = "Pause Download",
+                                tint = AccentColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        IconButton(
                             onClick = onCancel,
                             modifier = Modifier.size(34.dp)
                         ) {
@@ -2761,6 +2800,27 @@ fun SecretBrowserDownloadItemCard(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Cancel Download",
                                 tint = DangerColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    } else if (isPaused) {
+                        Button(
+                            onClick = onResume,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("Resume", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "Delete",
+                                tint = TextSecondary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -2812,8 +2872,8 @@ fun SecretBrowserDownloadItemCard(
                 }
             }
 
-            // Progress bar if downloading
-            if (isDownloading) {
+            // Progress bar if downloading or paused
+            if (isDownloading || isPaused) {
                 Spacer(modifier = Modifier.height(10.dp))
                 LinearProgressIndicator(
                     progress = { task.progress },
@@ -2821,7 +2881,7 @@ fun SecretBrowserDownloadItemCard(
                         .fillMaxWidth()
                         .height(4.dp)
                         .clip(RoundedCornerShape(2.dp)),
-                    color = AccentColor,
+                    color = if (isPaused) Color(0xFFD97706) else AccentColor,
                     trackColor = BorderColor
                 )
             }
@@ -2977,7 +3037,7 @@ private fun TabPreviewWindow(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = if (tab.isLoading) "Loading..." else "Rendering...",
+                    text = if (tab.isLoading) "Loading..." else "Capturing preview...",
                     fontSize = 9.sp,
                     color = TextSecondary
                 )
@@ -3810,175 +3870,22 @@ fun PrivateBrowserSection(
     }
 
     pendingDownload?.let { download ->
-        val guessedFilename = android.webkit.URLUtil.guessFileName(download.url, download.contentDisposition, download.mimeType) ?: "file"
-        val sizeText = if (download.contentLength > 0) viewModel.formatFileSize(download.contentLength) else "Unknown Size"
-
-        val fileIcon = when {
-            download.mimeType.startsWith("image/") -> Icons.Default.Image
-            download.mimeType.startsWith("video/") -> Icons.Default.VideoLibrary
-            download.mimeType.startsWith("audio/") -> Icons.Default.AudioFile
-            download.mimeType.contains("pdf") || guessedFilename.endsWith(".pdf", ignoreCase = true) -> Icons.Default.Description
-            download.mimeType.contains("zip") || download.mimeType.contains("rar") || download.mimeType.contains("archive") -> Icons.Default.FolderZip
-            else -> Icons.Default.InsertDriveFile
-        }
-
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = { pendingDownload = null }
-        ) {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = LightCard),
-                border = BorderStroke(1.dp, BorderColor),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(AccentColor.copy(alpha = 0.1f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CloudDownload,
-                                contentDescription = null,
-                                tint = AccentColor,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Column {
-                            Text(
-                                text = "Confirm Download",
-                                color = TextPrimary,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Save to encrypted vault sandbox",
-                                color = TextSecondary,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Card(
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = LightBg),
-                        border = BorderStroke(1.dp, BorderColor),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .background(AccentColor.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = fileIcon,
-                                    contentDescription = null,
-                                    tint = AccentColor,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = guessedFilename,
-                                    color = TextPrimary,
-                                    fontSize = 13.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(sizeText, color = TextSecondary, fontSize = 11.5.sp)
-                                    if (download.mimeType.isNotEmpty()) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(3.dp)
-                                                .background(TextSecondary.copy(alpha = 0.5f), CircleShape)
-                                        )
-                                        Text(
-                                            text = download.mimeType,
-                                            color = TextSecondary,
-                                            fontSize = 11.5.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { pendingDownload = null },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, BorderColor),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
-                        ) {
-                            Text("Cancel", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
-                        }
-
-                        Button(
-                            onClick = {
-                                viewModel.startVaultDownload(
-                                    context,
-                                    download.url,
-                                    download.userAgent,
-                                    download.contentDisposition,
-                                    download.mimeType,
-                                    download.contentLength,
-                                    destination = DownloadDestination.SECRET_VAULT
-                                )
-                                pendingDownload = null
-                            },
-                            modifier = Modifier
-                                .weight(1.3f)
-                                .height(44.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
-                        ) {
-                            Icon(Icons.Default.Download, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Download", color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
+        SecretBrowserDownloadConfirmDialog(
+            download = download,
+            viewModel = viewModel,
+            onDismiss = { pendingDownload = null },
+            onConfirm = { destination ->
+                viewModel.startVaultDownload(
+                    context = context,
+                    url = download.url,
+                    userAgent = download.userAgent,
+                    contentDisposition = download.contentDisposition,
+                    mimeType = download.mimeType,
+                    contentLength = download.contentLength,
+                    destination = destination
+                )
             }
-        }
+        )
     }
 
     if (showDownloads) {
@@ -4055,32 +3962,6 @@ fun PrivateBrowserSection(
                 showSettings = false
                 showDownloads = true
             }
-        )
-        return
-    }
-
-    if (showTabSwitcher) {
-        SecretBrowserTabSwitcherScreen(
-            tabs = tabs,
-            activeTabId = activeTabId,
-            onSelectTab = { id ->
-                activeTabId = id
-                showTabSwitcher = false
-            },
-            onCloseTab = { id ->
-                closeTab(id)
-            },
-            onCloseAllTabs = {
-                TabThumbnailCache.clear()
-                tabs.clear()
-                openNewTab("home")
-                showTabSwitcher = false
-            },
-            onNewTab = {
-                openNewTab("home")
-                showTabSwitcher = false
-            },
-            onBack = { showTabSwitcher = false }
         )
         return
     }
@@ -5368,6 +5249,31 @@ fun PrivateBrowserSection(
             )
         }
         BrowserUploadSourceDialog(viewModel = viewModel)
+
+        if (showTabSwitcher) {
+            SecretBrowserTabSwitcherScreen(
+                tabs = tabs,
+                activeTabId = activeTabId,
+                onSelectTab = { id ->
+                    activeTabId = id
+                    showTabSwitcher = false
+                },
+                onCloseTab = { id ->
+                    closeTab(id)
+                },
+                onCloseAllTabs = {
+                    TabThumbnailCache.clear()
+                    tabs.clear()
+                    openNewTab("home")
+                    showTabSwitcher = false
+                },
+                onNewTab = {
+                    openNewTab("home")
+                    showTabSwitcher = false
+                },
+                onBack = { showTabSwitcher = false }
+            )
+        }
 
         if (showSecretRunnerGame) {
             SecretRunnerGameView(

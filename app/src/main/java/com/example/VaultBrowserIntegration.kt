@@ -150,6 +150,29 @@ class VaultDownloadHandler(private val context: Context) {
             }
         }
     }
+
+    /**
+     * File-based streaming overload: Moves or copies directly from a streaming disk file into Vault
+     * or app downloads without buffering byte arrays into memory.
+     */
+    fun saveDownloadedFile(
+        filename: String,
+        mimeType: String,
+        sourceFile: File,
+        destination: DownloadDestination,
+        deviceFileSaver: (String, String, File) -> String?,
+        vaultFileSaver: (String, String, File) -> String?
+    ): String? {
+        val resolvedDest = VaultBrowserIntegration.resolveDestination(destination)
+        return when (resolvedDest) {
+            DownloadDestination.SECRET_VAULT -> {
+                vaultFileSaver(filename, mimeType, sourceFile)
+            }
+            DownloadDestination.DEVICE -> {
+                deviceFileSaver(filename, mimeType, sourceFile)
+            }
+        }
+    }
 }
 
 /**

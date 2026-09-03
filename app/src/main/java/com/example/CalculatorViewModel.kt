@@ -4353,6 +4353,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
 
     private val activeDownloadJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+    private val activeDownloadConnections = java.util.concurrent.ConcurrentHashMap<String, java.net.HttpURLConnection>()
 
     private fun saveDownloads(list: List<DownloadTask>) {
         try {
@@ -4367,6 +4368,11 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                 obj.put("sizeString", item.sizeString)
                 obj.put("mimeType", item.mimeType)
                 obj.put("filePath", item.filePath)
+                obj.put("downloadedBytes", item.downloadedBytes)
+                obj.put("totalBytes", item.totalBytes)
+                obj.put("canResume", item.canResume)
+                obj.put("userAgent", item.userAgent)
+                obj.put("destination", item.destination)
                 json.put(obj)
             }
             prefs.edit().putString("browser_downloads", json.toString()).commit()
@@ -4378,18 +4384,39 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
             val jsonStr = prefs.getString("browser_downloads", "[]") ?: "[]"
             val json = org.json.JSONArray(jsonStr)
             val list = mutableListOf<DownloadTask>()
+            val tempDir = java.io.File(getApplication<Application>().filesDir, "downloads_temp")
             for (i in 0 until json.length()) {
                 val obj = json.getJSONObject(i)
+                val id = obj.getString("id")
+                var status = obj.getString("status")
+                val progress = obj.getDouble("progress").toFloat()
+                val partFile = java.io.File(tempDir, "$id.part")
+                var canResume = obj.optBoolean("canResume", false)
+                // Interrupted transfer safety check: if process died during transfer, transition to Paused or Failed
+                if (status == "Downloading") {
+                    if (partFile.exists() && partFile.length() > 0) {
+                        status = "Paused"
+                        canResume = true
+                    } else {
+                        status = "Failed"
+                        canResume = false
+                    }
+                }
                 list.add(
                     DownloadTask(
-                        id = obj.getString("id"),
+                        id = id,
                         url = obj.getString("url"),
                         filename = obj.getString("filename"),
-                        progress = obj.getDouble("progress").toFloat(),
-                        status = obj.getString("status"),
+                        progress = progress,
+                        status = status,
                         sizeString = obj.optString("sizeString", "0 B"),
                         mimeType = obj.optString("mimeType", ""),
-                        filePath = obj.optString("filePath", "")
+                        filePath = obj.optString("filePath", ""),
+                        downloadedBytes = obj.optLong("downloadedBytes", if (partFile.exists()) partFile.length() else 0L),
+                        totalBytes = obj.optLong("totalBytes", 0L),
+                        canResume = canResume,
+                        userAgent = obj.optString("userAgent", "Mozilla/5.0"),
+                        destination = obj.optString("destination", "SECRET_VAULT")
                     )
                 )
             }
@@ -4407,11 +4434,14 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
     fun clearDownloads() {
         activeDownloadJobs.values.forEach { it.cancel() }
         activeDownloadJobs.clear()
+        activeDownloadConnections.values.forEach { try { it.disconnect() } catch (e: Exception) {} }
+        activeDownloadConnections.clear()
         _downloads.value = emptyList()
         saveDownloads(emptyList())
     }
 
     fun removeDownload(taskId: String) {
+        activeDownloadConnections.remove(taskId)?.let { try { it.disconnect() } catch (e: Exception) {} }
         activeDownloadJobs.remove(taskId)?.cancel()
         val current = _downloads.value.filter { it.id != taskId }
         _downloads.value = current
@@ -4419,6 +4449,7 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
     }
 
     fun cancelDownload(task: DownloadTask) {
+        activeDownloadConnections.remove(task.id)?.let { try { it.disconnect() } catch (e: Exception) {} }
         val job = activeDownloadJobs.remove(task.id)
         job?.cancel()
         val current = _downloads.value.map { t ->
@@ -4444,6 +4475,34 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                 count++
             }
             finalFile.writeBytes(bytes)
+            finalFile.absolutePath
+        } catch (e: Exception) {
+            android.util.Log.e("BrowserDownload", "Failed to save downloaded file", e)
+            null
+        }
+    }
+
+    fun saveDownloadedFile(context: Context, filename: String, mimeType: String, sourceFile: File): String? {
+        return try {
+            val downloadsDir = File(context.filesDir, "downloads")
+            if (!downloadsDir.exists()) downloadsDir.mkdirs()
+            val destFile = File(downloadsDir, filename)
+            var finalFile = destFile
+            var count = 1
+            while (finalFile.exists()) {
+                val nameWithoutExt = finalFile.nameWithoutExtension
+                val ext = finalFile.extension
+                finalFile = File(downloadsDir, if (ext.isNotEmpty()) "${nameWithoutExt}_$count.$ext" else "${nameWithoutExt}_$count")
+                count++
+            }
+            if (!sourceFile.renameTo(finalFile)) {
+                sourceFile.inputStream().buffered().use { input ->
+                    finalFile.outputStream().buffered().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                sourceFile.delete()
+            }
             finalFile.absolutePath
         } catch (e: Exception) {
             android.util.Log.e("BrowserDownload", "Failed to save downloaded file", e)
@@ -4492,6 +4551,38 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
         }
     }
 
+    fun addDownloadedFileToVault(context: Context, filename: String, mimeType: String, sourceFile: File): String? {
+        return try {
+            val vaultDir = File(context.filesDir, "vault_files")
+            if (!vaultDir.exists()) vaultDir.mkdirs()
+            val id = System.currentTimeMillis().toString()
+            val ext = File(filename).extension.ifEmpty {
+                when {
+                    mimeType.startsWith("image/") -> "jpg"
+                    mimeType.startsWith("video/") -> "mp4"
+                    mimeType.contains("pdf") -> "pdf"
+                    mimeType.contains("text") -> "txt"
+                    else -> "dat"
+                }
+            }
+            val destFileName = "$id.$ext"
+            val destFile = File(vaultDir, destFileName)
+            if (!sourceFile.renameTo(destFile)) {
+                sourceFile.inputStream().buffered().use { input ->
+                    destFile.outputStream().buffered().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                sourceFile.delete()
+            }
+            registerDirectVaultFile(context, destFile, filename, mimeType)
+            destFile.absolutePath
+        } catch (e: Exception) {
+            android.util.Log.e("Vault", "Failed to add downloaded file to vault", e)
+            null
+        }
+    }
+
     fun deleteDownload(task: DownloadTask) {
         cancelDownload(task)
         if (task.filePath.isNotEmpty()) {
@@ -4500,9 +4591,56 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                 file.delete()
             }
         }
+        val tempDir = java.io.File(getApplication<Application>().filesDir, "downloads_temp")
+        val partFile = java.io.File(tempDir, "${task.id}.part")
+        if (partFile.exists()) {
+            partFile.delete()
+        }
         val current = _downloads.value.filter { it.id != task.id }
         _downloads.value = current
         saveDownloads(current)
+    }
+
+    fun pauseDownload(task: DownloadTask) {
+        val conn = activeDownloadConnections.remove(task.id)
+        try { conn?.disconnect() } catch (e: Exception) {}
+        val job = activeDownloadJobs.remove(task.id)
+        job?.cancel()
+        val tempDir = java.io.File(getApplication<Application>().filesDir, "downloads_temp")
+        val partFile = java.io.File(tempDir, "${task.id}.part")
+        val existingBytes = if (partFile.exists()) partFile.length() else task.downloadedBytes
+        val current = _downloads.value.map { t ->
+            if (t.id == task.id) {
+                t.copy(status = "Paused", canResume = true, downloadedBytes = existingBytes)
+            } else t
+        }
+        _downloads.value = current
+        saveDownloads(current)
+        try {
+            android.widget.Toast.makeText(getApplication(), "Download paused", android.widget.Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {}
+    }
+
+    fun resumeDownload(context: Context, task: DownloadTask) {
+        try {
+            android.widget.Toast.makeText(context, "Resuming download: ${task.filename}", android.widget.Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {}
+        val dest = try {
+            DownloadDestination.valueOf(task.destination)
+        } catch (e: Exception) {
+            DownloadDestination.SECRET_VAULT
+        }
+        startVaultDownload(
+            context = context,
+            url = task.url,
+            userAgent = task.userAgent,
+            contentDisposition = "",
+            mimeType = task.mimeType,
+            contentLength = task.totalBytes,
+            destination = dest,
+            existingTaskId = task.id,
+            isResume = true
+        )
     }
 
     fun openDownload(context: Context, task: DownloadTask) {
@@ -4531,14 +4669,43 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
     }
 
     fun retryDownload(context: Context, task: DownloadTask) {
-        val current = _downloads.value.filter { it.id != task.id }
-        _downloads.value = current
-        saveDownloads(current)
-        startVaultDownload(context, task.url, "Mozilla/5.0", "", task.mimeType, 0, destination = DownloadDestination.SECRET_VAULT)
+        val job = activeDownloadJobs.remove(task.id)
+        job?.cancel()
+        val tempDir = java.io.File(context.filesDir, "downloads_temp")
+        val partFile = java.io.File(tempDir, "${task.id}.part")
+        if (partFile.exists()) {
+            partFile.delete()
+        }
+        val dest = try {
+            DownloadDestination.valueOf(task.destination)
+        } catch (e: Exception) {
+            DownloadDestination.SECRET_VAULT
+        }
+        startVaultDownload(
+            context = context,
+            url = task.url,
+            userAgent = task.userAgent,
+            contentDisposition = "",
+            mimeType = task.mimeType,
+            contentLength = task.totalBytes,
+            destination = dest,
+            existingTaskId = task.id,
+            isResume = false
+        )
     }
 
-    fun startVaultDownload(context: Context, url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long, destination: DownloadDestination = DownloadDestination.SECRET_VAULT) {
-        val taskId = java.util.UUID.randomUUID().toString()
+    fun startVaultDownload(
+        context: Context,
+        url: String,
+        userAgent: String,
+        contentDisposition: String,
+        mimeType: String,
+        contentLength: Long,
+        destination: DownloadDestination = DownloadDestination.SECRET_VAULT,
+        existingTaskId: String? = null,
+        isResume: Boolean = false
+    ) {
+        val taskId = existingTaskId ?: java.util.UUID.randomUUID().toString()
         var filename = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType)
         if (filename.isNullOrEmpty() || filename == "downloadfile.bin") {
             val lastPathSegment = Uri.parse(url).lastPathSegment
@@ -4549,109 +4716,209 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
             }
         }
         
-        val newTask = DownloadTask(
+        val tempDir = java.io.File(context.filesDir, "downloads_temp")
+        if (!tempDir.exists()) tempDir.mkdirs()
+        val partFile = java.io.File(tempDir, "$taskId.part")
+
+        val existingTask = _downloads.value.find { it.id == taskId }
+        val finalFilename = existingTask?.filename ?: filename
+        val initialDownloaded = if (isResume && partFile.exists()) partFile.length() else 0L
+        val initialTotal = if (contentLength > 0) contentLength else (existingTask?.totalBytes ?: 0L)
+        val initialProgress = if (initialTotal > 0) (initialDownloaded.toFloat() / initialTotal.toFloat()).coerceIn(0f, 1f) else 0f
+
+        val updatedTask = DownloadTask(
             id = taskId,
             url = url,
-            filename = filename,
-            progress = 0f,
+            filename = finalFilename,
+            progress = initialProgress,
             status = "Downloading",
-            sizeString = formatFileSize(contentLength),
-            mimeType = mimeType
+            sizeString = if (initialTotal > 0) "${formatFileSize(initialDownloaded)} / ${formatFileSize(initialTotal)}" else formatFileSize(initialTotal),
+            mimeType = mimeType.ifEmpty { existingTask?.mimeType ?: "" },
+            filePath = "",
+            downloadedBytes = initialDownloaded,
+            totalBytes = initialTotal,
+            canResume = true,
+            userAgent = userAgent,
+            destination = destination.name
         )
-        val initialDownloads = _downloads.value + newTask
-        _downloads.value = initialDownloads
-        saveDownloads(initialDownloads)
+
+        val updatedDownloads = if (existingTask != null) {
+            _downloads.value.map { if (it.id == taskId) updatedTask else it }
+        } else {
+            _downloads.value + updatedTask
+        }
+        _downloads.value = updatedDownloads
+        saveDownloads(updatedDownloads)
+
+        try {
+            if (!isResume) {
+                android.widget.Toast.makeText(context, "Downloading started: $finalFilename", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {}
+
+        activeDownloadJobs.remove(taskId)?.cancel()
+        activeDownloadConnections.remove(taskId)?.let { try { it.disconnect() } catch (e: Exception) {} }
         
         val job = viewModelScope.launch(Dispatchers.IO) {
+            var fileOutputStream: java.io.OutputStream? = null
+            var inputStream: java.io.InputStream? = null
+            var connection: java.net.HttpURLConnection? = null
             try {
                 val urlObj = java.net.URL(url)
-                val connection = urlObj.openConnection() as java.net.HttpURLConnection
+                connection = urlObj.openConnection() as java.net.HttpURLConnection
+                activeDownloadConnections[taskId] = connection
                 connection.instanceFollowRedirects = true
+                connection.connectTimeout = 15000
+                connection.readTimeout = 30000
                 connection.setRequestProperty("User-Agent", userAgent)
+                connection.setRequestProperty("Accept-Encoding", "identity")
                 try {
                     val cookie = android.webkit.CookieManager.getInstance().getCookie(url)
                     if (!cookie.isNullOrEmpty()) {
                         connection.setRequestProperty("Cookie", cookie)
                     }
                 } catch (e: Exception) {}
+
+                var append = false
+                val startByte = if (isResume && partFile.exists() && partFile.length() > 0) partFile.length() else 0L
+                if (startByte > 0) {
+                    connection.setRequestProperty("Range", "bytes=$startByte-")
+                }
+
                 connection.connect()
-                
-                if (connection.responseCode in 200..299) {
-                    val totalLength = if (contentLength > 0) contentLength else connection.contentLength.toLong()
-                    val inputStream = connection.inputStream
-                    val outputStream = java.io.ByteArrayOutputStream()
-                    val buffer = ByteArray(4096)
-                    var bytesRead: Int
-                    var totalBytesRead = 0L
-                    
-                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                        outputStream.write(buffer, 0, bytesRead)
-                        totalBytesRead += bytesRead
-                        if (totalLength > 0) {
-                            val progressValue = totalBytesRead.toFloat() / totalLength.toFloat()
-                            _downloads.value = _downloads.value.map { task ->
-                                if (task.id == taskId) task.copy(progress = progressValue) else task
-                            }
-                        }
+                val responseCode = connection.responseCode
+
+                var totalLength: Long
+                var currentDownloaded: Long
+
+                if (responseCode == 206) {
+                    append = true
+                    currentDownloaded = startByte
+                    val serverRemaining = connection.contentLength.toLong()
+                    totalLength = if (initialTotal > 0) initialTotal else (if (serverRemaining > 0) startByte + serverRemaining else 0L)
+                } else if (responseCode in 200..299) {
+                    append = false
+                    currentDownloaded = 0L
+                    totalLength = if (contentLength > 0) contentLength else connection.contentLength.toLong()
+                } else {
+                    throw java.io.IOException("HTTP error: $responseCode ${connection.responseMessage}")
+                }
+
+                inputStream = connection.inputStream.buffered()
+                fileOutputStream = java.io.FileOutputStream(partFile, append).buffered()
+
+                val buffer = ByteArray(65536) // 64 KB memory-safe bounded buffer
+                var lastUiUpdateTime = 0L
+
+                while (kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]?.isActive == true) {
+                    val currentTask = _downloads.value.find { it.id == taskId }
+                    if (currentTask != null && currentTask.status != "Downloading") {
+                        break
                     }
-                    
-                    inputStream.close()
-                    val fileBytes = outputStream.toByteArray()
-                    outputStream.close()
-                    
-                    val finalMime = connection.contentType ?: mimeType
-                    val downloadHandler = VaultDownloadHandler(context)
-                    val targetFilePath = downloadHandler.saveDownloadedFile(
-                        filename = filename,
-                        mimeType = finalMime,
-                        bytes = fileBytes,
-                        destination = destination,
-                        deviceSaver = { fname, mime, b -> saveDownloadedFile(context, fname, mime, b) },
-                        vaultSaver = { fname, mime, b -> addDownloadedFileToVault(context, fname, mime, b) }
-                    )
-                    val success = targetFilePath != null
-                    
-                    withContext(Dispatchers.Main) {
-                        val finalDownloads = _downloads.value.map { task ->
+                    val bytesRead = inputStream.read(buffer)
+                    if (bytesRead == -1) break
+                    fileOutputStream.write(buffer, 0, bytesRead)
+                    currentDownloaded += bytesRead
+
+                    val now = android.os.SystemClock.uptimeMillis()
+                    if (now - lastUiUpdateTime > 200 || (totalLength > 0 && currentDownloaded >= totalLength)) {
+                        lastUiUpdateTime = now
+                        val progressValue = if (totalLength > 0) (currentDownloaded.toFloat() / totalLength.toFloat()).coerceIn(0f, 1f) else 0f
+                        val downloadedStr = formatFileSize(currentDownloaded)
+                        val totalStr = if (totalLength > 0) formatFileSize(totalLength) else ""
+                        val sizeDisplay = if (totalStr.isNotEmpty()) "$downloadedStr / $totalStr" else downloadedStr
+
+                        _downloads.value = _downloads.value.map { task ->
                             if (task.id == taskId) {
-                                task.copy(
-                                    progress = 1f,
-                                    status = if (success) "Completed" else "Failed",
-                                    mimeType = finalMime,
-                                    filePath = targetFilePath ?: ""
-                                )
+                                if (task.status == "Downloading") {
+                                    task.copy(
+                                        progress = progressValue,
+                                        downloadedBytes = currentDownloaded,
+                                        totalBytes = totalLength,
+                                        sizeString = sizeDisplay
+                                    )
+                                } else task
                             } else task
                         }
-                        _downloads.value = finalDownloads
-                        saveDownloads(finalDownloads)
-                        if (success) {
-                            android.widget.Toast.makeText(context, "$filename download completed!", android.widget.Toast.LENGTH_LONG).show()
-                        } else {
-                            android.widget.Toast.makeText(context, "Failed to save downloaded file $filename", android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        val finalDownloads = _downloads.value.map { task ->
-                            if (task.id == taskId) task.copy(status = "Failed") else task
-                        }
-                        _downloads.value = finalDownloads
-                        saveDownloads(finalDownloads)
-                        android.widget.Toast.makeText(context, "HTTP error: ${connection.responseCode}", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("VaultDownload", "Error downloading file", e)
+
+                fileOutputStream.flush()
+                fileOutputStream.close()
+                fileOutputStream = null
+
+                inputStream.close()
+                inputStream = null
+
+                if (kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]?.isActive != true) {
+                    return@launch
+                }
+
+                val finalMime = connection.contentType ?: mimeType
+                val downloadHandler = VaultDownloadHandler(context)
+                val targetFilePath = downloadHandler.saveDownloadedFile(
+                    filename = finalFilename,
+                    mimeType = finalMime,
+                    sourceFile = partFile,
+                    destination = destination,
+                    deviceFileSaver = { fname, mime, src -> saveDownloadedFile(context, fname, mime, src) },
+                    vaultFileSaver = { fname, mime, src -> addDownloadedFileToVault(context, fname, mime, src) }
+                )
+                val success = targetFilePath != null
+                
                 withContext(Dispatchers.Main) {
+                    activeDownloadJobs.remove(taskId)
                     val finalDownloads = _downloads.value.map { task ->
-                        if (task.id == taskId) task.copy(status = "Failed") else task
+                        if (task.id == taskId) {
+                            task.copy(
+                                progress = 1f,
+                                status = if (success) "Completed" else "Failed",
+                                mimeType = finalMime,
+                                filePath = targetFilePath ?: "",
+                                canResume = false,
+                                sizeString = formatFileSize(currentDownloaded)
+                            )
+                        } else task
                     }
                     _downloads.value = finalDownloads
                     saveDownloads(finalDownloads)
-                    android.widget.Toast.makeText(context, "Download error: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+                    if (success) {
+                        android.widget.Toast.makeText(context, "$finalFilename download completed!", android.widget.Toast.LENGTH_LONG).show()
+                    } else {
+                        android.widget.Toast.makeText(context, "Failed to save downloaded file $finalFilename", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) {
+                    return@launch
+                }
+                val isPausedByUser = _downloads.value.find { it.id == taskId }?.status == "Paused"
+                if (isPausedByUser) {
+                    return@launch
+                }
+                android.util.Log.e("VaultDownload", "Error downloading file $finalFilename", e)
+                withContext(Dispatchers.Main) {
+                    activeDownloadJobs.remove(taskId)
+                    activeDownloadConnections.remove(taskId)
+                    val canResumeLater = partFile.exists() && partFile.length() > 0
+                    val finalDownloads = _downloads.value.map { task ->
+                        if (task.id == taskId) {
+                            task.copy(
+                                status = if (canResumeLater) "Paused" else "Failed",
+                                canResume = canResumeLater
+                            )
+                        } else task
+                    }
+                    _downloads.value = finalDownloads
+                    saveDownloads(finalDownloads)
+                    android.widget.Toast.makeText(context, "Download error: ${e.localizedMessage ?: "Network error"}", android.widget.Toast.LENGTH_SHORT).show()
                 }
             } finally {
+                try { fileOutputStream?.close() } catch (e: Exception) {}
+                try { inputStream?.close() } catch (e: Exception) {}
+                try { connection?.disconnect() } catch (e: Exception) {}
                 activeDownloadJobs.remove(taskId)
+                activeDownloadConnections.remove(taskId)
             }
         }
         activeDownloadJobs[taskId] = job
@@ -5100,10 +5367,15 @@ data class DownloadTask(
     val url: String,
     val filename: String,
     val progress: Float, // 0.0f to 1.0f
-    val status: String, // "Downloading", "Completed", "Failed"
+    val status: String, // "Downloading", "Completed", "Failed", "Paused", "Cancelled"
     val sizeString: String = "0 B",
     val mimeType: String = "",
-    val filePath: String = ""
+    val filePath: String = "",
+    val downloadedBytes: Long = 0L,
+    val totalBytes: Long = 0L,
+    val canResume: Boolean = false,
+    val userAgent: String = "Mozilla/5.0",
+    val destination: String = "SECRET_VAULT"
 )
 
 data class RecentItem(

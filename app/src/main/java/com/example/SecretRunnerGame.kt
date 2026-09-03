@@ -167,12 +167,13 @@ fun SecretRunnerGameView(
     var bgParallaxOffset by remember { mutableFloatStateOf(0f) }
 
     // Physics constants (tuned for ultra-responsive close-camera parkour flow)
-    val gravity = -2150f
-    val jumpVelocity = 740f
-    val doubleJumpVelocity = 660f
+    val gravity = -1920f
+    val jumpVelocity = 725f
+    val doubleJumpVelocity = 645f
     val wallJumpBoostY = 780f
-    val baseSpeed = 390f
+    val baseSpeed = 370f
     val slideDuration = 0.46f
+    var lastObstacleType by remember { mutableStateOf<ObstacleType?>(null) }
 
     // Particle spawn helper
     val spawnParticles = { x: Float, y: Float, count: Int, baseColor: Color, speedScale: Float ->
@@ -297,18 +298,20 @@ fun SecretRunnerGameView(
         isWallJumping = false
         wallJumpTimer = 0f
         runAnimationPhase = 0f
-        nextSpawnDistance = 460f
+        nextSpawnDistance = 540f
+        lastObstacleType = null
         isNewRecord = false
         gameState = RunnerGameState.PLAYING
     }
 
-    // Palette harmonized with Secret Browser & Vault Dark/Light theme
-    val bgColorStart = if (isDark) Color(0xFF090D16) else Color(0xFFF1F5F9)
-    val bgColorEnd = if (isDark) Color(0xFF101726) else Color(0xFFE2E8F0)
-    val groundColor = if (isDark) Color(0xFF151F33) else Color(0xFFCBD5E1)
-    val groundLineColor = if (isDark) Color(0xFF00E5FF) else Color(0xFF0284C7)
+    // Dynamic environmental biome changing every 200-400 meters
+    val currentBiome = RunnerEnvironmentManager.getBiome(distanceScore, isDark)
+    val bgColorStart = currentBiome.skyTop
+    val bgColorEnd = currentBiome.skyBottom
+    val groundColor = currentBiome.groundDirtColor
+    val groundLineColor = currentBiome.groundLineColor
     val playerSuitColor = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B)
-    val playerVisorColor = Color(0xFFFF6A00) // Brand Orange Accent
+    val playerVisorColor = currentBiome.accentColor
     val shieldGlowColor = Color(0xFF00E5FF)
     val starColor = Color(0xFFFFD600)
     val coreColor = Color(0xFF10B981)
@@ -403,19 +406,22 @@ fun SecretRunnerGameView(
                 midgroundOffset = (midgroundOffset + currentSpeed * 0.45f * dt) % 180f
                 bgParallaxOffset = (bgParallaxOffset + currentSpeed * 0.18f * dt) % 240f
 
-                // Spawning Obstacles & Collectibles (Scaled for close-camera action)
+                // Spawning Obstacles & Collectibles (Generous reaction time & jump landing recovery)
                 nextSpawnDistance -= currentSpeed * dt
                 if (nextSpawnDistance <= 0f) {
                     val spawnX = 760f
                     val roll = Random.nextFloat()
 
-                    if (roll < 0.65f) {
-                        // Spawn Obstacle
+                    if (roll < 0.58f) {
+                        // Spawn Obstacle (avoid back-to-back tall obstacles)
                         val typeChoice = when {
-                            distanceScore < 80f -> if (Random.nextBoolean()) ObstacleType.LOW_VAULT_BOX else ObstacleType.CYBER_SPIRE
-                            distanceScore < 250f -> ObstacleType.entries.random()
+                            distanceScore < 90f -> ObstacleType.LOW_VAULT_BOX
+                            lastObstacleType == ObstacleType.WALL_STRUCTURE || lastObstacleType == ObstacleType.SECURITY_LASER_GATE -> {
+                                if (Random.nextBoolean()) ObstacleType.LOW_VAULT_BOX else ObstacleType.HIGH_OVERHEAD_LASER
+                            }
                             else -> ObstacleType.entries.random()
                         }
+                        lastObstacleType = typeChoice
 
                         val (w, h, yOff) = when (typeChoice) {
                             ObstacleType.LOW_VAULT_BOX -> Triple(44f, 36f, 0f)
@@ -437,6 +443,7 @@ fun SecretRunnerGameView(
                         )
                     } else {
                         // Spawn Collectible
+                        lastObstacleType = null
                         val cRand = Random.nextFloat()
                         val (cType, pts, yPos) = when {
                             cRand < 0.50f -> Triple(CollectibleType.SHIELD_TOKEN, 25, if (Random.nextBoolean()) 22f else 72f)
@@ -454,8 +461,9 @@ fun SecretRunnerGameView(
                         )
                     }
 
-                    // Next spawn interval between 360px and 540px for generous reaction time
-                    nextSpawnDistance = Random.nextFloat() * 180f + 360f
+                    // Generous interval: 520px-740px giving comfortable landing recovery time
+                    val extraLandingBuffer = if (lastObstacleType == ObstacleType.WALL_STRUCTURE || lastObstacleType == ObstacleType.SECURITY_LASER_GATE) 160f else 0f
+                    nextSpawnDistance = (520f * currentSpeedMultiplier) + Random.nextFloat() * 180f + extraLandingBuffer
                 }
 
                 // Update Obstacles & Collision Check
@@ -590,20 +598,21 @@ fun SecretRunnerGameView(
                         scaleY = 2.05f,
                         pivot = Offset(110f, groundY - 35f)
                     ) {
-                        // 1. Layer 1: Distant Cyber Skyline (Parallax Deep Background)
-                        drawCyberSkyline(
+                        // 1. Layer 1: Dynamic Parallax Distant Skyline & Celestial Body
+                        drawDynamicSkyline(
                             width = canvasWidth,
                             groundY = groundY,
                             offset = bgParallaxOffset,
+                            biome = currentBiome,
                             isDark = isDark
                         )
 
-                        // 2. Layer 2: Midground Facility Corridor (Pillars & Data Cables)
-                        drawMidgroundCorridor(
+                        // 2. Layer 2: Dynamic Midground Facility Corridor
+                        drawDynamicMidground(
                             width = canvasWidth,
                             groundY = groundY,
                             offset = midgroundOffset,
-                            isDark = isDark
+                            biome = currentBiome
                         )
 
                         // 3. Layer 3: Speed lines at high velocity
@@ -616,21 +625,21 @@ fun SecretRunnerGameView(
                             )
                         }
 
-                        // 4. Ground Foundation: Kenney Terrain Grass & Stone Blocks
-                        drawKenneyTerrainGround(
+                        // 4. Ground Foundation: Dynamic Biome Ground with glowing track
+                        drawDynamicGround(
                             canvasWidth = canvasWidth,
                             canvasHeight = canvasHeight,
                             groundY = groundY,
                             offset = groundOffset,
-                            isDark = isDark
+                            biome = currentBiome
                         )
 
-                        // 5. Draw Obstacles: Kenney block_spikes, saw_a/b, door_closed, spikes
+                        // 5. Draw Obstacles: High-polish beautiful cyber obstacles
                         obstacles.forEach { obs ->
-                            drawKenneyObstacle(
+                            drawBeautifulObstacle(
                                 obstacle = obs,
                                 groundY = groundY,
-                                accentColor = playerVisorColor,
+                                biome = currentBiome,
                                 isDark = isDark
                             )
                         }
@@ -714,6 +723,22 @@ fun SecretRunnerGameView(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Current Biome Sector Badge
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = currentBiome.accentColor.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, currentBiome.accentColor.copy(alpha = 0.5f))
+                    ) {
+                        Text(
+                            text = currentBiome.sectorName,
+                            color = currentBiome.accentColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        )
+                    }
+
                     // Best Score Pill
                     Surface(
                         shape = RoundedCornerShape(12.dp),
