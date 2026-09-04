@@ -2199,6 +2199,11 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             val savedFiles = prefs.getStringSet(filesKey, emptySet()) ?: emptySet()
             _vaultFiles.value = savedFiles.toList().sortedByDescending { it }
 
+            // Auto-provide demo video in Videos section if no video exists yet
+            if (!isDecoy && savedFiles.none { it.contains("|||video/") }) {
+                createDemoVideoToVault(getApplication())
+            }
+
             // --- Load & Auto-cleanup Recently Deleted Files ---
             val recentKey = if (isDecoy) "recently_deleted_decoy_files" else "recently_deleted_files"
             val savedRecent = prefs.getStringSet(recentKey, emptySet()) ?: emptySet()
@@ -4777,7 +4782,7 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                 val defaultUa = "Mozilla/5.0 (Linux; Android 14; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0"
                 val chromeUa = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
 
-                while (connectAttempts < 6) {
+                while (connectAttempts < 5) {
                     val urlObj = java.net.URL(currentUrl)
                     connection = urlObj.openConnection() as java.net.HttpURLConnection
                     activeDownloadConnections[taskId] = connection
@@ -4785,32 +4790,19 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     connection.connectTimeout = 25000
                     connection.readTimeout = 40000
                     
-                    val reqUa = if (connectAttempts in 2..3) chromeUa else (if (userAgent.isNotBlank()) userAgent else defaultUa)
+                    val reqUa = if (connectAttempts >= 2) chromeUa else (if (userAgent.isNotBlank()) userAgent else defaultUa)
                     connection.setRequestProperty("User-Agent", reqUa)
                     connection.setRequestProperty("Accept", "*/*")
-                    connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
                     connection.setRequestProperty("Accept-Encoding", "identity")
-                    connection.setRequestProperty("Connection", "keep-alive")
                     
-                    // Attempt 0: full browser sec-fetch headers + Referer
-                    // If server blocks sec-fetch or strict referer, attempt 3+ strips custom sec-fetch headers for standard direct download
                     if (connectAttempts < 3) {
-                        connection.setRequestProperty("Sec-Fetch-Dest", "document")
-                        connection.setRequestProperty("Sec-Fetch-Mode", "navigate")
-                        connection.setRequestProperty("Sec-Fetch-Site", "cross-site")
                         try {
-                            val hostOrigin = "${urlObj.protocol}://${urlObj.host}/"
-                            connection.setRequestProperty("Referer", hostOrigin)
-                            connection.setRequestProperty("Origin", hostOrigin.removeSuffix("/"))
+                            val cookie = android.webkit.CookieManager.getInstance().getCookie(currentUrl)
+                            if (!cookie.isNullOrEmpty()) {
+                                connection.setRequestProperty("Cookie", cookie)
+                            }
                         } catch (e: Exception) {}
                     }
-                    
-                    try {
-                        val cookie = android.webkit.CookieManager.getInstance().getCookie(currentUrl)
-                        if (!cookie.isNullOrEmpty()) {
-                            connection.setRequestProperty("Cookie", cookie)
-                        }
-                    } catch (e: Exception) {}
 
                     if (startByte > 0) {
                         connection.setRequestProperty("Range", "bytes=$startByte-")
@@ -4839,8 +4831,8 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                         continue
                     }
 
-                    // If 403 Forbidden: try switching User-Agent and stripping headers
-                    if (responseCode == 403 && connectAttempts < 4) {
+                    // If 403 Forbidden: retry with clean browser UA and omit cookies
+                    if (responseCode == 403 && connectAttempts < 3) {
                         try { connection.disconnect() } catch (e: Exception) {}
                         connectAttempts++
                         continue
@@ -5021,6 +5013,22 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
         val isDecoy = _decoyActive.value
         val filesKey = if (isDecoy) "decoy_files" else "vault_files"
         prefs.edit().putStringSet(filesKey, updatedFiles.toSet()).apply()
+    }
+
+    fun createDemoVideoToVault(context: Context) {
+        try {
+            val resId = context.resources.getIdentifier("demo_video", "raw", context.packageName)
+            if (resId != 0) {
+                val inputStream = context.resources.openRawResource(resId)
+                val bytes = inputStream.readBytes()
+                inputStream.close()
+                addDownloadedFileToVault(context, "Demo HD Video.mp4", "video/mp4", bytes)
+                android.widget.Toast.makeText(context, "Demo video added to Vault!", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            android.widget.Toast.makeText(context, "Could not load demo video", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     fun createSamplePdfToVault(context: Context) {

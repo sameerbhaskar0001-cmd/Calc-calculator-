@@ -2769,8 +2769,8 @@ fun SecretBrowserDownloadItemCard(
                         ) {
                             Text(
                                 text = when {
-                                    isDownloading -> "${(task.progress * 100).toInt()}% • Downloading"
-                                    isPaused -> "${(task.progress * 100).toInt()}% • Paused"
+                                    isDownloading -> "${(task.progress * 100).toInt()}%"
+                                    isPaused -> "Paused"
                                     isCompleted -> "Completed"
                                     task.status == "Cancelled" -> "Cancelled"
                                     else -> "Failed"

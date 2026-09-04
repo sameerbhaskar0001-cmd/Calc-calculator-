@@ -8029,6 +8029,23 @@ fun VaultTabUnlockedContent(
                                         )
                                     } else if (mimeType.startsWith("video/") || originalName.lowercase().endsWith(".mp4")) {
                                         // Video Player - Custom Clean Compose Controls
+                                        val videoContext = androidx.compose.ui.platform.LocalContext.current
+                                        val videoActivity = remember(videoContext) {
+                                            var c: android.content.Context? = videoContext
+                                            while (c is android.content.ContextWrapper) {
+                                                if (c is android.app.Activity) break
+                                                c = c.baseContext
+                                            }
+                                            c as? android.app.Activity
+                                        }
+                                        var isLandscape by remember {
+                                            mutableStateOf(videoActivity?.resources?.configuration?.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE)
+                                        }
+                                        androidx.compose.runtime.DisposableEffect(videoActivity) {
+                                            onDispose {
+                                                videoActivity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                            }
+                                        }
                                         var playbackPosition by androidx.compose.runtime.saveable.rememberSaveable(path) { androidx.compose.runtime.mutableIntStateOf(0) }
                                         var videoViewRef by remember { mutableStateOf<android.widget.VideoView?>(null) }
                                         var isPlaying by remember { mutableStateOf(true) }
@@ -8302,14 +8319,40 @@ fun VaultTabUnlockedContent(
                                                              }
                                                          }
 
-                                                         // Time display: 00:15 / 02:45
-                                                         Text(
-                                                             text = "${formatDuration(currentPosMs)} / ${formatDuration(durationMs)}",
-                                                             color = Color.White.copy(alpha = 0.85f),
-                                                             fontSize = 12.sp,
-                                                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                                             fontWeight = FontWeight.Medium
-                                                         )
+                                                         Row(verticalAlignment = Alignment.CenterVertically) {
+                                                             // Time display: 00:15 / 02:45
+                                                             Text(
+                                                                 text = "${formatDuration(currentPosMs)} / ${formatDuration(durationMs)}",
+                                                                 color = Color.White.copy(alpha = 0.85f),
+                                                                 fontSize = 12.sp,
+                                                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                                                 fontWeight = FontWeight.Medium
+                                                             )
+
+                                                             Spacer(modifier = Modifier.width(10.dp))
+
+                                                             IconButton(
+                                                                 onClick = {
+                                                                     videoActivity?.let { act ->
+                                                                         if (isLandscape) {
+                                                                             act.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                                                             isLandscape = false
+                                                                         } else {
+                                                                             act.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                                                                             isLandscape = true
+                                                                         }
+                                                                     }
+                                                                 },
+                                                                 modifier = Modifier.size(32.dp)
+                                                             ) {
+                                                                 Icon(
+                                                                     imageVector = Icons.Default.ScreenRotation,
+                                                                     contentDescription = if (isLandscape) "Exit Fullscreen" else "Enter Fullscreen",
+                                                                     tint = if (isLandscape) ThemePurple else Color.White,
+                                                                     modifier = Modifier.size(22.dp)
+                                                                 )
+                                                             }
+                                                         }
                                                      }
                                                  }
                                              }
@@ -8664,7 +8707,7 @@ fun VaultTabUnlockedContent(
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Text("Speed:", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                                val speeds = listOf(0.5f, 1.0f, 1.25f, 1.5f, 2.0f)
+                                                val speeds = listOf(0.5f, 1.0f, 1.25f, 1.5f)
                                                 speeds.forEach { speed ->
                                                     val isSelected = audioSpeed == speed
                                                     androidx.compose.material3.SuggestionChip(
@@ -9747,6 +9790,27 @@ fun VaultTabUnlockedContent(
                             Column {
                                 Text("Use Built-in Camera", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                                 Text("Capture directly to vault", color = TextMedium, fontSize = 13.sp)
+                            }
+                        }
+
+                        if (activeSection == "Videos") {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            // Demo Video Option
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable {
+                                    showMediaAddOptions = false
+                                    viewModel.createDemoVideoToVault(context)
+                                }.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(Color(0xFFFF9100).copy(alpha=0.2f)), contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.VideoFile, contentDescription = "Demo Video", tint = Color(0xFFFF9100))
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text("Add Demo Video", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Test fullscreen player immediately", color = TextMedium, fontSize = 13.sp)
+                                }
                             }
                         }
                     } else if (showDocAddOptions) {
