@@ -2199,11 +2199,6 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             val savedFiles = prefs.getStringSet(filesKey, emptySet()) ?: emptySet()
             _vaultFiles.value = savedFiles.toList().sortedByDescending { it }
 
-            // Auto-provide demo video in Videos section if no video exists yet
-            if (!isDecoy && savedFiles.none { it.contains("|||video/") }) {
-                createDemoVideoToVault(getApplication())
-            }
-
             // --- Load & Auto-cleanup Recently Deleted Files ---
             val recentKey = if (isDecoy) "recently_deleted_decoy_files" else "recently_deleted_files"
             val savedRecent = prefs.getStringSet(recentKey, emptySet()) ?: emptySet()
@@ -5013,22 +5008,6 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
         val isDecoy = _decoyActive.value
         val filesKey = if (isDecoy) "decoy_files" else "vault_files"
         prefs.edit().putStringSet(filesKey, updatedFiles.toSet()).apply()
-    }
-
-    fun createDemoVideoToVault(context: Context) {
-        try {
-            val resId = context.resources.getIdentifier("demo_video", "raw", context.packageName)
-            if (resId != 0) {
-                val inputStream = context.resources.openRawResource(resId)
-                val bytes = inputStream.readBytes()
-                inputStream.close()
-                addDownloadedFileToVault(context, "Demo HD Video.mp4", "video/mp4", bytes)
-                android.widget.Toast.makeText(context, "Demo video added to Vault!", android.widget.Toast.LENGTH_SHORT).show()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            android.widget.Toast.makeText(context, "Could not load demo video", android.widget.Toast.LENGTH_SHORT).show()
-        }
     }
 
     fun createSamplePdfToVault(context: Context) {

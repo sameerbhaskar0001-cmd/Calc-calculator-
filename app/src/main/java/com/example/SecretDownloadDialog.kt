@@ -306,7 +306,7 @@ fun SecretBrowserDownloadConfirmDialog(
                                 border = BorderStroke(0.8.dp, strokeColor)
                             ) {
                                 Text(
-                                    text = "🔒 Vault Sandbox",
+                                    text = "🔒 Secret Vault",
                                     color = textSub,
                                     fontSize = 10.5.sp,
                                     maxLines = 1,

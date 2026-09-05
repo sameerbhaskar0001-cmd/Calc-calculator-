@@ -9792,27 +9792,6 @@ fun VaultTabUnlockedContent(
                                 Text("Capture directly to vault", color = TextMedium, fontSize = 13.sp)
                             }
                         }
-
-                        if (activeSection == "Videos") {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            // Demo Video Option
-                            Row(
-                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable {
-                                    showMediaAddOptions = false
-                                    viewModel.createDemoVideoToVault(context)
-                                }.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(Color(0xFFFF9100).copy(alpha=0.2f)), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.VideoFile, contentDescription = "Demo Video", tint = Color(0xFFFF9100))
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column {
-                                    Text("Add Demo Video", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                                    Text("Test fullscreen player immediately", color = TextMedium, fontSize = 13.sp)
-                                }
-                            }
-                        }
                     } else if (showDocAddOptions) {
                         // Documents
                         Row(
@@ -12177,7 +12156,7 @@ fun DownloadsScreen(
                     Text("No ${tabs[selectedTab].lowercase()} downloads", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Your secure sandbox downloads will appear here with encrypted offline protection.",
+                        "Your downloads will appear here.",
                         color = Color.Gray,
                         fontSize = 13.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center

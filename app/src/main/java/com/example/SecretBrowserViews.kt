@@ -2069,6 +2069,33 @@ fun SecretBrowserBookmarksScreen(
     }
 }
 
+private fun formatRelativeHistoryTime(
+    timestamp: Long,
+    timeFormatter: SimpleDateFormat,
+    fullDateFormatter: SimpleDateFormat
+): String {
+    val now = java.util.Calendar.getInstance()
+    val itemCal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+    val timeStr = timeFormatter.format(Date(timestamp))
+
+    val todayYear = now.get(java.util.Calendar.YEAR)
+    val todayDay = now.get(java.util.Calendar.DAY_OF_YEAR)
+
+    val itemYear = itemCal.get(java.util.Calendar.YEAR)
+    val itemDay = itemCal.get(java.util.Calendar.DAY_OF_YEAR)
+
+    now.add(java.util.Calendar.DAY_OF_YEAR, -1)
+    val yesterdayYear = now.get(java.util.Calendar.YEAR)
+    val yesterdayDay = now.get(java.util.Calendar.DAY_OF_YEAR)
+
+    return when {
+        itemYear == todayYear && itemDay == todayDay -> "Today, $timeStr"
+        itemYear == yesterdayYear && itemDay == yesterdayDay -> "Yesterday, $timeStr"
+        itemYear == todayYear -> fullDateFormatter.format(Date(timestamp))
+        else -> SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(timestamp))
+    }
+}
+
 @Composable
 fun SecretBrowserHistoryScreen(
     browserHistory: List<BrowserHistory>,
@@ -2081,7 +2108,7 @@ fun SecretBrowserHistoryScreen(
     val groupedHistory = remember(browserHistory) { groupHistoryByRelativeDate(browserHistory) }
 
     val timeFormatter = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
-    val fullDateFormatter = remember { SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault()) }
+    val fullDateFormatter = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
 
     Column(
         modifier = Modifier
@@ -2198,11 +2225,7 @@ fun SecretBrowserHistoryScreen(
                     // History Items in this section
                     items(itemsInSection, key = { "${it.url}_${it.timestamp}" }) { historyItem ->
                         val domain = extractBrowserDomain(historyItem.url)
-                        val formattedTime = if (sectionTitle == "Earlier") {
-                            fullDateFormatter.format(Date(historyItem.timestamp))
-                        } else {
-                            timeFormatter.format(Date(historyItem.timestamp))
-                        }
+                        val formattedTime = formatRelativeHistoryTime(historyItem.timestamp, timeFormatter, fullDateFormatter)
 
                         Card(
                             modifier = Modifier
@@ -2253,7 +2276,8 @@ fun SecretBrowserHistoryScreen(
                                             fontSize = 11.5.sp,
                                             fontWeight = FontWeight.Medium,
                                             maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false)
                                         )
                                         Box(
                                             modifier = Modifier
@@ -2263,7 +2287,8 @@ fun SecretBrowserHistoryScreen(
                                         Text(
                                             text = formattedTime,
                                             color = TextSecondary,
-                                            fontSize = 11.sp
+                                            fontSize = 11.sp,
+                                            maxLines = 1
                                         )
                                     }
                                 }
@@ -2368,8 +2393,8 @@ fun SecretBrowserDownloadsScreen(
                 }
                 Spacer(modifier = Modifier.width(6.dp))
                 Column {
-                    Text("Vault Downloads", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text("Encrypted offline sandbox", color = TextSecondary, fontSize = 11.5.sp)
+                    Text("Downloads", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(if (downloads.isEmpty()) "No downloads" else "${downloads.size} files", color = TextSecondary, fontSize = 11.5.sp)
                 }
             }
             if (downloads.isNotEmpty()) {
@@ -2384,36 +2409,7 @@ fun SecretBrowserDownloadsScreen(
             }
         }
 
-        // Vault Sandbox Status Banner (Architecture ready for future premium download extensions)
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 2.dp),
-            shape = RoundedCornerShape(10.dp),
-            color = AccentColor.copy(alpha = 0.06f),
-            border = BorderStroke(0.8.dp, AccentColor.copy(alpha = 0.15f))
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Shield,
-                    contentDescription = null,
-                    tint = AccentColor,
-                    modifier = Modifier.size(14.dp)
-                )
-                Text(
-                    text = "Sandbox Protected • Files stored directly in encrypted vault",
-                    color = TextPrimary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         // Segmented Status Filter Tabs
         Row(
@@ -2503,9 +2499,9 @@ fun SecretBrowserDownloadsScreen(
                     }
                     val emptyDesc = when (selectedTab) {
                         1 -> "Currently there are no ongoing background file transfers."
-                        2 -> "Completed downloads encrypted into your vault sandbox will appear here."
+                        2 -> "Completed downloads will appear here."
                         3 -> "Any interrupted or cancelled downloads will appear here for retry."
-                        else -> "Downloaded web files are encrypted directly into your secure vault sandbox."
+                        else -> "Downloaded files from the browser will appear here."
                     }
 
                     Box(
@@ -2605,7 +2601,7 @@ fun SecretBrowserDownloadsScreen(
                     ) {
                         Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Icon(Icons.Default.Lock, contentDescription = null, tint = SuccessColor, modifier = Modifier.size(15.dp))
-                            Text("Stored in Private Vault Sandbox (AES Encrypted)", color = SuccessColor, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
+                            Text("Stored in Secret Vault", color = SuccessColor, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -2749,7 +2745,7 @@ fun SecretBrowserDownloadItemCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = if (task.sizeString.isNotEmpty() && task.sizeString != "0 B") task.sizeString else "Vault Sandbox",
+                            text = if (task.sizeString.isNotEmpty() && task.sizeString != "0 B") task.sizeString else "File",
                             color = TextSecondary,
                             fontSize = 11.5.sp
                         )
@@ -4176,8 +4172,8 @@ fun PrivateBrowserSection(
                             modifier = Modifier.size(18.dp)
                         )
                         Column {
-                            Text("Isolated Sandbox", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Session cookies & storage are isolated and purged on exit", color = TextSecondary, fontSize = 11.5.sp)
+                            Text("Private Session", color = TextPrimary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Session cookies & storage are cleared on exit", color = TextSecondary, fontSize = 11.5.sp)
                         }
                     }
 

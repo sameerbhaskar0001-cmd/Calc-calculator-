@@ -637,7 +637,7 @@ fun SecureCameraView(
         AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text("Permissions Required", color = Color.White) },
-            text = { Text("Built-in secure camera requires Camera and Audio permissions to record photos and videos directly into the private sandbox.", color = TextMedium) },
+            text = { Text("Built-in secure camera requires Camera and Audio permissions to record photos and videos directly into the vault.", color = TextMedium) },
             confirmButton = {
                 Button(
                     onClick = {

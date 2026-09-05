@@ -132,6 +132,14 @@ fun SecretRunnerGameView(
         onClose()
     }
 
+    // High-performance sound effects engine
+    val soundEffects = remember { GameSoundEffects(context) }
+    DisposableEffect(Unit) {
+        onDispose {
+            soundEffects.release()
+        }
+    }
+
     var gameState by remember { mutableStateOf(RunnerGameState.NOT_STARTED) }
     var distanceScore by remember { mutableFloatStateOf(0f) }
     var bonusScore by remember { mutableIntStateOf(0) }
@@ -204,6 +212,7 @@ fun SecretRunnerGameView(
             canDoubleJump = true
             isSliding = false
             isDoubleJumping = false
+            soundEffects.playJump()
             spawnParticles(105f, 10f, 6, Color(0xFF00E5FF), 0.8f)
         } else if (gameState == RunnerGameState.PLAYING) {
             // Cancel slide if jumping
@@ -230,6 +239,7 @@ fun SecretRunnerGameView(
                 isWallJumping = true
                 wallJumpTimer = 0.35f
                 triggeredWallJump = true
+                soundEffects.playJump()
                 spawnParticles(playerX + 22f, runnerY + 22f, 12, Color(0xFFFF6A00), 1.2f)
                 scorePopups.add(
                     ScorePopup(
@@ -248,11 +258,13 @@ fun SecretRunnerGameView(
                     isGrounded = false
                     canDoubleJump = true
                     isDoubleJumping = false
+                    soundEffects.playJump()
                     spawnParticles(105f, 10f, 6, Color(0xFF00E5FF), 0.8f)
                 } else if (canDoubleJump) {
                     runnerVelocity = doubleJumpVelocity
                     canDoubleJump = false
                     isDoubleJumping = true
+                    soundEffects.playDoubleJump()
                     spawnParticles(105f, runnerY + 16f, 10, Color(0xFF00E5FF), 1.1f)
                     scorePopups.add(
                         ScorePopup(
@@ -489,6 +501,8 @@ fun SecretRunnerGameView(
 
                     if (isOverlapX && isOverlapY) {
                         gameState = RunnerGameState.GAME_OVER
+                        soundEffects.playHit()
+                        soundEffects.playGameOver()
                         spawnParticles(playerX + 16f, playerBottom + 22f, 25, Color(0xFFFF5252), 1.4f)
                         break
                     }
@@ -515,6 +529,7 @@ fun SecretRunnerGameView(
 
                         if (dx < 30f && dy < 36f) {
                             col.isCollected = true
+                            soundEffects.playCollect()
                             bonusScore += col.points
                             val colColor = when (col.type) {
                                 CollectibleType.SHIELD_TOKEN -> shieldGlowColor
