@@ -4522,10 +4522,28 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                 vaultDir.mkdirs()
             }
             
+            val lowerName = filename.lowercase()
+            val isVideo = mimeType.startsWith("video/") ||
+                lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".avi") ||
+                lowerName.endsWith(".mov") || lowerName.endsWith(".webm") || lowerName.endsWith(".flv") ||
+                lowerName.endsWith(".3gp") || lowerName.endsWith(".m4v") || lowerName.endsWith(".ts")
+            val isImage = mimeType.startsWith("image/") ||
+                lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".png") ||
+                lowerName.endsWith(".webp") || lowerName.endsWith(".gif")
+            val isAudio = mimeType.startsWith("audio/") ||
+                lowerName.endsWith(".mp3") || lowerName.endsWith(".wav") || lowerName.endsWith(".m4a") ||
+                lowerName.endsWith(".ogg") || lowerName.endsWith(".flac") || lowerName.endsWith(".aac")
+            val effectiveMime = when {
+                isVideo && !mimeType.startsWith("video/") -> "video/mp4"
+                isImage && !mimeType.startsWith("image/") -> "image/jpeg"
+                isAudio && !mimeType.startsWith("audio/") -> "audio/mpeg"
+                else -> mimeType
+            }
             val ext = File(filename).extension.ifEmpty {
                 when {
-                    mimeType.startsWith("image/") -> "jpg"
-                    mimeType.startsWith("video/") -> "mp4"
+                    isVideo -> "mp4"
+                    isImage -> "jpg"
+                    isAudio -> "mp3"
                     mimeType.contains("pdf") -> "pdf"
                     mimeType.contains("text") -> "txt"
                     else -> "dat"
@@ -4536,7 +4554,7 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
             val destFile = File(vaultDir, destFileName)
             destFile.writeBytes(bytes)
             
-            val fileSerialized = "$id|||$timestamp|||$filename|||$mimeType|||${destFile.absolutePath}|||$readableSize"
+            val fileSerialized = "$id|||$timestamp|||$filename|||$effectiveMime|||${destFile.absolutePath}|||$readableSize"
             val updatedFiles = _vaultFiles.value + fileSerialized
             _vaultFiles.value = updatedFiles.sortedByDescending { it }
             
@@ -4556,10 +4574,28 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
             val vaultDir = File(context.filesDir, "vault_files")
             if (!vaultDir.exists()) vaultDir.mkdirs()
             val id = System.currentTimeMillis().toString()
+            val lowerName = filename.lowercase()
+            val isVideo = mimeType.startsWith("video/") ||
+                lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".avi") ||
+                lowerName.endsWith(".mov") || lowerName.endsWith(".webm") || lowerName.endsWith(".flv") ||
+                lowerName.endsWith(".3gp") || lowerName.endsWith(".m4v") || lowerName.endsWith(".ts")
+            val isImage = mimeType.startsWith("image/") ||
+                lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".png") ||
+                lowerName.endsWith(".webp") || lowerName.endsWith(".gif")
+            val isAudio = mimeType.startsWith("audio/") ||
+                lowerName.endsWith(".mp3") || lowerName.endsWith(".wav") || lowerName.endsWith(".m4a") ||
+                lowerName.endsWith(".ogg") || lowerName.endsWith(".flac") || lowerName.endsWith(".aac")
+            val effectiveMime = when {
+                isVideo && !mimeType.startsWith("video/") -> "video/mp4"
+                isImage && !mimeType.startsWith("image/") -> "image/jpeg"
+                isAudio && !mimeType.startsWith("audio/") -> "audio/mpeg"
+                else -> mimeType
+            }
             val ext = File(filename).extension.ifEmpty {
                 when {
-                    mimeType.startsWith("image/") -> "jpg"
-                    mimeType.startsWith("video/") -> "mp4"
+                    isVideo -> "mp4"
+                    isImage -> "jpg"
+                    isAudio -> "mp3"
                     mimeType.contains("pdf") -> "pdf"
                     mimeType.contains("text") -> "txt"
                     else -> "dat"
@@ -4575,7 +4611,7 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                 }
                 sourceFile.delete()
             }
-            registerDirectVaultFile(context, destFile, filename, mimeType)
+            registerDirectVaultFile(context, destFile, filename, effectiveMime)
             destFile.absolutePath
         } catch (e: Exception) {
             android.util.Log.e("Vault", "Failed to add downloaded file to vault", e)
@@ -4787,10 +4823,23 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     
                     val reqUa = if (connectAttempts >= 2) chromeUa else (if (userAgent.isNotBlank()) userAgent else defaultUa)
                     connection.setRequestProperty("User-Agent", reqUa)
-                    connection.setRequestProperty("Accept", "*/*")
+                    connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,video/*,audio/*,*/*;q=0.8")
+                    connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
                     connection.setRequestProperty("Accept-Encoding", "identity")
+                    connection.setRequestProperty("Sec-Fetch-Dest", "document")
+                    connection.setRequestProperty("Sec-Fetch-Mode", "navigate")
+                    connection.setRequestProperty("Sec-Fetch-Site", "same-origin")
+                    connection.setRequestProperty("Sec-Fetch-User", "?1")
+                    connection.setRequestProperty("Upgrade-Insecure-Requests", "1")
                     
-                    if (connectAttempts < 3) {
+                    try {
+                        val parsedUri = Uri.parse(currentUrl)
+                        val origin = "${parsedUri.scheme}://${parsedUri.host}"
+                        connection.setRequestProperty("Referer", currentUrl)
+                        connection.setRequestProperty("Origin", origin)
+                    } catch (e: Exception) {}
+
+                    if (connectAttempts < 4) {
                         try {
                             val cookie = android.webkit.CookieManager.getInstance().getCookie(currentUrl)
                             if (!cookie.isNullOrEmpty()) {
@@ -4817,8 +4866,8 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                         }
                     }
 
-                    // If server rejects Range requests with 403 Forbidden, 416 Range Not Satisfiable, or 400, fall back to clean GET from byte 0
-                    if ((responseCode == 403 || responseCode == 416 || responseCode == 400) && startByte > 0) {
+                    // If server rejects Range requests with 416 Range Not Satisfiable or 400, fall back to clean GET from byte 0
+                    if ((responseCode == 416 || responseCode == 400) && startByte > 0) {
                         try { connection.disconnect() } catch (e: Exception) {}
                         try { partFile.delete() } catch (e: Exception) {}
                         startByte = 0L
@@ -4826,7 +4875,15 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                         continue
                     }
 
-                    // If 403 Forbidden: retry with clean browser UA and omit cookies
+                    // If 403 Forbidden with Range: retry from byte 0 (without deleting partFile yet)
+                    if (responseCode == 403 && startByte > 0 && connectAttempts < 2) {
+                        try { connection.disconnect() } catch (e: Exception) {}
+                        startByte = 0L
+                        connectAttempts++
+                        continue
+                    }
+
+                    // If 403 Forbidden on fresh connection: retry with standard Chrome UA
                     if (responseCode == 403 && connectAttempts < 3) {
                         try { connection.disconnect() } catch (e: Exception) {}
                         connectAttempts++
@@ -5000,8 +5057,29 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
         val readableSize = formatFileSize(size)
         val id = System.currentTimeMillis().toString()
         val timestamp = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+        val lowerName = originalName.lowercase()
+        val lowerFile = file.name.lowercase()
+        val isVideo = mimeType.startsWith("video/") ||
+            lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".avi") ||
+            lowerName.endsWith(".mov") || lowerName.endsWith(".webm") || lowerName.endsWith(".flv") ||
+            lowerName.endsWith(".3gp") || lowerName.endsWith(".m4v") || lowerName.endsWith(".ts") ||
+            lowerFile.endsWith(".mp4") || lowerFile.endsWith(".mkv") || lowerFile.endsWith(".avi")
+        val isImage = mimeType.startsWith("image/") ||
+            lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".png") ||
+            lowerName.endsWith(".webp") || lowerName.endsWith(".gif") ||
+            lowerFile.endsWith(".jpg") || lowerFile.endsWith(".jpeg") || lowerFile.endsWith(".png")
+        val isAudio = mimeType.startsWith("audio/") ||
+            lowerName.endsWith(".mp3") || lowerName.endsWith(".wav") || lowerName.endsWith(".m4a") ||
+            lowerName.endsWith(".ogg") || lowerName.endsWith(".flac") || lowerName.endsWith(".aac") ||
+            lowerFile.endsWith(".mp3") || lowerFile.endsWith(".wav")
+        val effectiveMime = when {
+            isVideo && !mimeType.startsWith("video/") -> "video/mp4"
+            isImage && !mimeType.startsWith("image/") -> "image/jpeg"
+            isAudio && !mimeType.startsWith("audio/") -> "audio/mpeg"
+            else -> mimeType
+        }
         
-        val fileSerialized = "$id|||$timestamp|||$originalName|||$mimeType|||${file.absolutePath}|||$readableSize"
+        val fileSerialized = "$id|||$timestamp|||$originalName|||$effectiveMime|||${file.absolutePath}|||$readableSize"
         val updatedFiles = _vaultFiles.value + fileSerialized
         _vaultFiles.value = updatedFiles.sortedByDescending { it }
         

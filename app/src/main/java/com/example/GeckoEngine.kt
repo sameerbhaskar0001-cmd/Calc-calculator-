@@ -12,6 +12,7 @@ object GeckoEngine {
             if (runtime == null) {
                 val settings = GeckoRuntimeSettings.Builder()
                     .consoleOutput(false)
+                    .crashHandler(null)
                     .build()
                 runtime = GeckoRuntime.create(context.applicationContext, settings)
             }

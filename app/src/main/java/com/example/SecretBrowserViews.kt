@@ -34,6 +34,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import android.content.Context
 import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -62,6 +63,19 @@ object TabThumbnailCache {
     private val cache = ConcurrentHashMap<String, android.graphics.Bitmap>()
     val version = mutableStateOf(0)
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var appContext: Context? = null
+
+    fun init(context: Context) {
+        appContext = context.applicationContext
+    }
+
+    private fun getDiskFile(tabId: String): java.io.File? {
+        val ctx = appContext ?: return null
+        val dir = java.io.File(ctx.cacheDir, "tab_previews")
+        if (!dir.exists()) dir.mkdirs()
+        val safeTabId = tabId.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+        return java.io.File(dir, "thumb_$safeTabId.jpg")
+    }
 
     fun setThumbnail(tabId: String, bitmap: android.graphics.Bitmap) {
         cache[tabId] = bitmap
@@ -70,14 +84,43 @@ object TabThumbnailCache {
         } else {
             mainHandler.post { version.value++ }
         }
+        // Save to disk asynchronously so previews survive app restarts
+        try {
+            val file = getDiskFile(tabId)
+            if (file != null) {
+                java.util.concurrent.Executors.newSingleThreadExecutor().execute {
+                    try {
+                        java.io.FileOutputStream(file).use { out ->
+                            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, out)
+                        }
+                    } catch (ex: Throwable) {}
+                }
+            }
+        } catch (t: Throwable) {}
     }
 
     fun getThumbnail(tabId: String): android.graphics.Bitmap? {
-        return cache[tabId]
+        val inMem = cache[tabId]
+        if (inMem != null) return inMem
+        // Check disk cache
+        try {
+            val file = getDiskFile(tabId)
+            if (file != null && file.exists() && file.length() > 0) {
+                val diskBmp = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                if (diskBmp != null) {
+                    cache[tabId] = diskBmp
+                    return diskBmp
+                }
+            }
+        } catch (t: Throwable) {}
+        return null
     }
 
     fun removeThumbnail(tabId: String) {
         cache.remove(tabId)
+        try {
+            getDiskFile(tabId)?.delete()
+        } catch (t: Throwable) {}
         if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
             version.value++
         } else {
@@ -87,6 +130,13 @@ object TabThumbnailCache {
 
     fun clear() {
         cache.clear()
+        try {
+            val ctx = appContext
+            if (ctx != null) {
+                val dir = java.io.File(ctx.cacheDir, "tab_previews")
+                if (dir.exists()) dir.deleteRecursively()
+            }
+        } catch (t: Throwable) {}
         if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
             version.value++
         } else {
@@ -3042,17 +3092,47 @@ private fun TabPreviewWindow(
                     .background(LightCard)
                     .padding(8.dp)
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = AccentColor,
-                    strokeWidth = 2.dp
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = if (tab.isLoading) "Loading..." else "Capturing preview...",
-                    fontSize = 9.sp,
-                    color = TextSecondary
-                )
+                if (tab.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = AccentColor,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Loading...",
+                        fontSize = 9.sp,
+                        color = TextSecondary
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(AccentColor.copy(alpha = 0.08f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = null,
+                            tint = AccentColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = domainText.ifEmpty { tab.title.ifEmpty { "Web Page" } },
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Tap to open",
+                        fontSize = 8.5.sp,
+                        color = TextSecondary
+                    )
+                }
             }
         }
     }
@@ -3365,6 +3445,9 @@ fun PrivateBrowserSection(
     onPanic: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        TabThumbnailCache.init(context)
+    }
     val tabs = viewModel.browserTabs
     val geckoViews = remember { mutableStateMapOf<String, org.mozilla.geckoview.GeckoView>() }
     val geckoSessions = remember { 
@@ -3576,6 +3659,15 @@ fun PrivateBrowserSection(
             val newTab = TabState(id = tabId, url = url, title = "New Tab")
             tabs.add(newTab)
             activeTabId = tabId
+        }
+    }
+
+    androidx.compose.runtime.DisposableEffect(openNewTab) {
+        GeckoSessionManager.onOpenNewTab = { url ->
+            openNewTab(url)
+        }
+        onDispose {
+            GeckoSessionManager.onOpenNewTab = null
         }
     }
 
@@ -3823,12 +3915,11 @@ fun PrivateBrowserSection(
         activeGeckoSession?.reload()
     }
     val goBack: () -> Unit = {
-        if (activeTab?.url == "home") {
-            if (activeGeckoSession != null && activeTab.canGoBack) {
-                activeGeckoSession.goBack()
-            }
-        } else {
-            activeGeckoSession?.goBack()
+        stopLoading()
+        if (activeGeckoSession != null && activeTab?.canGoBack == true) {
+            activeGeckoSession.goBack()
+        } else if (activeTab?.url != "home") {
+            loadUrl("home")
         }
     }
     val goForward: () -> Unit = {
@@ -3864,16 +3955,17 @@ fun PrivateBrowserSection(
             showMenu = false
         } else if (showFindInPage) {
             closeFindInPage()
-        } else if (activeTab?.url == "home") {
-            if (activeGeckoSession != null && activeTab.canGoBack) {
-                activeGeckoSession.goBack()
-            } else {
-                onExit()
-            }
         } else if (activeGeckoSession != null && activeTab?.canGoBack == true) {
+            // Priority 1: Navigate backward through the GeckoView browser session history
+            stopLoading()
             activeGeckoSession.goBack()
-        } else {
+        } else if (activeTab != null && activeTab.url != "home") {
+            // Priority 2: Return from web page to browser home dashboard
+            stopLoading()
             loadUrl("home")
+        } else {
+            // Priority 3: Only when already on the browser Home screen and history is exhausted, exit to vault
+            onExit()
         }
     }
 

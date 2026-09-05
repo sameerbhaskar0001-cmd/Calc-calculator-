@@ -37,7 +37,47 @@ object SecretBrowserTrackingProtection {
         "clickasegura.com",
         "quantserve.com",
         "exponential.com",
-        "yieldmanager.com"
+        "yieldmanager.com",
+        "mynahsterfez.shop",
+        "adsterra.com",
+        "propellerads.com",
+        "exoclick.com",
+        "popcash.net",
+        "mgid.com",
+        "onclickalgo.com",
+        "yllix.com",
+        "adcash.com",
+        "hilltopads.com",
+        "ad-maven.com",
+        "clickadu.com",
+        "ero-advertising.com",
+        "juicyads.com",
+        "trafficjunky.com",
+        "bet365.com",
+        "1xbet.com",
+        "parimatch.com",
+        "vungle.com",
+        "inmobi.com",
+        "ironSource.com",
+        "chartboost.com",
+        "media.net",
+        "monetag.com",
+        "richads.com",
+        "admob.com",
+        "highcpmrevenuenetwork.com",
+        "profitablecpmrate.com",
+        "alwingulla.com",
+        "poawooptugroo.com",
+        "thubanoa.com",
+        "whomeeno.com",
+        "wherethef.com",
+        "onclkds.com",
+        "deloton.com",
+        "cootlogu.net",
+        "gloaphoo.net",
+        "ouo.io",
+        "ouo.press",
+        "directrev.com"
     )
 
     // 2. Analytics Trackers
@@ -92,11 +132,6 @@ object SecretBrowserTrackingProtection {
             return false
         }
 
-        // 1. Fail-open safety check: main-frame navigations must always be allowed
-        if (isMainFrame) {
-            return false
-        }
-
         // Check if tracking protection is active globally or via per-site override
         val currentHost = currentSiteUrl?.let { extractHost(it) }
         val isProtectionActive = if (currentHost != null) {
@@ -115,7 +150,7 @@ object SecretBrowserTrackingProtection {
         }
 
         try {
-            // 2. Allow internal browser resources and local/secure assets
+            // Allow internal browser resources and local/secure assets
             val lowerUrl = url.trim().lowercase()
             if (lowerUrl.startsWith("about:") ||
                 lowerUrl.startsWith("file:") ||
@@ -128,21 +163,26 @@ object SecretBrowserTrackingProtection {
                 return false
             }
 
-            // 3. Extract host for matching
+            // Extract host for matching
             val host = extractHost(url) ?: return false
 
-            // 4. First-party immunity: requests belonging to the active site's organization must never be blocked
+            // First-party immunity: requests belonging to the active site's organization must never be blocked
             if (currentHost != null && isSameOrganization(currentHost, host)) {
                 return false
             }
 
-            // 5. Match host against categorized blocklists (Exact domain or subdomain matching)
+            // Match host against categorized blocklists (Exact domain or subdomain matching)
             if (isTrackerHost(host)) {
                 Log.d(TAG, "BLOCKED tracker request (host match): $host (URL: $url)")
                 return true
             }
 
-            // 6. Additional fallback: path/substring checking for generic tracker footprints in third-party resource names
+            // Main-frame navigations to normal sites are allowed
+            if (isMainFrame) {
+                return false
+            }
+
+            // Additional fallback: path/substring checking for generic tracker footprints in third-party resource names
             if (containsTrackingFootprint(lowerUrl)) {
                 Log.d(TAG, "BLOCKED tracker request (substring footprint match): $url")
                 return true
@@ -237,7 +277,12 @@ object SecretBrowserTrackingProtection {
             lowerUrl.contains("/ga.js") ||
             lowerUrl.contains("/analytics.js") ||
             lowerUrl.contains("ads.doubleclick.net") ||
-            lowerUrl.contains("googleadservices.com/pagead")
+            lowerUrl.contains("googleadservices.com/pagead") ||
+            lowerUrl.contains("/popunder") ||
+            lowerUrl.contains("popunder.js") ||
+            lowerUrl.contains("adsterra") ||
+            lowerUrl.contains("onclickalgo") ||
+            lowerUrl.contains("directrev")
         ) {
             return true
         }

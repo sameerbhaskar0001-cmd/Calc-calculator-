@@ -74,6 +74,48 @@ fun generateUserFriendlyName(type: String, id: String, isScreenshot: Boolean = f
     return "$displayType ${numericNameCounters[key]}"
 }
 
+fun isVaultVideo(fileStr: String): Boolean {
+    val parts = fileStr.split("|||")
+    val mime = if (parts.size >= 4) parts[3].lowercase() else ""
+    val name = if (parts.size >= 3) parts[2].lowercase() else ""
+    val path = if (parts.size >= 5) parts[4].lowercase() else ""
+    return mime.startsWith("video/") || fileStr.contains("|||video/") ||
+        name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".avi") ||
+        name.endsWith(".mov") || name.endsWith(".webm") || name.endsWith(".flv") ||
+        name.endsWith(".3gp") || name.endsWith(".m4v") || name.endsWith(".ts") ||
+        path.endsWith(".mp4") || path.endsWith(".mkv") || path.endsWith(".avi") ||
+        path.endsWith(".mov") || path.endsWith(".webm") || path.endsWith(".flv")
+}
+
+fun isVaultImage(fileStr: String): Boolean {
+    val parts = fileStr.split("|||")
+    val mime = if (parts.size >= 4) parts[3].lowercase() else ""
+    val name = if (parts.size >= 3) parts[2].lowercase() else ""
+    val path = if (parts.size >= 5) parts[4].lowercase() else ""
+    return mime.startsWith("image/") || fileStr.contains("|||image/") ||
+        name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") ||
+        name.endsWith(".webp") || name.endsWith(".gif") ||
+        path.endsWith(".jpg") || path.endsWith(".jpeg") || path.endsWith(".png") ||
+        path.endsWith(".webp") || path.endsWith(".gif")
+}
+
+fun isVaultAudio(fileStr: String): Boolean {
+    val parts = fileStr.split("|||")
+    val mime = if (parts.size >= 4) parts[3].lowercase() else ""
+    val name = if (parts.size >= 3) parts[2].lowercase() else ""
+    val path = if (parts.size >= 5) parts[4].lowercase() else ""
+    return mime.startsWith("audio/") || fileStr.contains("|||audio/") ||
+        name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".m4a") ||
+        name.endsWith(".ogg") || name.endsWith(".flac") || name.endsWith(".aac") ||
+        path.endsWith(".mp3") || path.endsWith(".wav") || path.endsWith(".m4a")
+}
+
+fun isVaultDocument(fileStr: String): Boolean {
+    val parts = fileStr.split("|||")
+    if (parts.size < 4) return false
+    return !isVaultVideo(fileStr) && !isVaultImage(fileStr) && !isVaultAudio(fileStr)
+}
+
 fun cleanDisplayName(rawName: String, fallbackType: String = "file", id: String = ""): String {
     var cleaned = rawName
     val prefixes = listOf("IMG_", "VID_", "AUD_", "DOC_", "PXL_", "Screenshot_")

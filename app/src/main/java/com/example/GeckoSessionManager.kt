@@ -20,6 +20,7 @@ object GeckoSessionManager {
     private val onDownloadCallbacks = ConcurrentHashMap<String, ((String, String, String, String, Long) -> Unit)>()
     var globalDownloadCallback: ((String, String, String, String, Long) -> Unit)? = null
     var onOpenSecretRunner: (() -> Unit)? = null
+    var onOpenNewTab: ((String) -> Unit)? = null
 
     /**
      * Creates a new GeckoSession or returns an existing one for the specified tabId.
@@ -60,8 +61,8 @@ object GeckoSessionManager {
             }
         }
 
-        // Setup GeckoSession settings (Desktop vs Mobile mode user agent + suspend media when inactive)
-        // Note: Tracking protection is actively handled by our granular fail-open SecretBrowserTrackingProtection
+        // Setup GeckoSession settings with native tracking protection + fail-open protection
+        val isTrackingEnabled = SecretBrowserTrackingProtection.isGlobalEnabled()
         val settings = GeckoSessionSettings.Builder()
             .userAgentMode(
                 if (isDesktopMode) GeckoSessionSettings.USER_AGENT_MODE_DESKTOP 
@@ -71,7 +72,7 @@ object GeckoSessionManager {
                 if (isDesktopMode) GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
                 else GeckoSessionSettings.VIEWPORT_MODE_MOBILE
             )
-            .useTrackingProtection(false)
+            .useTrackingProtection(isTrackingEnabled)
             .suspendMediaWhenInactive(true)
             .build()
         
@@ -88,10 +89,13 @@ object GeckoSessionManager {
                 try {
                     val url = request.uri
                     if (url.startsWith("secret://runner") || url == "secret://runner") {
-                        onOpenSecretRunner?.invoke()
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            onOpenSecretRunner?.invoke()
+                        }
                         return org.mozilla.geckoview.GeckoResult.fromValue(org.mozilla.geckoview.AllowOrDeny.DENY)
                     }
                     if (SecretBrowserTrackingProtection.shouldBlock(url, isMainFrame = true, currentSiteUrl = currentMainUrl)) {
+                        SecretBrowserTrackingProtection.onTrackerBlocked?.invoke(tabId, currentMainUrl)
                         return org.mozilla.geckoview.GeckoResult.fromValue(org.mozilla.geckoview.AllowOrDeny.DENY)
                     }
                 } catch (e: Exception) {
@@ -144,10 +148,17 @@ object GeckoSessionManager {
             override fun onNewSession(s: GeckoSession, uri: String): org.mozilla.geckoview.GeckoResult<GeckoSession>? {
                 try {
                     if (uri.isNotBlank() && uri != "about:blank" && !uri.startsWith("javascript:")) {
-                        s.loadUri(uri)
+                        val isBlocked = SecretBrowserTrackingProtection.shouldBlock(uri, isMainFrame = true, currentSiteUrl = currentMainUrl)
+                        if (isBlocked) {
+                            SecretBrowserTrackingProtection.onTrackerBlocked?.invoke(tabId, currentMainUrl)
+                        } else {
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                onOpenNewTab?.invoke(uri)
+                            }
+                        }
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("GeckoSession", "Failed to load uri in onNewSession", e)
+                    android.util.Log.e("GeckoSession", "Failed to handle onNewSession", e)
                 }
                 return org.mozilla.geckoview.GeckoResult.fromValue(null)
             }
@@ -165,6 +176,7 @@ object GeckoSessionManager {
                     <!DOCTYPE html>
                     <html>
                     <head>
+                        <meta charset="UTF-8">
                         <meta name="viewport" content="width=device-width, initial-scale=1.0">
                         <title>Secret Browser - Offline</title>
                         <style>
@@ -323,9 +335,8 @@ object GeckoSessionManager {
                             <div class="icon-box">
                                 <svg viewBox="0 0 24 24"><path d="M23.64 7c-.45-.34-4.93-4-11.64-4-1.5 0-2.8.19-3.99.51L12 7.52 16.01 11.53c2.39.4 4.54 1.47 6.09 2.97L23.64 7zM1.41 1.6L0 3.01l2.45 2.45C1.56 5.86 1 6.34.36 7l11.63 14.49 5.3-6.6 3.7 3.7 1.41-1.41L1.41 1.6zM7.17 10.18L4.35 7.36c1.86-.68 4.39-1.07 7.65-1.07.72 0 1.41.03 2.07.08l-2.83 2.83c-.88-.06-1.84-.02-2.87.08l-1.2 1.2z"/></svg>
                             </div>
-                            <div class="greeting">Hey Buddy 👋</div>
-                            <div class="title">Looks like this page couldn't be reached</div>
-                            <p class="sub">Check your internet connection and try again.</p>
+                            <div class="title">Connection Problem</div>
+                            <p class="sub">This page couldn't be reached. Check your internet connection and try again.</p>
                             
                             <details>
                                 <summary>Technical Details</summary>
@@ -335,40 +346,20 @@ object GeckoSessionManager {
                             </details>
 
                             <div class="btn-group">
-                                <button id="retryBtn" class="btn btn-primary" onclick="handleRetry()">Try Again</button>
-                                <button id="homeBtn" class="btn btn-secondary" onclick="handleHome()">Go Home</button>
+                                <a id="retryBtn" class="btn btn-primary" href="$failingUrl">Try Again</a>
+                                <a id="homeBtn" class="btn btn-secondary" href="about:blank">Go Home</a>
                             </div>
 
                             <div style="margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--border);">
-                                <div style="font-size: 12px; color: var(--text-s); margin-bottom: 8px;">While you're here...</div>
-                                <button id="runnerBtn" class="btn btn-runner" onclick="handleRunner()">🛡️ Play Secret Runner</button>
+                                <div style="font-size: 12px; color: var(--text-s); margin-bottom: 8px;">Offline Game</div>
+                                <a id="runnerBtn" class="btn btn-runner" href="secret://runner">Play Secret Runner</a>
                             </div>
                         </div>
-
-                        <script>
-                            function handleRetry() {
-                                var btn = document.getElementById('retryBtn');
-                                btn.innerText = 'Connecting...';
-                                btn.style.opacity = '0.7';
-                                btn.style.pointerEvents = 'none';
-                                window.location.href = '$failingUrl';
-                            }
-                            function handleHome() {
-                                var btn = document.getElementById('homeBtn');
-                                btn.innerText = 'Returning Home...';
-                                btn.style.opacity = '0.7';
-                                btn.style.pointerEvents = 'none';
-                                window.location.href = 'about:blank';
-                            }
-                            function handleRunner() {
-                                window.location.href = 'secret://runner';
-                            }
-                        </script>
                     </body>
                     </html>
                 """.trimIndent()
-                val base64 = android.util.Base64.encodeToString(html.toByteArray(), android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)
-                return org.mozilla.geckoview.GeckoResult.fromValue("data:text/html;base64,$base64")
+                val base64 = android.util.Base64.encodeToString(html.toByteArray(Charsets.UTF_8), android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)
+                return org.mozilla.geckoview.GeckoResult.fromValue("data:text/html;charset=utf-8;base64,$base64")
             }
         }
 

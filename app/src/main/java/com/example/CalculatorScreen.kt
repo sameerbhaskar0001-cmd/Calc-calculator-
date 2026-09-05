@@ -3264,11 +3264,11 @@ fun VaultTabUnlockedContent(
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 EnhancedVaultCard(
                                     title = "Photos", 
-                                    count = let { val c = vaultFiles.count { it.contains("|||image/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
+                                    count = let { val c = vaultFiles.count { isVaultImage(it) }; "$c ${if (c == 1) "Item" else "Items"}" }, 
                                     icon = Icons.Default.Image,
                                     modifier = Modifier.weight(1f),
                                     previewContent = {
-                                        val photos = vaultFiles.filter { it.contains("|||image/") }.take(3)
+                                        val photos = vaultFiles.filter { isVaultImage(it) }.take(3)
                                         if (photos.isEmpty()) {
                                             Row(modifier = Modifier.fillMaxSize().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                                 Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)))
@@ -3304,11 +3304,11 @@ fun VaultTabUnlockedContent(
                                 )
                                 EnhancedVaultCard(
                                     title = "Videos", 
-                                    count = let { val c = vaultFiles.count { it.contains("|||video/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
+                                    count = let { val c = vaultFiles.count { isVaultVideo(it) }; "$c ${if (c == 1) "Item" else "Items"}" }, 
                                     icon = Icons.Default.PlayArrow,
                                     modifier = Modifier.weight(1f),
                                     previewContent = {
-                                        val latestVideo = vaultFiles.firstOrNull { it.contains("|||video/") }
+                                        val latestVideo = vaultFiles.firstOrNull { isVaultVideo(it) }
                                         if (latestVideo != null) {
                                             val path = latestVideo.split("|||").getOrNull(4) ?: ""
                                             Box(modifier = Modifier.fillMaxSize().padding(4.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)), contentAlignment = Alignment.Center) {
@@ -3347,11 +3347,11 @@ fun VaultTabUnlockedContent(
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 EnhancedVaultCard(
                                     title = "Documents", 
-                                    count = let { val c = vaultFiles.count { val parts = it.split("|||"); parts.size >= 4 && !parts[3].startsWith("image/") && !parts[3].startsWith("video/") && !parts[3].startsWith("audio/") }; "$c ${if (c == 1) "Item" else "Items"}" }, 
+                                    count = let { val c = vaultFiles.count { isVaultDocument(it) }; "$c ${if (c == 1) "Item" else "Items"}" }, 
                                     icon = Icons.Default.Description,
                                     modifier = Modifier.weight(1f),
                                     previewContent = {
-                                        val latestDoc = vaultFiles.firstOrNull { val parts = it.split("|||"); parts.size >= 4 && !parts[3].startsWith("image/") && !parts[3].startsWith("video/") && !parts[3].startsWith("audio/") }
+                                        val latestDoc = vaultFiles.firstOrNull { isVaultDocument(it) }
                                         if (latestDoc != null) {
                                             val parts = latestDoc.split("|||")
                                             val title = if (parts.size >= 3) parts[2] else latestDoc.split("|||")[0].substringAfterLast('/')
@@ -3378,11 +3378,11 @@ fun VaultTabUnlockedContent(
                                 )
                                 EnhancedVaultCard(
                                     title = "Audio",
-                                     count = let { val c = vaultFiles.count { it.contains("|||audio/") }; "$c ${if (c == 1) "Item" else "Items"}" },
+                                     count = let { val c = vaultFiles.count { isVaultAudio(it) }; "$c ${if (c == 1) "Item" else "Items"}" },
                                      icon = Icons.Default.AudioFile,
                                     modifier = Modifier.weight(1f),
                                     previewContent = {
-                                        val latestAudio = vaultFiles.firstOrNull { it.contains("|||audio/") }
+                                        val latestAudio = vaultFiles.firstOrNull { isVaultAudio(it) }
                                         if (latestAudio != null) {
                                             val parts = latestAudio.split("|||")
                                             val title = if (parts.size >= 3) parts[2] else latestAudio.split("|||")[0].substringAfterLast('/')
@@ -3599,30 +3599,21 @@ fun VaultTabUnlockedContent(
                     val tempUnlockedFolders by viewModel.tempUnlockedFolders.collectAsStateWithLifecycle()
                     val items = remember(section, vaultFiles, vaultNotes, favoriteFiles, favoriteNotes, fileFolders, noteFolders) {
                         when (section) {
-                            "Photos" -> vaultFiles.filter { it.contains("|||image/") }.map { fileStr ->
+                            "Photos" -> vaultFiles.filter { isVaultImage(it) }.map { fileStr ->
                                 val parts = fileStr.split("|||")
                                 val duration = if (parts.size >= 7) parts[6].toLongOrNull() ?: 0L else 0L
                                 VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "image", parts[4], fileStr, duration)
                             }
-                            "Videos" -> vaultFiles.filter { it.contains("|||video/") }.map { fileStr ->
+                            "Videos" -> vaultFiles.filter { isVaultVideo(it) }.map { fileStr ->
                                 val parts = fileStr.split("|||")
                                 val duration = if (parts.size >= 7) parts[6].toLongOrNull() ?: 0L else 0L
                                 VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "video", parts[4], fileStr, duration)
                             }
-                            "Documents" -> vaultFiles.filter { 
-                                val parts = it.split("|||")
-                                val isMedia = parts.size >= 4 && (parts[3].startsWith("image/") || parts[3].startsWith("video/")) || it.lowercase().endsWith(".jpg") || it.lowercase().endsWith(".png") || it.lowercase().endsWith(".mp4") || it.lowercase().endsWith(".jpeg") || it.lowercase().endsWith(".webp")
-                                val isAudio = parts.size >= 4 && (parts[3].startsWith("audio/")) || it.lowercase().endsWith(".mp3") || it.lowercase().endsWith(".wav") || it.lowercase().endsWith(".m4a") || it.lowercase().endsWith(".ogg") || it.lowercase().endsWith(".flac") || it.lowercase().endsWith(".aac")
-                                parts.size >= 4 && !isMedia && !isAudio
-                            }.map { fileStr ->
+                            "Documents" -> vaultFiles.filter { isVaultDocument(it) }.map { fileStr ->
                                 val parts = fileStr.split("|||")
                                 VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "document", parts[4], fileStr, 0L)
                             }
-                            "Music & Audio" -> vaultFiles.filter { 
-                                val parts = it.split("|||")
-                                val isAudio = parts.size >= 4 && (parts[3].startsWith("audio/")) || it.lowercase().endsWith(".mp3") || it.lowercase().endsWith(".wav") || it.lowercase().endsWith(".m4a") || it.lowercase().endsWith(".ogg") || it.lowercase().endsWith(".flac") || it.lowercase().endsWith(".aac")
-                                isAudio 
-                            }.map { fileStr ->
+                            "Music & Audio" -> vaultFiles.filter { isVaultAudio(it) }.map { fileStr ->
                                 val parts = fileStr.split("|||")
                                 VaultItemData(parts[0], parts[0].toLongOrNull() ?: 0L, parts[2], favoriteFiles.contains(parts[0]), fileFolders[parts[0]] ?: "", "audio", parts[4], fileStr, 0L)
                             }
@@ -8027,7 +8018,7 @@ fun VaultTabUnlockedContent(
                                                 ),
                                             contentScale = androidx.compose.ui.layout.ContentScale.Fit
                                         )
-                                    } else if (mimeType.startsWith("video/") || originalName.lowercase().endsWith(".mp4")) {
+                                    } else if (mimeType.startsWith("video/") || isVaultVideo(currentFileStr)) {
                                         // Video Player - Custom Clean Compose Controls
                                         val videoContext = androidx.compose.ui.platform.LocalContext.current
                                         val videoActivity = remember(videoContext) {
@@ -8038,12 +8029,16 @@ fun VaultTabUnlockedContent(
                                             }
                                             c as? android.app.Activity
                                         }
-                                        var isLandscape by remember {
+                                        var isFullscreen by remember {
                                             mutableStateOf(videoActivity?.resources?.configuration?.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE)
                                         }
                                         androidx.compose.runtime.DisposableEffect(videoActivity) {
                                             onDispose {
-                                                videoActivity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                                videoActivity?.let { act ->
+                                                    act.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                                    val ic = androidx.core.view.WindowCompat.getInsetsController(act.window, act.window.decorView)
+                                                    ic.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                                                }
                                             }
                                         }
                                         var playbackPosition by androidx.compose.runtime.saveable.rememberSaveable(path) { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -8334,12 +8329,16 @@ fun VaultTabUnlockedContent(
                                                              IconButton(
                                                                  onClick = {
                                                                      videoActivity?.let { act ->
-                                                                         if (isLandscape) {
+                                                                         val ic = androidx.core.view.WindowCompat.getInsetsController(act.window, act.window.decorView)
+                                                                         ic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                                                                         if (isFullscreen) {
                                                                              act.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                                                                             isLandscape = false
+                                                                             ic.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                                                                             isFullscreen = false
                                                                          } else {
                                                                              act.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                                                                             isLandscape = true
+                                                                             ic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                                                                             isFullscreen = true
                                                                          }
                                                                      }
                                                                  },
@@ -8347,8 +8346,8 @@ fun VaultTabUnlockedContent(
                                                              ) {
                                                                  Icon(
                                                                      imageVector = Icons.Default.ScreenRotation,
-                                                                     contentDescription = if (isLandscape) "Exit Fullscreen" else "Enter Fullscreen",
-                                                                     tint = if (isLandscape) ThemePurple else Color.White,
+                                                                     contentDescription = if (isFullscreen) "Exit Fullscreen" else "Enter Fullscreen",
+                                                                     tint = if (isFullscreen) ThemePurple else Color.White,
                                                                      modifier = Modifier.size(22.dp)
                                                                  )
                                                              }

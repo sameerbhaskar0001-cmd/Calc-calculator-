@@ -360,6 +360,18 @@ fun SecretRunnerGameView(
                 distanceScore += currentSpeed * dt * 0.1f
                 val currentTotalScore = (distanceScore.toInt() + bonusScore)
                 if (currentTotalScore > bestScore) {
+                    if (!isNewRecord && bestScore > 0) {
+                        soundEffects.playClapping()
+                        scorePopups.add(
+                            ScorePopup(
+                                id = nextEntityId++,
+                                text = "NEW RECORD!",
+                                x = 100f,
+                                y = 120f,
+                                color = Color(0xFFFFD700)
+                            )
+                        )
+                    }
                     bestScore = currentTotalScore
                     isNewRecord = true
                     prefs.edit().putInt("best_score", bestScore).apply()
@@ -502,7 +514,11 @@ fun SecretRunnerGameView(
                     if (isOverlapX && isOverlapY) {
                         gameState = RunnerGameState.GAME_OVER
                         soundEffects.playHit()
-                        soundEffects.playGameOver()
+                        if (isNewRecord) {
+                            soundEffects.playClapping()
+                        } else {
+                            soundEffects.playGameOver()
+                        }
                         spawnParticles(playerX + 16f, playerBottom + 22f, 25, Color(0xFFFF5252), 1.4f)
                         break
                     }
