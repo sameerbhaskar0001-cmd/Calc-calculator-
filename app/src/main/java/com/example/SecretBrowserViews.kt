@@ -3918,7 +3918,7 @@ fun PrivateBrowserSection(
         stopLoading()
         if (activeGeckoSession != null && activeTab?.canGoBack == true) {
             activeGeckoSession.goBack()
-        } else if (activeTab?.url != "home") {
+        } else if (activeTab != null && !isHome && activeTab.url != "home") {
             loadUrl("home")
         }
     }
@@ -3959,12 +3959,12 @@ fun PrivateBrowserSection(
             // Priority 1: Navigate backward through the GeckoView browser session history
             stopLoading()
             activeGeckoSession.goBack()
-        } else if (activeTab != null && activeTab.url != "home") {
+        } else if (activeTab != null && !isHome && activeTab.url != "home") {
             // Priority 2: Return from web page to browser home dashboard
             stopLoading()
             loadUrl("home")
-        } else {
-            // Priority 3: Only when already on the browser Home screen and history is exhausted, exit to vault
+        } else if (isHome) {
+            // Priority 3: Only when confirmed on the browser Home screen and history is exhausted, exit to vault
             onExit()
         }
     }
@@ -4357,7 +4357,12 @@ fun PrivateBrowserSection(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize().background(if (activeTab?.isFullScreen == true) Color.Black else LightBg)) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(if (activeTab?.isFullScreen == true) Color.Black else LightBg)
+            .let { if (activeTab?.isFullScreen == true) it.zIndex(200f) else it }
+    ) {
         Column(modifier = Modifier.fillMaxSize().let { if (activeTab?.isFullScreen == true) it else it.statusBarsPadding() }) {
 
             // TOP ADDRESS / BAR AREA
