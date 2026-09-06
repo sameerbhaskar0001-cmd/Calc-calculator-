@@ -2835,7 +2835,13 @@ fun VaultTabUnlockedContent(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Spacer(modifier = Modifier.size(40.dp))
+                        Text(
+                            text = "Secret Vault",
+                            fontSize = 21.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.6.sp,
+                            color = Color.White
+                        )
                         
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             IconButton(
@@ -2938,18 +2944,11 @@ fun VaultTabUnlockedContent(
                             Column {
                                 if (activeSection == "Profile") {
                                     Text(
-                                        text = "VIP Vault Studio",
+                                        text = "Secret Vault",
                                         fontSize = 20.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        style = androidx.compose.ui.text.TextStyle(
-                                            brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                                                colors = listOf(
-                                                    Color.White,
-                                                    ThemePurple,
-                                                    Color(0xFFFFB300)
-                                                )
-                                            )
-                                        ),
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.5.sp,
+                                        color = Color.White,
                                         maxLines = 1,
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
@@ -3225,12 +3224,14 @@ fun VaultTabUnlockedContent(
                                     val progress = if (maxStorage > 0) (storageInfo.totalBytes.toFloat() / maxStorage.toFloat()).coerceIn(0f, 1f) else 0f
                                     LinearProgressIndicator(
                                         progress = { progress },
-                                        modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)),
+                                        modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
                                         color = ThemePurple,
                                         trackColor = Color(0xFF090D1A),
                                         strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
                                     )
-                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.1f)))
+                                    Spacer(modifier = Modifier.height(6.dp))
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text("${storageInfo.totalUsedFormatted} Used", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                                         val freeBytes = maxStorage - storageInfo.totalBytes
@@ -5194,24 +5195,23 @@ fun VaultTabUnlockedContent(
                         // Top Hero Card
                         UnifiedGlassCard(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(24.dp),
+                            shape = RoundedCornerShape(18.dp),
                             bgColor = Color(0xFF1B2031).copy(alpha = 0.95f),
-                            elevation = 4.dp
+                            elevation = 3.dp
                         ) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(20.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    .padding(horizontal = 16.dp, vertical = 14.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(RoundedCornerShape(12.dp))
+                                            .size(38.dp)
+                                            .clip(RoundedCornerShape(10.dp))
                                             .background(ThemePurple.copy(alpha = 0.15f)),
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -5219,32 +5219,23 @@ fun VaultTabUnlockedContent(
                                             imageVector = Icons.Default.LockOpen,
                                             contentDescription = null,
                                             tint = ThemePurple,
-                                            modifier = Modifier.size(26.dp)
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     }
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = "Authentication",
-                                            fontSize = 18.sp,
+                                            fontSize = 16.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White
                                         )
                                         Text(
-                                            text = "Security Controls",
-                                            fontSize = 12.sp,
-                                            color = Color.White.copy(alpha = 0.5f)
+                                            text = "Manage how you securely access your private vault",
+                                            fontSize = 11.sp,
+                                            color = Color.White.copy(alpha = 0.6f)
                                         )
                                     }
                                 }
-                                
-                                Spacer(modifier = Modifier.height(2.dp))
-                                
-                                Text(
-                                    text = "Manage how you securely access your private vault.",
-                                    fontSize = 13.sp,
-                                    color = Color.White.copy(alpha = 0.6f),
-                                    lineHeight = 18.sp
-                                )
                             }
                         }
 
@@ -11635,6 +11626,8 @@ fun StorageScreenSection(
                     )
                     
                     Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF383F56).copy(alpha = 0.6f)))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("${storageInfo.totalUsedFormatted} Used", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                         Text("15.0 GB Total", color = textMedium, fontSize = 12.sp)
@@ -11645,13 +11638,13 @@ fun StorageScreenSection(
             // Categories
             SettingsGroup(title = "CATEGORIES") {
                 StorageCategoryRow(title = "Photos", icon = Icons.Default.Image, size = storageInfo.photosFormatted, color = Color(0xFF42A5F5))
-                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.2f)))
+                Spacer(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF383F56).copy(alpha = 0.5f)))
                 StorageCategoryRow(title = "Videos", icon = Icons.Default.PlayArrow, size = storageInfo.videosFormatted, color = Color(0xFFEF5350))
-                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.2f)))
+                Spacer(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF383F56).copy(alpha = 0.5f)))
                 StorageCategoryRow(title = "Documents", icon = Icons.Default.Description, size = storageInfo.docsFormatted, color = Color(0xFFFFCA28))
-                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.2f)))
+                Spacer(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF383F56).copy(alpha = 0.5f)))
                 StorageCategoryRow(title = "Audio", icon = Icons.Default.AudioFile, size = storageInfo.audioFormatted, color = Color(0xFFAB47BC))
-                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.2f)))
+                Spacer(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF383F56).copy(alpha = 0.5f)))
                 StorageCategoryRow(title = "Notes", icon = Icons.Default.Edit, size = storageInfo.notesFormatted, color = Color(0xFF66BB6A))
             }
             
@@ -12026,13 +12019,13 @@ fun MonitoringSection(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp)),
+                .clip(RoundedCornerShape(18.dp)),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF151929)),
             border = BorderStroke(1.dp, Color(0xFF232B44))
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -12040,8 +12033,8 @@ fun MonitoringSection(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
-                            .background(Color(0xFFE65100).copy(alpha = 0.15f), CircleShape),
+                            .size(38.dp)
+                            .background(Color(0xFFE65100).copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -12051,49 +12044,30 @@ fun MonitoringSection(
                             modifier = Modifier.size(22.dp)
                         )
                     }
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Security Monitoring",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "Active",
+                                fontSize = 10.sp,
+                                color = Color(0xFF4CAF50),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                         Text(
-                            text = "Security Monitoring",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Intruder Alert System",
+                            text = "Tracks unauthorized vault access attempts locally",
                             fontSize = 11.sp,
-                            color = Color(0xFF4CAF50),
-                            fontWeight = FontWeight.SemiBold
+                            color = Color.White.copy(alpha = 0.6f)
                         )
                     }
-                }
-                Text(
-                    text = "This system tracks unauthorized access attempts. If enabled, incorrect passcode entries are recorded. The front camera can also capture a snapshot of the intruder.",
-                    fontSize = 12.sp,
-                    color = TextMedium,
-                    lineHeight = 16.sp
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF0D1829), RoundedCornerShape(8.dp))
-                        .border(1.dp, Color(0xFF1E3A5F), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Privacy",
-                        tint = Color(0xFF64B5F6),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "100% Offline Storage: Photos are stored locally in app-private sandbox storage. Never uploaded to cloud or shared with anyone.",
-                        fontSize = 11.sp,
-                        color = Color(0xFF90CAF9),
-                        lineHeight = 15.sp
-                    )
                 }
             }
         }

@@ -1421,7 +1421,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     private val _clipboardProtection = MutableStateFlow(prefs.getBoolean("clipboard_protection", true))
     val clipboardProtection: StateFlow<Boolean> = _clipboardProtection.asStateFlow()
 
-    private val _stealthMode = MutableStateFlow(prefs.getBoolean("stealth_mode", false))
+    private val _stealthMode = MutableStateFlow(prefs.getBoolean("stealth_mode", true))
     val stealthMode: StateFlow<Boolean> = _stealthMode.asStateFlow()
 
     private val _secureShareBranding = MutableStateFlow(true)
@@ -5492,7 +5492,7 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     _lockOnBackground.value = prefs.getBoolean("lock_on_background", true)
                     _hideNotifications.value = prefs.getBoolean("hide_notifications", false)
                     _clipboardProtection.value = prefs.getBoolean("clipboard_protection", true)
-                    _stealthMode.value = prefs.getBoolean("stealth_mode", false)
+                    _stealthMode.value = prefs.getBoolean("stealth_mode", true)
                     _selectedLanguage.value = prefs.getString("selected_language", "en") ?: "en"
                     _searchEngine.value = prefs.getString("browser_search_engine", "DuckDuckGo") ?: "DuckDuckGo"
                     _savePasswords.value = prefs.getBoolean("browser_save_passwords", true)
