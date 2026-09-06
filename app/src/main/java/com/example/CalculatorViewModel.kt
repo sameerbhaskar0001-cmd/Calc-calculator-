@@ -2572,6 +2572,12 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                         "jpg", "jpeg", "png", "webp", "heic", "heif", "gif", "bmp" -> "image/$ext"
                         "mp4", "mkv", "3gp", "avi", "mov", "webm" -> "video/$ext"
                         "pdf" -> "application/pdf"
+                        "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        "doc" -> "application/msword"
+                        "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        "xls" -> "application/vnd.ms-excel"
+                        "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                        "ppt" -> "application/vnd.ms-powerpoint"
                         "txt", "csv", "log" -> "text/plain"
                         "zip" -> "application/zip"
                         else -> "application/octet-stream"
@@ -2828,6 +2834,12 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     "mp4", "mkv", "3gp", "avi", "mov", "webm" -> "video/$ext"
                     "mp3", "wav", "m4a", "ogg", "flac", "aac" -> "audio/$ext"
                     "pdf" -> "application/pdf"
+                    "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    "doc" -> "application/msword"
+                    "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "xls" -> "application/vnd.ms-excel"
+                    "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                    "ppt" -> "application/vnd.ms-powerpoint"
                     "txt", "csv", "log" -> "text/plain"
                     "zip" -> "application/zip"
                     else -> "application/octet-stream"
@@ -2846,6 +2858,8 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     mimeType.startsWith("image/") -> "jpg"
                     mimeType.startsWith("video/") -> "mp4"
                     mimeType.contains("pdf") -> "pdf"
+                    mimeType.contains("wordprocessingml") || mimeType.contains("docx") -> "docx"
+                    mimeType.contains("msword") || mimeType.contains("doc") -> "doc"
                     mimeType.contains("text") -> "txt"
                     else -> "dat"
                 }
@@ -4839,14 +4853,20 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                         connection.setRequestProperty("Origin", origin)
                     } catch (e: Exception) {}
 
-                    if (connectAttempts < 4) {
-                        try {
-                            val cookie = android.webkit.CookieManager.getInstance().getCookie(currentUrl)
-                            if (!cookie.isNullOrEmpty()) {
-                                connection.setRequestProperty("Cookie", cookie)
-                            }
-                        } catch (e: Exception) {}
-                    }
+                    try {
+                        val cookieMgr = android.webkit.CookieManager.getInstance()
+                        val c1 = cookieMgr.getCookie(currentUrl)
+                        val c2 = if (currentUrl != url) cookieMgr.getCookie(url) else null
+                        val combinedCookie = when {
+                            !c1.isNullOrEmpty() && !c2.isNullOrEmpty() -> "$c1; $c2"
+                            !c1.isNullOrEmpty() -> c1
+                            !c2.isNullOrEmpty() -> c2
+                            else -> null
+                        }
+                        if (!combinedCookie.isNullOrEmpty()) {
+                            connection.setRequestProperty("Cookie", combinedCookie)
+                        }
+                    } catch (e: Exception) {}
 
                     if (startByte > 0) {
                         connection.setRequestProperty("Range", "bytes=$startByte-")

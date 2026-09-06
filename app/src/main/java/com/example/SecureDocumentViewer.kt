@@ -14,6 +14,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -153,9 +155,27 @@ fun SecureDocumentViewer(
     val mimeType = parts[3]
     val path = parts[4]
     val sizeStr = parts[5]
+    val context = androidx.compose.ui.platform.LocalContext.current
     
     val file = remember(path) { File(path) }
     val extension = file.extension.lowercase()
+    val isDocx = extension == "docx" || mimeType.contains("wordprocessingml")
+    val isDoc = extension == "doc" || mimeType.contains("msword")
+    
+    val openExternalApp = {
+        try {
+            viewModel.shareMultipleVaultFiles(
+                context = context,
+                filesSerialized = listOf(fileStr),
+                onSuccess = {},
+                onFailure = { err ->
+                    android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            )
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(context, "Cannot open: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
     
     Box(
         modifier = Modifier
@@ -205,6 +225,25 @@ fun SecureDocumentViewer(
                     )
                 }
                 
+                Spacer(modifier = Modifier.width(8.dp))
+
+                IconButton(
+                    onClick = {
+                        viewModel.triggerKeypressEffects(viewModel.getApplication())
+                        openExternalApp()
+                    },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF6C5CE7).copy(alpha = 0.2f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.OpenInNew,
+                        contentDescription = "Open in External App",
+                        tint = Color(0xFFA29BFE)
+                    )
+                }
+
                 Spacer(modifier = Modifier.width(8.dp))
                 
                 IconButton(
@@ -290,6 +329,59 @@ fun SecureDocumentViewer(
                                     }
                                 }
                             }
+                            isDocx -> {
+                                val docxText = remember(file) {
+                                    DocxReaderHelper.extractDocxText(file)
+                                }
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(16.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Color(0xFF1E2438), RoundedCornerShape(8.dp))
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Word Document Preview",
+                                            color = Color(0xFFA29BFE),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Button(
+                                            onClick = openExternalApp,
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C5CE7)),
+                                            shape = RoundedCornerShape(6.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                        ) {
+                                            Icon(Icons.Default.OpenInNew, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Open Full Doc", fontSize = 11.sp, color = Color.White)
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .weight(1f)
+                                            .background(Color(0xFF101424), RoundedCornerShape(12.dp))
+                                            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                                            .verticalScroll(rememberScrollState())
+                                            .padding(16.dp)
+                                    ) {
+                                        Text(
+                                            text = docxText,
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            fontSize = 15.sp,
+                                            lineHeight = 22.sp
+                                        )
+                                    }
+                                }
+                            }
                             mimeType == "text/plain" || extension in listOf("txt", "log", "csv", "ini", "json") -> {
                                 val textContent = remember(file) {
                                     try {
@@ -306,7 +398,7 @@ fun SecureDocumentViewer(
                                         .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
                                         .verticalScroll(rememberScrollState())
                                         .padding(16.dp)
-                                ) {
+                                    ) {
                                     Text(
                                         text = textContent,
                                         color = Color.White.copy(alpha = 0.9f),
@@ -317,11 +409,21 @@ fun SecureDocumentViewer(
                             }
                             else -> {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Default.InsertDriveFile, contentDescription = "Generic", tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(64.dp))
+                                    Icon(Icons.Default.InsertDriveFile, contentDescription = "Generic", tint = Color(0xFFA29BFE), modifier = Modifier.size(64.dp))
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    Text("This format cannot be previewed internally.", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp, textAlign = TextAlign.Center)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text("File: $originalName", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp, textAlign = TextAlign.Center)
+                                    Text(cleanDisplayName(originalName), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text("Word / Office Document format", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, textAlign = TextAlign.Center)
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
+                                        onClick = openExternalApp,
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C5CE7)),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Icon(Icons.Default.OpenInNew, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Open in Word / Docs App", color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }

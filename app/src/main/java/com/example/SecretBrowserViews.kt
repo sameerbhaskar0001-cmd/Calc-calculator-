@@ -3653,12 +3653,17 @@ fun PrivateBrowserSection(
     var lastTabCreationTime by remember { mutableStateOf(0L) }
     val openNewTab: (String) -> Unit = { url ->
         val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastTabCreationTime > 400L || tabs.isEmpty()) {
-            lastTabCreationTime = now
-            val tabId = java.util.UUID.randomUUID().toString()
-            val newTab = TabState(id = tabId, url = url, title = "New Tab")
-            tabs.add(newTab)
-            activeTabId = tabId
+        val cleanUrl = url.trim()
+        val isBlocked = SecretBrowserTrackingProtection.shouldBlock(cleanUrl, isMainFrame = true)
+        if (!isBlocked && (now - lastTabCreationTime > 400L || tabs.isEmpty())) {
+            // Guard against runaway ad loops creating 15+ tabs
+            if (tabs.size < 20 || cleanUrl == "home") {
+                lastTabCreationTime = now
+                val tabId = java.util.UUID.randomUUID().toString()
+                val newTab = TabState(id = tabId, url = cleanUrl, title = "New Tab")
+                tabs.add(newTab)
+                activeTabId = tabId
+            }
         }
     }
 
@@ -3918,6 +3923,8 @@ fun PrivateBrowserSection(
         stopLoading()
         if (activeGeckoSession != null && activeTab?.canGoBack == true) {
             activeGeckoSession.goBack()
+        } else if (tabs.size > 1 && activeTab != null) {
+            closeTab(activeTab.id)
         } else if (activeTab != null && !isHome && activeTab.url != "home") {
             loadUrl("home")
         }
@@ -3959,12 +3966,16 @@ fun PrivateBrowserSection(
             // Priority 1: Navigate backward through the GeckoView browser session history
             stopLoading()
             activeGeckoSession.goBack()
+        } else if (tabs.size > 1 && activeTab != null) {
+            // Priority 2: If this was a popup/extra tab with no prior history, closing it returns directly to the originating tab
+            stopLoading()
+            closeTab(activeTab.id)
         } else if (activeTab != null && !isHome && activeTab.url != "home") {
-            // Priority 2: Return from web page to browser home dashboard
+            // Priority 3: Return from web page to browser home dashboard
             stopLoading()
             loadUrl("home")
         } else if (isHome) {
-            // Priority 3: Only when confirmed on the browser Home screen and history is exhausted, exit to vault
+            // Priority 4: Only when confirmed on the browser Home screen and history is exhausted, exit to vault
             onExit()
         }
     }

@@ -2819,20 +2819,13 @@ fun VaultTabUnlockedContent(
                     }
                 )
             } else {
-                val isEdgeToEdge = activeSection in listOf("Photos", "Videos", "Documents", "Notes", "Music & Audio")
+                val isEdgeToEdge = activeSection in listOf("Photos", "Videos", "Documents", "Notes", "Music & Audio", "Password_Generator", "Secure_Voice_Note", "Metadata_Cleaner", "About")
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .statusBarsPadding()
                         .padding(if (isEdgeToEdge) 0.dp else 16.dp)
                 ) {
-                    if (activeSection in listOf(
-                            "Password_Generator", "Metadata_Cleaner", "Secure_Voice_Note", "About",
-                            "Security", "Authentication", "Protection", "Shake to Exit", "Monitoring"
-                        )
-                    ) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
                 // Clean and spacious Unlocked Header
                 if (activeSection == "Home") {
                     Row(
@@ -3071,7 +3064,7 @@ fun VaultTabUnlockedContent(
                                     )
                                 }
                             }
-                            if (activeSection != "Recently Deleted") {
+                            if (activeSection in listOf("Home", "Photos & Videos", "Documents", "Notes", "Music & Audio", "Explore")) {
                                 IconButton(
                                     onClick = {
                                         viewModel.triggerKeypressEffects(context)
@@ -3716,6 +3709,9 @@ fun VaultTabUnlockedContent(
                                     }
                                 )
                             }
+                        },
+                        onNavigateToBackup = {
+                            activeSection = "Backup"
                         }
                     )
                 }
@@ -4965,6 +4961,7 @@ fun VaultTabUnlockedContent(
                                 )
                             }
                         }
+                        Spacer(modifier = Modifier.height(100.dp).navigationBarsPadding())
                     }
                 }
                 "Backup" -> {
@@ -8019,343 +8016,14 @@ fun VaultTabUnlockedContent(
                                             contentScale = androidx.compose.ui.layout.ContentScale.Fit
                                         )
                                     } else if (mimeType.startsWith("video/") || isVaultVideo(currentFileStr)) {
-                                        // Video Player - Custom Clean Compose Controls
-                                        val videoContext = androidx.compose.ui.platform.LocalContext.current
-                                        val videoActivity = remember(videoContext) {
-                                            var c: android.content.Context? = videoContext
-                                            while (c is android.content.ContextWrapper) {
-                                                if (c is android.app.Activity) break
-                                                c = c.baseContext
-                                            }
-                                            c as? android.app.Activity
-                                        }
-                                        var isFullscreen by remember {
-                                            mutableStateOf(videoActivity?.resources?.configuration?.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE)
-                                        }
-                                        androidx.compose.runtime.DisposableEffect(videoActivity) {
-                                            onDispose {
-                                                videoActivity?.let { act ->
-                                                    act.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                                                    val ic = androidx.core.view.WindowCompat.getInsetsController(act.window, act.window.decorView)
-                                                    ic.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-                                                }
-                                            }
-                                        }
-                                        var playbackPosition by androidx.compose.runtime.saveable.rememberSaveable(path) { androidx.compose.runtime.mutableIntStateOf(0) }
-                                        var videoViewRef by remember { mutableStateOf<android.widget.VideoView?>(null) }
-                                        var isPlaying by remember { mutableStateOf(true) }
-                                        var currentPosMs by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-                                        var durationMs by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-                                        var isSeeking by remember { mutableStateOf(false) }
-                                        var seekSliderValue by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
-                                        var hudText by remember { mutableStateOf("") }
-                                        var hudIcon by remember { mutableStateOf<androidx.compose.ui.graphics.vector.ImageVector?>(null) }
-                                        var hudVisible by remember { mutableStateOf(false) }
-
-                                        LaunchedEffect(hudText, hudIcon) {
-                                            if (hudText.isNotEmpty()) {
-                                                hudVisible = true
-                                                kotlinx.coroutines.delay(1200)
-                                                hudVisible = false
-                                            }
-                                        }
-                                        LaunchedEffect(videoViewRef) {
-                                            while (true) {
-                                                kotlinx.coroutines.delay(250)
-                                                videoViewRef?.let { vv ->
-                                                    if (!isSeeking) {
-                                                        currentPosMs = vv.currentPosition
-                                                        durationMs = vv.duration
-                                                        isPlaying = vv.isPlaying
-                                                        playbackPosition = vv.currentPosition
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        Box(modifier = Modifier.fillMaxSize()) {
-                                            AndroidView(
-                                                factory = { ctx ->
-                                                    android.widget.VideoView(ctx).apply {
-                                                        setVideoPath(path)
-                                                        setMediaController(null)
-                                                        setOnPreparedListener { mp ->
-                                                            mp.isLooping = true
-                                                            durationMs = mp.duration
-                                                            seekTo(playbackPosition)
-                                                            start()
-                                                            isPlaying = true
-                                                        }
-                                                        videoViewRef = this
-                                                    }
-                                                },
-                                                modifier = Modifier.fillMaxSize(),
-                                                onRelease = {
-                                                    playbackPosition = it.currentPosition
-                                                    videoViewRef = null
-                                                }
-                                            )
-                                             // Touch Gestures Layer (Tap to toggle UI, double-tap to seek, vertical swipe for volume/brightness)
-                                             Box(
-                                                 modifier = Modifier
-                                                     .fillMaxSize()
-                                                     .pointerInput(Unit) {
-                                                         val width = size.width.toFloat()
-                                                         detectTapGestures(
-                                                             onDoubleTap = { offset ->
-                                                                 val isLeft = offset.x < width / 2f
-                                                                 videoViewRef?.let { vv ->
-                                                                     val delta = if (isLeft) -10000 else 10000
-                                                                     val newPos = (vv.currentPosition + delta).coerceIn(0, vv.duration)
-                                                                     vv.seekTo(newPos)
-                                                                     playbackPosition = newPos
-                                                                     currentPosMs = newPos
-                                                                     hudIcon = if (isLeft) Icons.Default.FastRewind else Icons.Default.FastForward
-                                                                     hudText = if (isLeft) "-10s" else "+10s"
-                                                                 }
-                                                             },
-                                                             onTap = {
-                                                                 isViewerUiVisible = !isViewerUiVisible
-                                                             }
-                                                         )
-                                                     }
-                                                     .pointerInput(Unit) {
-                                                         val width = size.width.toFloat()
-                                                         val height = size.height.toFloat()
-                                                         var isLeft = false
-                                                         var initialBrightness = 0.5f
-                                                         var initialVolume = 0f
-                                                         val audioManager = context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
-                                                         val maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
-                                                         detectDragGestures(
-                                                             onDragStart = { offset ->
-                                                                 isLeft = offset.x < width / 2f
-                                                                 if (isLeft) {
-                                                                     val activity = context.findActivity()
-                                                                     val currentBrightness = activity?.window?.attributes?.screenBrightness ?: -1f
-                                                                     initialBrightness = if (currentBrightness < 0f) 0.5f else currentBrightness
-                                                                 } else {
-                                                                     initialVolume = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC).toFloat()
-                                                                 }
-                                                             },
-                                                             onDrag = { change, dragAmount ->
-                                                                 change.consume()
-                                                                 val deltaY = -dragAmount.y
-                                                                 val scaleY = deltaY / height
-                                                                 if (isLeft) {
-                                                                     initialBrightness = (initialBrightness + scaleY * 1.5f).coerceIn(0f, 1f)
-                                                                     val activity = context.findActivity()
-                                                                     activity?.runOnUiThread {
-                                                                         val lp = activity.window.attributes
-                                                                         lp.screenBrightness = initialBrightness
-                                                                         activity.window.attributes = lp
-                                                                     }
-                                                                     hudIcon = Icons.Default.Brightness5
-                                                                     hudText = "Brightness: ${Math.round(initialBrightness * 100f)}%"
-                                                                 } else {
-                                                                     val volumeDelta = scaleY * maxVolume.toFloat() * 1.5f
-                                                                     initialVolume = (initialVolume + volumeDelta).coerceIn(0f, maxVolume.toFloat())
-                                                                     audioManager.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, initialVolume.toInt(), 0)
-                                                                     hudIcon = Icons.Default.VolumeUp
-                                                                     hudText = "Volume: ${Math.round((initialVolume / maxVolume.toFloat()) * 100f)}%"
-                                                                 }
-                                                             }
-                                                         )
-                                                     }
-                                             )
-
-                                             // Subtle Non-Obstructive Top HUD Pill (Never covers faces or video center!)
-                                             AnimatedVisibility(
-                                                 visible = hudVisible,
-                                                 enter = fadeIn(animationSpec = tween(150)),
-                                                 exit = fadeOut(animationSpec = tween(250)),
-                                                 modifier = Modifier
-                                                     .align(Alignment.TopCenter)
-                                                     .statusBarsPadding()
-                                                     .padding(top = 56.dp)
-                                             ) {
-                                                 Surface(
-                                                     color = Color.Black.copy(alpha = 0.82f),
-                                                     shape = RoundedCornerShape(20.dp),
-                                                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                                                     shadowElevation = 4.dp
-                                                 ) {
-                                                     Row(
-                                                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
-                                                         verticalAlignment = Alignment.CenterVertically
-                                                     ) {
-                                                         hudIcon?.let { icon ->
-                                                             Icon(imageVector = icon, contentDescription = null, tint = ThemePurple, modifier = Modifier.size(18.dp))
-                                                             Spacer(modifier = Modifier.width(8.dp))
-                                                         }
-                                                         Text(text = hudText, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                                     }
-                                                 }
-                                             }
-
-                                             // Sleek Modern Bottom Playback Bar (Visible when UI is active)
-                                             AnimatedVisibility(
-                                                 visible = isViewerUiVisible,
-                                                 enter = fadeIn(tween(180)),
-                                                 exit = fadeOut(tween(180)),
-                                                 modifier = Modifier.align(Alignment.BottomCenter)
-                                             ) {
-                                                 Column(
-                                                     modifier = Modifier
-                                                         .fillMaxWidth()
-                                                         .background(
-                                                             androidx.compose.ui.graphics.Brush.verticalGradient(
-                                                                 listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f))
-                                                             )
-                                                         )
-                                                         .navigationBarsPadding()
-                                                         .padding(horizontal = 16.dp, vertical = 12.dp)
-                                                 ) {
-                                                     // Scrubber Seekbar
-                                                     val effectivePos = if (isSeeking) seekSliderValue else currentPosMs.toFloat()
-                                                     val effectiveDur = if (durationMs > 0) durationMs.toFloat() else 1f
-                                                     Slider(
-                                                         value = effectivePos.coerceIn(0f, effectiveDur),
-                                                         onValueChange = {
-                                                             isSeeking = true
-                                                             seekSliderValue = it
-                                                         },
-                                                         onValueChangeFinished = {
-                                                             videoViewRef?.let { vv ->
-                                                                 val targetMs = seekSliderValue.toInt().coerceIn(0, vv.duration)
-                                                                 vv.seekTo(targetMs)
-                                                                 currentPosMs = targetMs
-                                                                 playbackPosition = targetMs
-                                                             }
-                                                             isSeeking = false
-                                                         },
-                                                         valueRange = 0f..effectiveDur,
-                                                         colors = SliderDefaults.colors(
-                                                             thumbColor = ThemePurple,
-                                                             activeTrackColor = ThemePurple,
-                                                             inactiveTrackColor = Color.White.copy(alpha = 0.25f)
-                                                         ),
-                                                         modifier = Modifier.fillMaxWidth().height(28.dp)
-                                                     )
-
-                                                     Row(
-                                                         modifier = Modifier.fillMaxWidth(),
-                                                         horizontalArrangement = Arrangement.SpaceBetween,
-                                                         verticalAlignment = Alignment.CenterVertically
-                                                     ) {
-                                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                                             // Play/Pause Button
-                                                             IconButton(
-                                                                 onClick = {
-                                                                     videoViewRef?.let { vv ->
-                                                                         if (vv.isPlaying) {
-                                                                             vv.pause()
-                                                                             isPlaying = false
-                                                                         } else {
-                                                                             vv.start()
-                                                                             isPlaying = true
-                                                                         }
-                                                                     }
-                                                                 },
-                                                                 modifier = Modifier.size(36.dp)
-                                                             ) {
-                                                                 Icon(
-                                                                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                                                     contentDescription = if (isPlaying) "Pause" else "Play",
-                                                                     tint = Color.White,
-                                                                     modifier = Modifier.size(24.dp)
-                                                                 )
-                                                             }
-
-                                                             Spacer(modifier = Modifier.width(4.dp))
-
-                                                             // -10s Rewind
-                                                             IconButton(
-                                                                 onClick = {
-                                                                     videoViewRef?.let { vv ->
-                                                                         val newPos = (vv.currentPosition - 10000).coerceAtLeast(0)
-                                                                         vv.seekTo(newPos)
-                                                                         currentPosMs = newPos
-                                                                         playbackPosition = newPos
-                                                                         hudIcon = Icons.Default.FastRewind
-                                                                         hudText = "-10s"
-                                                                     }
-                                                                 },
-                                                                 modifier = Modifier.size(32.dp)
-                                                             ) {
-                                                                 Icon(
-                                                                     imageVector = Icons.Default.FastRewind,
-                                                                     contentDescription = "Rewind 10s",
-                                                                     tint = Color.White.copy(alpha = 0.85f),
-                                                                     modifier = Modifier.size(20.dp)
-                                                                 )
-                                                             }
-
-                                                             // +10s Forward
-                                                             IconButton(
-                                                                 onClick = {
-                                                                     videoViewRef?.let { vv ->
-                                                                         val newPos = (vv.currentPosition + 10000).coerceAtMost(vv.duration)
-                                                                         vv.seekTo(newPos)
-                                                                         currentPosMs = newPos
-                                                                         playbackPosition = newPos
-                                                                         hudIcon = Icons.Default.FastForward
-                                                                         hudText = "+10s"
-                                                                     }
-                                                                 },
-                                                                 modifier = Modifier.size(32.dp)
-                                                             ) {
-                                                                 Icon(
-                                                                     imageVector = Icons.Default.FastForward,
-                                                                     contentDescription = "Forward 10s",
-                                                                     tint = Color.White.copy(alpha = 0.85f),
-                                                                     modifier = Modifier.size(20.dp)
-                                                                 )
-                                                             }
-                                                         }
-
-                                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                                             // Time display: 00:15 / 02:45
-                                                             Text(
-                                                                 text = "${formatDuration(currentPosMs)} / ${formatDuration(durationMs)}",
-                                                                 color = Color.White.copy(alpha = 0.85f),
-                                                                 fontSize = 12.sp,
-                                                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                                                 fontWeight = FontWeight.Medium
-                                                             )
-
-                                                             Spacer(modifier = Modifier.width(10.dp))
-
-                                                             IconButton(
-                                                                 onClick = {
-                                                                     videoActivity?.let { act ->
-                                                                         val ic = androidx.core.view.WindowCompat.getInsetsController(act.window, act.window.decorView)
-                                                                         ic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                                                                         if (isFullscreen) {
-                                                                             act.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                                                                             ic.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-                                                                             isFullscreen = false
-                                                                         } else {
-                                                                             act.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                                                                             ic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-                                                                             isFullscreen = true
-                                                                         }
-                                                                     }
-                                                                 },
-                                                                 modifier = Modifier.size(32.dp)
-                                                             ) {
-                                                                 Icon(
-                                                                     imageVector = Icons.Default.ScreenRotation,
-                                                                     contentDescription = if (isFullscreen) "Exit Fullscreen" else "Enter Fullscreen",
-                                                                     tint = if (isFullscreen) ThemePurple else Color.White,
-                                                                     modifier = Modifier.size(22.dp)
-                                                                 )
-                                                             }
-                                                         }
-                                                     }
-                                                 }
-                                             }
-                                         }
+                                        // Video Player - Enhanced Fullscreen, Aspect-Ratio & Scaling Controls
+                                        VaultVideoPlayer(
+                                            path = path,
+                                            isViewerUiVisible = isViewerUiVisible,
+                                            onToggleViewerUi = { isViewerUiVisible = !isViewerUiVisible },
+                                            formatDuration = formatDuration,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
                                     } else if (mimeType.equals("application/pdf", ignoreCase = true) || originalName.endsWith(".pdf", ignoreCase = true)) {
                                         // PDF Viewer
                                         val bitmaps = remember(path) {
@@ -8425,6 +8093,8 @@ fun VaultTabUnlockedContent(
                                         }
                                     } else if (mimeType.startsWith("text/") || 
                                                originalName.lowercase().endsWith(".txt") || 
+                                               originalName.lowercase().endsWith(".docx") || 
+                                               originalName.lowercase().endsWith(".doc") || 
                                                originalName.lowercase().endsWith(".json") || 
                                                originalName.lowercase().endsWith(".xml") || 
                                                originalName.lowercase().endsWith(".csv") || 
@@ -8438,7 +8108,11 @@ fun VaultTabUnlockedContent(
                                             try {
                                                 val file = java.io.File(path)
                                                 if (file.exists()) {
-                                                    file.readText(charset = Charsets.UTF_8)
+                                                    if (originalName.lowercase().endsWith(".docx") || file.name.lowercase().endsWith(".docx")) {
+                                                        DocxReaderHelper.extractDocxText(file)
+                                                    } else {
+                                                        file.readText(charset = Charsets.UTF_8)
+                                                    }
                                                 } else {
                                                     "File not found."
                                                 }
@@ -11929,34 +11603,41 @@ fun StorageScreenSection(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Total Vault Storage Section
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2031)),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, Color(0xFF383F56).copy(alpha = 0.3f))
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Total Vault Storage", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(20.dp))
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Total Vault Storage", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text("${storageInfo.totalUsedFormatted} / 15.0 GB", color = themePurple, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
                     
                     val MAX_STORAGE = 15L * 1024 * 1024 * 1024 // 15 GB
                     val progress = if (MAX_STORAGE > 0) (storageInfo.totalBytes.toFloat() / MAX_STORAGE.toFloat()).coerceIn(0f, 1f) else 0f
                     // Storage Bar
                     LinearProgressIndicator(
                         progress = { progress },
-                        modifier = Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp)),
+                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
                         color = themePurple,
                         trackColor = Color(0xFF383F56).copy(alpha = 0.5f),
                         strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
                     )
                     
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("${storageInfo.totalUsedFormatted} Used", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        Text("15.0 GB Total", color = textMedium, fontSize = 15.sp)
+                        Text("${storageInfo.totalUsedFormatted} Used", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text("15.0 GB Total", color = textMedium, fontSize = 12.sp)
                     }
                 }
             }
@@ -11964,13 +11645,13 @@ fun StorageScreenSection(
             // Categories
             SettingsGroup(title = "CATEGORIES") {
                 StorageCategoryRow(title = "Photos", icon = Icons.Default.Image, size = storageInfo.photosFormatted, color = Color(0xFF42A5F5))
-                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.2f)))
                 StorageCategoryRow(title = "Videos", icon = Icons.Default.PlayArrow, size = storageInfo.videosFormatted, color = Color(0xFFEF5350))
-                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.2f)))
                 StorageCategoryRow(title = "Documents", icon = Icons.Default.Description, size = storageInfo.docsFormatted, color = Color(0xFFFFCA28))
-                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.2f)))
                 StorageCategoryRow(title = "Audio", icon = Icons.Default.AudioFile, size = storageInfo.audioFormatted, color = Color(0xFFAB47BC))
-                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.3f)))
+                Spacer(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF383F56).copy(alpha = 0.2f)))
                 StorageCategoryRow(title = "Notes", icon = Icons.Default.Edit, size = storageInfo.notesFormatted, color = Color(0xFF66BB6A))
             }
             
@@ -11981,25 +11662,25 @@ fun StorageScreenSection(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
                         .clickable { onNavigateToRecentlyDeleted() }
-                        .padding(vertical = 18.dp, horizontal = 20.dp),
+                        .padding(vertical = 10.dp, horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(34.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFE53935).copy(alpha = 0.1f)),
+                                .background(Color(0xFFE53935).copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = "Recently Deleted", tint = Color(0xFFE53935), modifier = Modifier.size(24.dp))
+                            Icon(Icons.Default.Delete, contentDescription = "Recently Deleted", tint = Color(0xFFE53935), modifier = Modifier.size(18.dp))
                         }
-                        Spacer(modifier = Modifier.width(18.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = "Recently Deleted",
                             color = Color.White,
-                            fontSize = 16.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -12007,21 +11688,21 @@ fun StorageScreenSection(
                         Text(
                             text = storageInfo.trashFormatted,
                             color = textMedium,
-                            fontSize = 15.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Icon(
                             imageVector = Icons.Default.ChevronRight,
                             contentDescription = "Go",
                             tint = Color.White.copy(alpha = 0.3f),
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
             }
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -12031,32 +11712,32 @@ fun StorageCategoryRow(title: String, icon: androidx.compose.ui.graphics.vector.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 18.dp, horizontal = 20.dp),
+            .padding(vertical = 10.dp, horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(34.dp)
                     .clip(CircleShape)
                     .background(color.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = title, tint = color, modifier = Modifier.size(24.dp))
+                Icon(icon, contentDescription = title, tint = color, modifier = Modifier.size(18.dp))
             }
-            Spacer(modifier = Modifier.width(18.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = title,
                 color = Color.White,
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
         Text(
             text = size,
             color = TextMedium,
-            fontSize = 15.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Medium
         )
     }
@@ -12391,6 +12072,29 @@ fun MonitoringSection(
                     color = TextMedium,
                     lineHeight = 16.sp
                 )
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF0D1829), RoundedCornerShape(8.dp))
+                        .border(1.dp, Color(0xFF1E3A5F), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Privacy",
+                        tint = Color(0xFF64B5F6),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "100% Offline Storage: Photos are stored locally in app-private sandbox storage. Never uploaded to cloud or shared with anyone.",
+                        fontSize = 11.sp,
+                        color = Color(0xFF90CAF9),
+                        lineHeight = 15.sp
+                    )
+                }
             }
         }
 
@@ -12471,7 +12175,7 @@ fun MonitoringSection(
                         )
                         Column {
                             Text("Capture Intruder Selfie", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (tempDetectionEnabled) Color.White else Color.Gray)
-                            Text("Take a photo of the intruder using front camera", fontSize = 10.sp, color = TextMedium)
+                            Text("Front camera captures offline snapshot stored locally on device", fontSize = 10.sp, color = TextMedium)
                         }
                     }
                     Switch(

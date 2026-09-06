@@ -106,12 +106,12 @@ fun MetadataCleanerScreen(
                     .fillMaxWidth()
                     .padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 IconButton(
                     onClick = onBack,
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color.White.copy(alpha = 0.05f))
                         .testTag("back_button")
@@ -130,17 +130,17 @@ fun MetadataCleanerScreen(
                 ) {
                     Text(
                         text = "EXIF TRACKING REMOVER",
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = ThemePurple.copy(alpha = 0.8f),
-                        letterSpacing = 1.8.sp,
+                        letterSpacing = 1.2.sp,
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Text(
                         text = "Metadata Cleaner",
                         color = Color.White,
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
@@ -152,7 +152,7 @@ fun MetadataCleanerScreen(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color(0xFF4CAF50).copy(alpha = 0.15f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -160,7 +160,7 @@ fun MetadataCleanerScreen(
                         imageVector = Icons.Default.Lock,
                         contentDescription = "Offline Secure",
                         tint = Color(0xFF81C784),
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                     Text(
                         text = "Local",

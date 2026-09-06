@@ -77,7 +77,14 @@ object SecretBrowserTrackingProtection {
         "gloaphoo.net",
         "ouo.io",
         "ouo.press",
-        "directrev.com"
+        "directrev.com",
+        "ay267.com",
+        "luugy.com",
+        "adxvip.com",
+        "shortenworld.com",
+        "shrinkme.io",
+        "gplinks.co",
+        "droplink.co"
     )
 
     // 2. Analytics Trackers
@@ -177,8 +184,8 @@ object SecretBrowserTrackingProtection {
                 return true
             }
 
-            // Main-frame navigations to normal sites are allowed
-            if (isMainFrame) {
+            // Main-frame navigations to normal sites are allowed, unless matching obvious ad footprints
+            if (isMainFrame && !containsTrackingFootprint(lowerUrl)) {
                 return false
             }
 
@@ -282,7 +289,13 @@ object SecretBrowserTrackingProtection {
             lowerUrl.contains("popunder.js") ||
             lowerUrl.contains("adsterra") ||
             lowerUrl.contains("onclickalgo") ||
-            lowerUrl.contains("directrev")
+            lowerUrl.contains("directrev") ||
+            lowerUrl.contains("ay267.com") ||
+            lowerUrl.contains("luugy.com") ||
+            lowerUrl.contains("/adx/") ||
+            lowerUrl.contains("adx.") ||
+            lowerUrl.contains("popads") ||
+            lowerUrl.contains("clickadu")
         ) {
             return true
         }

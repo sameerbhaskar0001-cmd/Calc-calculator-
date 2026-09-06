@@ -558,11 +558,17 @@ fun PasswordGeneratorScreen(
                             Text(
                                 text = generatedPassword.ifEmpty { "Select at least one option" },
                                 color = if (generatedPassword.isEmpty()) Color.White.copy(alpha = 0.3f) else Color.White,
-                                fontSize = if (generatedPassword.length > 24) 14.sp else 18.sp,
+                                fontSize = when {
+                                    generatedPassword.length > 24 -> 12.sp
+                                    generatedPassword.length > 16 -> 14.sp
+                                    generatedPassword.length > 12 -> 15.sp
+                                    else -> 17.sp
+                                },
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.weight(1f),
-                                maxLines = 2
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                             
                             if (generatedPassword.isNotEmpty()) {

@@ -177,7 +177,41 @@ fun BackupScreenContent(
                         fontFamily = backupTitleFont
                     )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Helpful Step-by-Step Guide Card
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color.White.copy(alpha = 0.05f))
+                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(14.dp))
+                            .padding(14.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "HOW TO BACKUP & RESTORE:",
+                                color = if (isQuantumCyan) Color(0xFF00E5FF) else themePurple,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            Text(
+                                text = "1. Tap 'Create Offline Backup' and save the 'vault_backup.zip' file to your phone or send it to your PC/cloud.",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp
+                            )
+                            Text(
+                                text = "2. After reinstalling the app or switching phones, tap 'Restore Previous Backup' and select that zip file to bring all your data back!",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     Button(
                         onClick = onCreateBackupClick,

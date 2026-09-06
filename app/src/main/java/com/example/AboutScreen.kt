@@ -179,45 +179,29 @@ fun AboutScreen(
                             )
                         }
 
-                        // Version, Build Number, Status Badge Staggered Layout (prevents vertical wrapping on small screens)
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        // Version & Status Badge Layout
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "v1.0.0",
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color.White.copy(alpha = 0.06f))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
+                            Text(
+                                text = "v1.0.0",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White.copy(alpha = 0.06f))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
 
-                                Text(
-                                    text = "Build #2026.07.19",
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color.White.copy(alpha = 0.06f))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-
-                            // Status Badge: Latest Version (beautifully centered below)
+                            // Status Badge: Latest Version
                             Row(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(Color(0xFF4CAF50).copy(alpha = 0.15f))
                                     .border(1.dp, Color(0xFF4CAF50).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                                    .padding(horizontal = 10.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
@@ -239,37 +223,8 @@ fun AboutScreen(
                     }
                 }
 
-                // SECTION 1: App Information
-                AboutSectionTitle(title = "App Information")
-                UnifiedGlassCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    bgColor = Color(0xFF1B2031).copy(alpha = 0.95f)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        InfoItemRow(
-                            label = "Version",
-                            value = "v1.0.0",
-                            icon = Icons.Default.Info
-                        )
-                        Divider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(vertical = 12.dp))
-                        InfoItemRow(
-                            label = "Build Number",
-                            value = "2026.07.19.01",
-                            icon = Icons.Default.Build
-                        )
-                        Divider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(vertical = 12.dp))
-                        InfoItemRow(
-                            label = "Developer",
-                            value = "Sam Unmatched",
-                            icon = Icons.Default.Code,
-                            valueColor = ThemePurple
-                        )
-                    }
-                }
-
-                // SECTION 2: Support
-                AboutSectionTitle(title = "Support")
+                // SECTION 1: Support & Feedback
+                AboutSectionTitle(title = "Support & Feedback")
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     ClickableAboutCard(
                         title = "Contact Support",
@@ -281,35 +236,26 @@ fun AboutScreen(
                         }
                     )
                     ClickableAboutCard(
-                        title = "Report a Bug",
-                        subtitle = "Help us improve by submitting a bug report",
-                        icon = Icons.Default.BugReport,
-                        testTag = "btn_report_bug",
-                        onClick = {
-                            Toast.makeText(context, "Bug Reporting system launched (Placeholder)", Toast.LENGTH_SHORT).show()
-                        }
-                    )
-                    ClickableAboutCard(
-                        title = "Send Feedback",
-                        subtitle = "Share your thoughts or feature requests",
+                        title = "Send Feedback & Suggestions",
+                        subtitle = "Share your thoughts to help us improve",
                         icon = Icons.Default.Feedback,
                         testTag = "btn_send_feedback",
                         onClick = {
-                            Toast.makeText(context, "Thank you for your feedback! (Placeholder)", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Feedback: sameerbhaskar0001@gmail.com", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
 
-                // SECTION 3: Legal
-                AboutSectionTitle(title = "Legal")
+                // SECTION 2: Legal & Privacy
+                AboutSectionTitle(title = "Legal & Privacy")
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     ClickableAboutCard(
                         title = "Privacy Policy",
-                        subtitle = "How we protect and manage your data",
+                        subtitle = "How we protect and manage your data locally",
                         icon = Icons.Default.PrivacyTip,
                         testTag = "btn_privacy_policy",
                         onClick = {
-                            Toast.makeText(context, "Privacy Policy loaded (Placeholder)", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Your vault data is strictly offline and encrypted.", Toast.LENGTH_SHORT).show()
                         }
                     )
                     ClickableAboutCard(
@@ -318,54 +264,33 @@ fun AboutScreen(
                         icon = Icons.Default.Description,
                         testTag = "btn_terms_conditions",
                         onClick = {
-                            Toast.makeText(context, "Terms & Conditions loaded (Placeholder)", Toast.LENGTH_SHORT).show()
-                        }
-                    )
-                    ClickableAboutCard(
-                        title = "Open Source Licenses",
-                        subtitle = "Third-party libraries used in the app",
-                        icon = Icons.Default.LibraryBooks,
-                        testTag = "btn_licenses",
-                        onClick = {
-                            Toast.makeText(context, "Loading Licenses (Placeholder)", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Secret Vault Terms of Service.", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
 
-                // SECTION 4: Community
+                // SECTION 3: Community
                 AboutSectionTitle(title = "Community")
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     ClickableAboutCard(
                         title = "Rate App",
-                        subtitle = "Show your support by leaving a rating",
+                        subtitle = "Show your support with a 5-star rating",
                         icon = Icons.Default.Star,
                         testTag = "btn_rate_app",
                         onClick = {
-                            Toast.makeText(context, "Opening Store Page (Placeholder)", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Opening Store Page", Toast.LENGTH_SHORT).show()
                         }
                     )
                     ClickableAboutCard(
                         title = "Share App",
-                        subtitle = "Recommend Secret Vault to friends",
+                        subtitle = "Recommend Secret Vault to friends & family",
                         icon = Icons.Default.Share,
                         testTag = "btn_share_app",
                         onClick = {
-                            Toast.makeText(context, "Share sheet initialized (Placeholder)", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Share sheet initialized", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
-
-                // SECTION 5: Updates
-                AboutSectionTitle(title = "Updates")
-                ClickableAboutCard(
-                    title = "Check for Updates",
-                    subtitle = "Verify if you are running the newest version",
-                    icon = Icons.Default.Update,
-                    testTag = "btn_check_updates",
-                    onClick = {
-                        Toast.makeText(context, "You are already using the latest version (v1.0.0)", Toast.LENGTH_SHORT).show()
-                    }
-                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 

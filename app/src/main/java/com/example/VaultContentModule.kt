@@ -188,7 +188,8 @@ fun VaultContentScreen(
     onToggleFavorite: (String) -> Unit,
     onCreateFolder: (String) -> Unit,
     onMoveItems: (Set<String>, String) -> Unit,
-    onShareItems: ((Set<String>) -> Unit)? = null
+    onShareItems: ((Set<String>) -> Unit)? = null,
+    onNavigateToBackup: (() -> Unit)? = null
 ) {
     val BrandBg = LocalAppThemeColors.current.brandBg
     val ThemePurple = LocalAppThemeColors.current.themePurple
@@ -379,6 +380,9 @@ fun VaultContentScreen(
                                     )
                                 }
                             }
+                            VaultBackupAlertButton(
+                                onNavigateToBackup = onNavigateToBackup
+                            )
                             IconButton(
                                 onClick = { showSortOptions = true },
                                 modifier = Modifier

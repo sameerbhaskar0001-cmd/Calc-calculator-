@@ -147,13 +147,14 @@ object GeckoSessionManager {
 
             override fun onNewSession(s: GeckoSession, uri: String): org.mozilla.geckoview.GeckoResult<GeckoSession>? {
                 try {
-                    if (uri.isNotBlank() && uri != "about:blank" && !uri.startsWith("javascript:")) {
-                        val isBlocked = SecretBrowserTrackingProtection.shouldBlock(uri, isMainFrame = true, currentSiteUrl = currentMainUrl)
+                    val cleanUri = uri.trim()
+                    if (cleanUri.isNotBlank() && cleanUri != "about:blank" && !cleanUri.startsWith("javascript:")) {
+                        val isBlocked = SecretBrowserTrackingProtection.shouldBlock(cleanUri, isMainFrame = true, currentSiteUrl = currentMainUrl)
                         if (isBlocked) {
                             SecretBrowserTrackingProtection.onTrackerBlocked?.invoke(tabId, currentMainUrl)
                         } else {
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                onOpenNewTab?.invoke(uri)
+                                onOpenNewTab?.invoke(cleanUri)
                             }
                         }
                     }
