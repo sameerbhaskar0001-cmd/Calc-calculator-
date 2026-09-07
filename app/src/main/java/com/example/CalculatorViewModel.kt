@@ -1821,13 +1821,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     // --- Calculator Methods ---
-    private var lastKeyTime = 0L
-
     fun onCalcKeyPress(key: String) {
-        val now = System.currentTimeMillis()
-        if (now - lastKeyTime < 160L) return
-        lastKeyTime = now
-
         val currentExpr = _expression.value
         val isCurrentEval = _isEvaluated.value
 

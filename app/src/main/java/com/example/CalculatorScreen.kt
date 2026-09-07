@@ -1371,7 +1371,6 @@ fun GlassCalculatorKey(
     val themeColors = com.example.ui.theme.LocalAppThemeColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    var lastClickTime by remember { mutableStateOf(0L) }
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1.0f,
         animationSpec = spring(
@@ -1433,16 +1432,12 @@ fun GlassCalculatorKey(
             elevation = if (!isUtility && !isEquals) 4.dp else 0.dp,
             glowAlpha = glowAlpha,
             onClick = {
-                val now = System.currentTimeMillis()
-                if (now - lastClickTime > 200L) {
-                    lastClickTime = now
-                    try {
-                        view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-                    } catch (e: Exception) {
-                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                    }
-                    onClick()
+                try {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                } catch (e: Exception) {
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                 }
+                onClick()
             },
             onLongClick = onLongClick,
             interactionSource = interactionSource,

@@ -125,7 +125,15 @@ object GeckoSessionManager {
                 url: String?, 
                 perms: List<GeckoSession.PermissionDelegate.ContentPermission>
             ) {
-                if (!url.isNullOrEmpty() && url != "about:blank") {
+                if (!url.isNullOrEmpty() && url != "about:blank" && !url.startsWith("data:")) {
+                    val previous = currentMainUrl
+                    if (previous.isNotBlank() && previous != "home" && previous != "about:blank" && !previous.startsWith("data:") && previous != url) {
+                        SecretBrowserNavigationCheckpointManager.recordCheckpoint(
+                            tabId = tabId,
+                            previousUrl = previous,
+                            reason = "location_change"
+                        )
+                    }
                     currentMainUrl = url
                     onUpdate { tab ->
                         tab.copy(url = url)
@@ -554,6 +562,7 @@ object GeckoSessionManager {
      * Safely closes and removes the session associated with the given tab ID.
      */
     fun removeAndDestroySession(tabId: String) {
+        SecretBrowserNavigationCheckpointManager.clearTabCheckpoints(tabId)
         val session = activeSessions.remove(tabId)
         onUpdateCallbacks.remove(tabId)
         onDownloadCallbacks.remove(tabId)
@@ -579,6 +588,7 @@ object GeckoSessionManager {
      * Safely destroys and closes all active sessions (for clean shutdown on browser exit).
      */
     fun destroyAllSessions() {
+        SecretBrowserNavigationCheckpointManager.clearAll()
         onUpdateCallbacks.clear()
         onDownloadCallbacks.clear()
         onCrashCallbacks.clear()

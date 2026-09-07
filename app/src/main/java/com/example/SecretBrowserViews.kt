@@ -3680,6 +3680,7 @@ fun PrivateBrowserSection(
     }
 
     val closeTab: (String) -> Unit = { tabId ->
+        SecretBrowserNavigationCheckpointManager.clearTabCheckpoints(tabId)
         TabThumbnailCache.removeThumbnail(tabId)
         val gv = geckoViews.remove(tabId)
         try {
@@ -3910,6 +3911,14 @@ fun PrivateBrowserSection(
                 if (currentTab.isLoading && currentTab.url == formatted) {
                     shouldLoad = false
                 } else {
+                    if (currentTab.url.isNotBlank() && currentTab.url != "home" && currentTab.url != "about:blank" && !currentTab.url.startsWith("data:") && currentTab.url != formatted) {
+                        SecretBrowserNavigationCheckpointManager.recordCheckpoint(
+                            tabId = currentTab.id,
+                            previousUrl = currentTab.url,
+                            previousTitle = currentTab.title,
+                            reason = "user_navigation"
+                        )
+                    }
                     tabs[index] = tabs[index].copy(
                         url = formatted,
                         isLoading = true,
@@ -3929,13 +3938,23 @@ fun PrivateBrowserSection(
     val goBack: () -> Unit = {
         stopLoading()
         if (activeGeckoSession != null && activeTab?.canGoBack == true) {
+            // Priority 1: Navigate backward through GeckoView browser session history
             activeGeckoSession.goBack()
+        } else if (activeTab != null && SecretBrowserNavigationCheckpointManager.hasValidCheckpoint(activeTab.id, activeTab.url)) {
+            // Priority 2: Fallback to pre-redirect / same-tab replacement checkpoint if GeckoView history is lost
+            val prevUrl = SecretBrowserNavigationCheckpointManager.popValidCheckpoint(activeTab.id, activeTab.url)
+            if (prevUrl != null) {
+                loadUrl(prevUrl)
+            }
         } else if (activeTab?.parentTabId != null && tabs.any { it.id == activeTab.parentTabId }) {
+            // Priority 3: If this was a popup/child tab with exhausted history, close it and return to parent tab
             closeTab(activeTab.id)
-        } else if (tabs.size > 1 && activeTab != null) {
-            closeTab(activeTab.id)
-        } else if (activeTab != null && !isHome && activeTab.url != "home") {
+        } else if (activeTab != null && !isHome && activeTab.url != "home" && activeTab.url.isNotEmpty()) {
+            // Priority 4: Return from web page to browser home dashboard
             loadUrl("home")
+        } else if (isHome && tabs.size > 1 && activeTab != null) {
+            // Priority 5: If on home and multiple tabs exist, close tab and switch to remaining tab
+            closeTab(activeTab.id)
         }
     }
     val goForward: () -> Unit = {
@@ -3975,20 +3994,27 @@ fun PrivateBrowserSection(
             // Priority 1: Navigate backward through the GeckoView browser session history
             stopLoading()
             activeGeckoSession.goBack()
+        } else if (activeTab != null && SecretBrowserNavigationCheckpointManager.hasValidCheckpoint(activeTab.id, activeTab.url)) {
+            // Priority 2: Fallback to pre-redirect/same-tab replacement checkpoint if GeckoView history is lost
+            stopLoading()
+            val prevUrl = SecretBrowserNavigationCheckpointManager.popValidCheckpoint(activeTab.id, activeTab.url)
+            if (prevUrl != null) {
+                loadUrl(prevUrl)
+            }
         } else if (activeTab?.parentTabId != null && tabs.any { it.id == activeTab.parentTabId }) {
-            // Priority 2: If this was a popup/child tab with exhausted history, closing it returns directly to the originating tab
+            // Priority 3: If this was a popup/child tab with exhausted history, closing it returns directly to the originating tab
             stopLoading()
             closeTab(activeTab.id)
-        } else if (tabs.size > 1 && activeTab != null) {
-            // Priority 3: If multiple independent tabs exist, close active tab
-            stopLoading()
-            closeTab(activeTab.id)
-        } else if (activeTab != null && !isHome && activeTab.url != "home") {
+        } else if (activeTab != null && !isHome && activeTab.url != "home" && activeTab.url.isNotEmpty()) {
             // Priority 4: Return from web page to browser home dashboard
             stopLoading()
             loadUrl("home")
+        } else if (isHome && tabs.size > 1 && activeTab != null) {
+            // Priority 5: If on home and multiple tabs exist, closing tab returns to remaining tab
+            stopLoading()
+            closeTab(activeTab.id)
         } else if (isHome) {
-            // Priority 5: Only when confirmed on the browser Home screen and history is exhausted, exit to vault
+            // Priority 6: Only when confirmed on the browser Home screen on the last tab, exit to vault
             onExit()
         }
     }
@@ -4812,7 +4838,7 @@ fun PrivateBrowserSection(
                         horizontalArrangement = Arrangement.SpaceAround,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val canNavigateBack = (activeTab?.canGoBack == true) || (!isHome && activeTab?.url != "home" && activeTab?.url?.isNotEmpty() == true)
+                        val canNavigateBack = (activeTab?.canGoBack == true) || (activeTab != null && SecretBrowserNavigationCheckpointManager.hasValidCheckpoint(activeTab.id, activeTab.url)) || (activeTab?.parentTabId != null) || (!isHome && activeTab?.url != "home" && activeTab?.url?.isNotEmpty() == true)
                         IconButton(
                             onClick = { goBack() },
                             enabled = canNavigateBack,
