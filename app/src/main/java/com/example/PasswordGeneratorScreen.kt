@@ -2,6 +2,7 @@ package com.example
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -324,9 +325,14 @@ fun PasswordGeneratorScreen(
                 IconButton(
                     onClick = onBack,
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = 0.05f))
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF161B2B).copy(alpha = 0.95f))
+                        .border(
+                            width = 1.2.dp,
+                            color = Color.White.copy(alpha = 0.35f),
+                            shape = CircleShape
+                        )
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,

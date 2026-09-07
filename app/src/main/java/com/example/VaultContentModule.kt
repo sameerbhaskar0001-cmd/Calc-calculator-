@@ -317,7 +317,7 @@ fun VaultContentScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 12.dp),
+                        .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
@@ -326,14 +326,19 @@ fun VaultContentScreen(
                             onNavigateBack()
                         },
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(40.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.05f))
+                            .background(Color(0xFF161B2B).copy(alpha = 0.95f))
+                            .border(
+                                width = 1.2.dp,
+                                color = Color.White.copy(alpha = 0.35f),
+                                shape = CircleShape
+                            )
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(22.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(20.dp))
                     }
                     
-                    Spacer(modifier = Modifier.width(20.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     
                     val categoryLabel = when (title) {
                         "Photos", "Videos" -> "SECURE MEDIA"
@@ -347,19 +352,23 @@ fun VaultContentScreen(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = ThemePurple.copy(alpha = 0.8f),
-                            letterSpacing = 1.8.sp
+                            letterSpacing = 1.8.sp,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                         Text(
                             text = title,
-                            fontSize = 24.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White,
-                            letterSpacing = (-0.5).sp
+                            letterSpacing = (-0.3).sp,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     }
                     
                     Box {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (title == "Music & Audio") {
                                 val isBackgroundEnabled by viewModel.backgroundAudioPlaybackEnabled.collectAsStateWithLifecycle()
                                 IconButton(
@@ -368,15 +377,16 @@ fun VaultContentScreen(
                                         Toast.makeText(context, if (!isBackgroundEnabled) "Background playback enabled" else "Background playback disabled", Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier
-                                        .size(44.dp)
+                                        .size(40.dp)
                                         .clip(CircleShape)
                                         .background(if (isBackgroundEnabled) ThemePurple.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f))
+                                        .border(1.2.dp, Color.White.copy(alpha = 0.35f), CircleShape)
                                 ) {
                                     Icon(
                                         imageVector = if (isBackgroundEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
                                         contentDescription = "Toggle Background Playback",
                                         tint = if (isBackgroundEnabled) ThemePurple else Color.White,
-                                        modifier = Modifier.size(22.dp)
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
@@ -386,11 +396,12 @@ fun VaultContentScreen(
                             IconButton(
                                 onClick = { showSortOptions = true },
                                 modifier = Modifier
-                                    .size(44.dp)
+                                    .size(40.dp)
                                     .clip(CircleShape)
                                     .background(Color.White.copy(alpha = 0.05f))
+                                    .border(1.2.dp, Color.White.copy(alpha = 0.35f), CircleShape)
                             ) {
-                                Icon(Icons.Default.Sort, contentDescription = "Sort", tint = Color.White, modifier = Modifier.size(22.dp))
+                                Icon(Icons.Default.Sort, contentDescription = "Sort", tint = Color.White, modifier = Modifier.size(20.dp))
                             }
                         }
                         DropdownMenu(
@@ -855,17 +866,12 @@ fun VaultItemCard(
         when (item.type) {
             "image", "video" -> {
                 val ctx = androidx.compose.ui.platform.LocalContext.current
-                val imageLoader = remember(ctx) {
-                    coil.ImageLoader.Builder(ctx)
-                        .components { add(coil.decode.VideoFrameDecoder.Factory()) }
-                        .build()
-                }
                 AsyncImage(
                     model = coil.request.ImageRequest.Builder(ctx)
                         .data(File(item.path))
                         .crossfade(true)
                         .build(),
-                    imageLoader = imageLoader,
+                    imageLoader = VaultImageLoader.get(ctx),
                     contentDescription = item.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop

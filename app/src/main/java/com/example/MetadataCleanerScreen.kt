@@ -112,8 +112,13 @@ fun MetadataCleanerScreen(
                     onClick = onBack,
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = 0.05f))
+                        .clip(CircleShape)
+                        .background(Color(0xFF161B2B).copy(alpha = 0.95f))
+                        .border(
+                            width = 1.2.dp,
+                            color = Color.White.copy(alpha = 0.35f),
+                            shape = CircleShape
+                        )
                         .testTag("back_button")
                 ) {
                     Icon(

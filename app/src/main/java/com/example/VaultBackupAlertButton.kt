@@ -58,34 +58,21 @@ fun VaultBackupAlertButton(
     onNavigateToBackup: (() -> Unit)? = null
 ) {
     var showDialog by remember { mutableStateOf(false) }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale"
-    )
-
-    val alertColor = Color(0xFFFF9800) // Amber / Warning Alert
+    val alertColor = Color(0xFFFFB74D)
 
     IconButton(
         onClick = { showDialog = true },
         modifier = modifier
-            .size(44.dp)
-            .scale(pulseScale)
+            .size(40.dp)
             .clip(CircleShape)
-            .background(alertColor.copy(alpha = 0.14f))
-            .border(1.dp, alertColor.copy(alpha = 0.35f), CircleShape)
+            .background(Color.White.copy(alpha = 0.05f))
+            .border(1.2.dp, Color.White.copy(alpha = 0.35f), CircleShape)
     ) {
         Icon(
             imageVector = Icons.Default.WarningAmber,
             contentDescription = "Critical Backup Notice",
             tint = alertColor,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(20.dp)
         )
     }
 
@@ -159,10 +146,17 @@ fun VaultBackupAlertButton(
                     ) {
                         Row(
                             modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            Icon(
+                                imageVector = Icons.Default.WarningAmber,
+                                contentDescription = null,
+                                tint = Color(0xFFFF8A80),
+                                modifier = Modifier.size(18.dp)
+                            )
                             Text(
-                                text = "⚠️ IMPORTANT: If you uninstall this app or reset your phone without taking a backup, all your secret files will be PERMANENTLY LOST!",
+                                text = "IMPORTANT: If you uninstall this app or reset your phone without taking a backup, all your secret files will be PERMANENTLY LOST!",
                                 color = Color(0xFFFF8A80),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,

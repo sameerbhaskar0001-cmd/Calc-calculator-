@@ -992,7 +992,7 @@ fun CalculatorScreen(
                             // Question recovery
                             if (securityQuestion.isEmpty()) {
                                 Text(
-                                    text = "⚠️ You have not set up a security question yet. Please set it up in Vault Settings under Authentication.",
+                                    text = "You have not set up a security question yet. Please set it up in Vault Settings under Authentication.",
                                     color = Color(0xFFFF9100),
                                     fontSize = 12.sp
                                 )
@@ -1140,7 +1140,7 @@ fun CalculatorTabContent(
     // Smart presentation engine
     val formulaDisplay = when {
         isEvaluated -> "$expression ="
-        calcResult.isNotEmpty() -> "= $calcResult"
+        calcResult.isNotEmpty() && (expression.contains("+") || expression.contains("-") || expression.contains("×") || expression.contains("÷") || expression.contains("%")) -> "= $calcResult"
         else -> ""
     }
     val mainDisplay = when {
@@ -1371,6 +1371,7 @@ fun GlassCalculatorKey(
     val themeColors = com.example.ui.theme.LocalAppThemeColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    var lastClickTime by remember { mutableStateOf(0L) }
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1.0f,
         animationSpec = spring(
@@ -1432,12 +1433,16 @@ fun GlassCalculatorKey(
             elevation = if (!isUtility && !isEquals) 4.dp else 0.dp,
             glowAlpha = glowAlpha,
             onClick = {
-                try {
-                    view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-                } catch (e: Exception) {
-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                val now = System.currentTimeMillis()
+                if (now - lastClickTime > 200L) {
+                    lastClickTime = now
+                    try {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                    } catch (e: Exception) {
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    }
+                    onClick()
                 }
-                onClick()
             },
             onLongClick = onLongClick,
             interactionSource = interactionSource,
@@ -2835,13 +2840,34 @@ fun VaultTabUnlockedContent(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "Secret Vault",
-                            fontSize = 21.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.6.sp,
-                            color = Color.White
-                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.05f))
+                                .border(
+                                    width = 1.dp,
+                                    color = Color.White.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .padding(horizontal = 14.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Secret Vault",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp,
+                                style = androidx.compose.ui.text.TextStyle(
+                                    brush = Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color.White,
+                                            Color.White.copy(alpha = 0.95f),
+                                            ThemePurple
+                                        )
+                                    )
+                                )
+                            )
+                        }
                         
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             IconButton(
@@ -2929,15 +2955,15 @@ fun VaultTabUnlockedContent(
                                     .clip(CircleShape)
                                     .background(Color(0xFF161B2B).copy(alpha = 0.95f))
                                     .border(
-                                        width = 1.dp,
-                                        color = if (activeSection == "Profile") ThemePurple.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.05f),
+                                        width = 1.2.dp,
+                                        color = Color.White.copy(alpha = 0.35f),
                                         shape = CircleShape
                                     )
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.ArrowBack,
                                     contentDescription = "Back",
-                                    tint = if (activeSection == "Profile") ThemePurple else Color.White,
+                                    tint = Color.White,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -2991,13 +3017,6 @@ fun VaultTabUnlockedContent(
                                         fontFamily = if (com.example.ui.theme.LocalAppTheme.current == com.example.ui.theme.AppTheme.QUANTUM_CYAN) FontFamily.Monospace else FontFamily.Default,
                                         maxLines = 1,
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = "Private Workspace",
-                                        fontSize = 10.sp,
-                                        color = if (com.example.ui.theme.LocalAppTheme.current == com.example.ui.theme.AppTheme.QUANTUM_CYAN) ThemePurple else Color(0xFF4CAF50),
-                                        fontFamily = if (com.example.ui.theme.LocalAppTheme.current == com.example.ui.theme.AppTheme.QUANTUM_CYAN) FontFamily.Monospace else FontFamily.Default,
-                                        fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             }
@@ -3307,22 +3326,17 @@ fun VaultTabUnlockedContent(
                                             val path = latestVideo.split("|||").getOrNull(4) ?: ""
                                             Box(modifier = Modifier.fillMaxSize().padding(4.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF1B2236)), contentAlignment = Alignment.Center) {
                                                 if (path.isNotEmpty()) {
-                                                    val bitmap = remember(path) {
-                                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                                                         try { android.media.ThumbnailUtils.createVideoThumbnail(java.io.File(path), android.util.Size(200, 200), null) } catch (e: Exception) { null }
-                                                        } else {
-                                                            @Suppress("DEPRECATION")
-                                                         try { android.media.ThumbnailUtils.createVideoThumbnail(path, android.provider.MediaStore.Video.Thumbnails.MINI_KIND) } catch (e: Exception) { null }
-                                                        }
-                                                    }
-                                                    if (bitmap != null) {
-                                                        androidx.compose.foundation.Image(
-                                                            bitmap = bitmap.asImageBitmap(),
-                                                            contentDescription = null,
-                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                                            modifier = Modifier.fillMaxSize().alpha(0.6f)
-                                                        )
-                                                    }
+                                                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                                                    coil.compose.AsyncImage(
+                                                        model = coil.request.ImageRequest.Builder(ctx)
+                                                            .data(java.io.File(path))
+                                                            .crossfade(true)
+                                                            .build(),
+                                                        imageLoader = VaultImageLoader.get(ctx),
+                                                        contentDescription = null,
+                                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize().alpha(0.6f)
+                                                    )
                                                 }
                                                 Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
                                             }
@@ -3479,17 +3493,12 @@ fun VaultTabUnlockedContent(
                                             ) {
                                                 if (isMedia && parts.size >= 5) {
                                                     val ctx = androidx.compose.ui.platform.LocalContext.current
-                                                    val imageLoader = remember(ctx) {
-                                                        coil.ImageLoader.Builder(ctx)
-                                                            .components { add(coil.decode.VideoFrameDecoder.Factory()) }
-                                                            .build()
-                                                    }
                                                     AsyncImage(
                                                         model = coil.request.ImageRequest.Builder(ctx)
                                                             .data(java.io.File(parts[4]))
                                                             .crossfade(true)
                                                             .build(),
-                                                        imageLoader = imageLoader,
+                                                        imageLoader = VaultImageLoader.get(ctx),
                                                         contentDescription = null,
                                                         modifier = Modifier.fillMaxSize(),
                                                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
@@ -3925,11 +3934,6 @@ fun VaultTabUnlockedContent(
                                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                                             ) {
                                                 val ctx = androidx.compose.ui.platform.LocalContext.current
-                                                val imageLoader = remember(ctx) {
-                                                    coil.ImageLoader.Builder(ctx)
-                                                        .components { add(coil.decode.VideoFrameDecoder.Factory()) }
-                                                        .build()
-                                                }
                                                 Box(
                                                     modifier = Modifier
                                                         .size(50.dp)
@@ -3940,7 +3944,7 @@ fun VaultTabUnlockedContent(
                                                     if (mimeType.startsWith("image/") || mimeType.startsWith("video/")) {
                                                         AsyncImage(
                                                             model = java.io.File(path),
-                                                            imageLoader = imageLoader,
+                                                            imageLoader = VaultImageLoader.get(ctx),
                                                             contentDescription = originalName,
                                                             modifier = Modifier.fillMaxSize(),
                                                             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
@@ -4147,11 +4151,6 @@ fun VaultTabUnlockedContent(
                                             fontSize = 17.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White
-                                        )
-                                        Text(
-                                            text = "Private Workspace",
-                                            fontSize = 12.sp,
-                                            color = Color.White.copy(alpha = 0.6f)
                                         )
                                     }
                                 }
@@ -5175,7 +5174,6 @@ fun VaultTabUnlockedContent(
                 "Authentication" -> {
                     var showAppLockDialog by remember { mutableStateOf(false) }
                     var appLockMethod by remember { mutableStateOf("PIN Only") }
-                    var isRecoveryInstructionEnglish by remember { mutableStateOf(false) }
                     val biometricEnabledState by viewModel.biometricEnabled.collectAsStateWithLifecycle()
                     val biometricModeState by viewModel.biometricMode.collectAsStateWithLifecycle()
                     val securityQuestionState by viewModel.securityQuestion.collectAsStateWithLifecycle()
@@ -5396,56 +5394,18 @@ fun VaultTabUnlockedContent(
                                     tint = Color(0xFF00E676),
                                     modifier = Modifier.size(24.dp).padding(top = 2.dp)
                                 )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = if (isRecoveryInstructionEnglish) "💡 How to use recovery?" else "💡 Recovery bypass kaise use karein?",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        
-                                        Row(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(Color.White.copy(alpha = 0.08f))
-                                                .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(if (!isRecoveryInstructionEnglish) Color(0xFF00E676).copy(alpha = 0.25f) else Color.Transparent)
-                                                    .clickable { isRecoveryInstructionEnglish = false }
-                                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text("HI", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (!isRecoveryInstructionEnglish) Color(0xFF00E676) else Color.White.copy(alpha = 0.6f))
-                                            }
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(if (isRecoveryInstructionEnglish) Color(0xFF00E676).copy(alpha = 0.25f) else Color.Transparent)
-                                                    .clickable { isRecoveryInstructionEnglish = true }
-                                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text("EN", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isRecoveryInstructionEnglish) Color(0xFF00E676) else Color.White.copy(alpha = 0.6f))
-                                            }
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
                                     Text(
-                                        text = if (isRecoveryInstructionEnglish) {
-                                            "If you ever forget your PIN, simply long-press (press and hold for 2-3 seconds) the 'Calculator' title text on the top-left bar of the main Calculator screen. This will trigger the bypass window where you can enter your Security Answer or Master Recovery Code to reset your PIN safely."
-                                        } else {
-                                            "Agar aap kabhi apna PIN bhul jate hain, toh main Calculator screen ke top-left bar par likhe 'Calculator' title text ko 2-3 seconds ke liye long-press (dabaye rakhein) karein. Isse bypass window open ho jayega jahan aap apna Security Answer ya Master Recovery Code enter karke naya PIN set kar sakte hain."
-                                        },
+                                        text = "How to use recovery?",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = "If you forget your PIN, press and hold the 'Calculator' title on the top-left of the main Calculator screen for 2-3 seconds. This opens the recovery prompt where you can enter your Security Answer or Master Recovery Code.",
                                         fontSize = 11.sp,
                                         color = Color.White.copy(alpha = 0.85f),
                                         lineHeight = 15.sp
@@ -10384,7 +10344,8 @@ data class TabState(
     val canGoForward: Boolean = false,
     val isDesktopMode: Boolean = false,
     val blockedCount: Int = 0,
-    val isFullScreen: Boolean = false
+    val isFullScreen: Boolean = false,
+    val parentTabId: String? = null
 )
 
 fun setSystemBarsVisibility(activity: android.app.Activity?, visible: Boolean) {
@@ -10436,7 +10397,7 @@ fun createPrivateGeckoSession(
     tabId: String,
     initialUrl: String,
     isDesktopMode: Boolean = false,
-    onDownloadRequested: ((url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long) -> Unit)? = null,
+    onDownloadRequested: ((url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long, referrerUrl: String) -> Unit)? = null,
     onCrash: (() -> Unit)? = null,
     onUpdate: ((TabState) -> TabState) -> Unit
 ): org.mozilla.geckoview.GeckoSession {
@@ -10507,7 +10468,8 @@ data class PendingDownloadData(
     val userAgent: String,
     val contentDisposition: String,
     val mimeType: String,
-    val contentLength: Long
+    val contentLength: Long,
+    val referrerUrl: String = ""
 )
 
 @Composable
@@ -11761,8 +11723,19 @@ fun DownloadsScreen(
                 .padding(top = 16.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF161B2B).copy(alpha = 0.95f))
+                    .border(
+                        width = 1.2.dp,
+                        color = Color.White.copy(alpha = 0.35f),
+                        shape = CircleShape
+                    )
+            ) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(20.dp))
             }
             Column(modifier = Modifier.padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(

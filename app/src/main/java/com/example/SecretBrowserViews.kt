@@ -2717,17 +2717,20 @@ fun SecretBrowserDownloadItemCard(
             lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") ||
             lowerName.endsWith(".webm") || lowerName.endsWith(".avi") ||
             lowerName.endsWith(".mov") || lowerName.endsWith(".m4v") ||
-            lowerName.endsWith(".flv") || lowerName.endsWith(".3gp")
+            lowerName.endsWith(".flv") || lowerName.endsWith(".3gp") ||
+            lowerName.endsWith(".ts") || lowerName.endsWith(".wmv")
 
     val isImage = task.mimeType.startsWith("image/") ||
             lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") ||
             lowerName.endsWith(".png") || lowerName.endsWith(".webp") ||
-            lowerName.endsWith(".gif") || lowerName.endsWith(".bmp")
+            lowerName.endsWith(".gif") || lowerName.endsWith(".bmp") ||
+            lowerName.endsWith(".svg") || lowerName.endsWith(".ico")
 
     val isAudio = task.mimeType.startsWith("audio/") ||
             lowerName.endsWith(".mp3") || lowerName.endsWith(".wav") ||
             lowerName.endsWith(".m4a") || lowerName.endsWith(".aac") ||
-            lowerName.endsWith(".ogg") || lowerName.endsWith(".flac")
+            lowerName.endsWith(".ogg") || lowerName.endsWith(".flac") ||
+            lowerName.endsWith(".opus") || lowerName.endsWith(".weba")
 
     val (fileIcon, iconBgColor, iconTintColor) = when {
         isImage -> Triple(Icons.Default.Image, Color(0xFF2563EB).copy(alpha = 0.1f), Color(0xFF2563EB))
@@ -2735,9 +2738,9 @@ fun SecretBrowserDownloadItemCard(
         isAudio -> Triple(Icons.Default.AudioFile, Color(0xFFEA580C).copy(alpha = 0.1f), Color(0xFFEA580C))
         task.mimeType.contains("pdf") || lowerName.endsWith(".pdf") ->
             Triple(Icons.Default.Description, Color(0xFFDC2626).copy(alpha = 0.1f), Color(0xFFDC2626))
-        task.mimeType.contains("zip") || task.mimeType.contains("rar") || task.mimeType.contains("tar") || task.mimeType.contains("archive") || lowerName.endsWith(".zip") || lowerName.endsWith(".tar") || lowerName.endsWith(".gz") ->
+        task.mimeType.contains("zip") || task.mimeType.contains("rar") || task.mimeType.contains("tar") || task.mimeType.contains("archive") || lowerName.endsWith(".zip") || lowerName.endsWith(".tar") || lowerName.endsWith(".gz") || lowerName.endsWith(".7z") ->
             Triple(Icons.Default.FolderZip, Color(0xFFD97706).copy(alpha = 0.1f), Color(0xFFD97706))
-        lowerName.endsWith(".apk") ->
+        lowerName.endsWith(".apk") || task.mimeType.contains("android.package-archive") ->
             Triple(Icons.Default.Android, Color(0xFF059669).copy(alpha = 0.1f), Color(0xFF059669))
         else ->
             Triple(Icons.Default.InsertDriveFile, AccentColor.copy(alpha = 0.1f), AccentColor)
@@ -3527,8 +3530,8 @@ fun PrivateBrowserSection(
     var showSecretRunnerGame by remember { mutableStateOf(false) }
 
     androidx.compose.runtime.DisposableEffect(Unit) {
-        GeckoSessionManager.globalDownloadCallback = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-            pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+        GeckoSessionManager.globalDownloadCallback = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength, referrerUrl ->
+            pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength, referrerUrl)
         }
         GeckoSessionManager.onOpenSecretRunner = {
             showSecretRunnerGame = true
@@ -3600,8 +3603,8 @@ fun PrivateBrowserSection(
                 tabId = tab.id,
                 initialUrl = tab.url,
                 isDesktopMode = tab.isDesktopMode,
-                onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-                    pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+                onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength, referrerUrl ->
+                    pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength, referrerUrl)
                 },
                 onCrash = {
                     geckoSessions.remove(tab.id)
@@ -3616,8 +3619,8 @@ fun PrivateBrowserSection(
             tabId = tab.id,
             initialUrl = tab.url,
             isDesktopMode = tab.isDesktopMode,
-            onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-                pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
+            onDownloadRequested = { downloadUrl, userAgent, contentDisposition, mimeType, contentLength, referrerUrl ->
+                pendingDownload = PendingDownloadData(downloadUrl, userAgent, contentDisposition, mimeType, contentLength, referrerUrl)
             },
             onCrash = {
                 geckoSessions.remove(tab.id)
@@ -3651,7 +3654,7 @@ fun PrivateBrowserSection(
     }
 
     var lastTabCreationTime by remember { mutableStateOf(0L) }
-    val openNewTab: (String) -> Unit = { url ->
+    fun openNewTab(url: String, parentId: String? = null) {
         val now = android.os.SystemClock.elapsedRealtime()
         val cleanUrl = url.trim()
         val isBlocked = SecretBrowserTrackingProtection.shouldBlock(cleanUrl, isMainFrame = true)
@@ -3660,16 +3663,16 @@ fun PrivateBrowserSection(
             if (tabs.size < 20 || cleanUrl == "home") {
                 lastTabCreationTime = now
                 val tabId = java.util.UUID.randomUUID().toString()
-                val newTab = TabState(id = tabId, url = cleanUrl, title = "New Tab")
+                val newTab = TabState(id = tabId, url = cleanUrl, title = "New Tab", parentTabId = parentId)
                 tabs.add(newTab)
                 activeTabId = tabId
             }
         }
     }
 
-    androidx.compose.runtime.DisposableEffect(openNewTab) {
-        GeckoSessionManager.onOpenNewTab = { url ->
-            openNewTab(url)
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        GeckoSessionManager.onOpenNewTab = { url, parentId ->
+            openNewTab(url, parentId)
         }
         onDispose {
             GeckoSessionManager.onOpenNewTab = null
@@ -3687,12 +3690,16 @@ fun PrivateBrowserSection(
         geckoSessions.remove(tabId)
         val tIndex = tabs.indexOfFirst { it.id == tabId }
         if (tIndex != -1) {
+            val closedTab = tabs[tIndex]
+            val parentId = closedTab.parentTabId
             tabs.removeAt(tIndex)
             if (activeTabId == tabId) {
-                if (tabs.isNotEmpty()) {
+                if (parentId != null && tabs.any { it.id == parentId }) {
+                    activeTabId = parentId
+                } else if (tabs.isNotEmpty()) {
                     activeTabId = tabs[tIndex.coerceAtMost(tabs.size - 1)].id
                 } else {
-                    openNewTab("home")
+                    openNewTab("home", null)
                 }
             }
         }
@@ -3700,7 +3707,7 @@ fun PrivateBrowserSection(
 
     LaunchedEffect(viewModel.isBrowserTabsLoaded) {
         if (viewModel.isBrowserTabsLoaded && tabs.isEmpty()) {
-            openNewTab("home")
+            openNewTab("home", null)
         }
     }
 
@@ -3923,6 +3930,8 @@ fun PrivateBrowserSection(
         stopLoading()
         if (activeGeckoSession != null && activeTab?.canGoBack == true) {
             activeGeckoSession.goBack()
+        } else if (activeTab?.parentTabId != null && tabs.any { it.id == activeTab.parentTabId }) {
+            closeTab(activeTab.id)
         } else if (tabs.size > 1 && activeTab != null) {
             closeTab(activeTab.id)
         } else if (activeTab != null && !isHome && activeTab.url != "home") {
@@ -3966,16 +3975,20 @@ fun PrivateBrowserSection(
             // Priority 1: Navigate backward through the GeckoView browser session history
             stopLoading()
             activeGeckoSession.goBack()
+        } else if (activeTab?.parentTabId != null && tabs.any { it.id == activeTab.parentTabId }) {
+            // Priority 2: If this was a popup/child tab with exhausted history, closing it returns directly to the originating tab
+            stopLoading()
+            closeTab(activeTab.id)
         } else if (tabs.size > 1 && activeTab != null) {
-            // Priority 2: If this was a popup/extra tab with no prior history, closing it returns directly to the originating tab
+            // Priority 3: If multiple independent tabs exist, close active tab
             stopLoading()
             closeTab(activeTab.id)
         } else if (activeTab != null && !isHome && activeTab.url != "home") {
-            // Priority 3: Return from web page to browser home dashboard
+            // Priority 4: Return from web page to browser home dashboard
             stopLoading()
             loadUrl("home")
         } else if (isHome) {
-            // Priority 4: Only when confirmed on the browser Home screen and history is exhausted, exit to vault
+            // Priority 5: Only when confirmed on the browser Home screen and history is exhausted, exit to vault
             onExit()
         }
     }
@@ -3997,8 +4010,10 @@ fun PrivateBrowserSection(
                     contentDisposition = download.contentDisposition,
                     mimeType = download.mimeType,
                     contentLength = download.contentLength,
-                    destination = destination
+                    destination = destination,
+                    referrerUrl = download.referrerUrl
                 )
+                pendingDownload = null
             }
         )
     }

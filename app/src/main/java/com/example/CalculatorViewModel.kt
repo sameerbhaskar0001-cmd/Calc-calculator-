@@ -173,6 +173,10 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     override fun onCleared() {
         super.onCleared()
         stopAudio()
+        activeDownloadJobs.values.forEach { it.cancel() }
+        activeDownloadJobs.clear()
+        activeDownloadConnections.values.forEach { try { it.disconnect() } catch (e: Exception) {} }
+        activeDownloadConnections.clear()
     }
 
     fun stopAudio() {
@@ -1817,7 +1821,13 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     // --- Calculator Methods ---
+    private var lastKeyTime = 0L
+
     fun onCalcKeyPress(key: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastKeyTime < 160L) return
+        lastKeyTime = now
+
         val currentExpr = _expression.value
         val isCurrentEval = _isEvaluated.value
 
@@ -4257,17 +4267,17 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setClearHistoryOnExit(clear: Boolean) {
         _clearHistoryOnExit.value = clear
-        prefs.edit().putBoolean("browser_clear_history", clear).commit()
+        prefs.edit().putBoolean("browser_clear_history", clear).apply()
     }
 
     fun setClearTempOnExit(clear: Boolean) {
         _clearTempOnExit.value = clear
-        prefs.edit().putBoolean("browser_clear_temp_on_exit", clear).commit()
+        prefs.edit().putBoolean("browser_clear_temp_on_exit", clear).apply()
     }
 
     fun setUseGeckoView(use: Boolean) {
         _useGeckoView.value = use
-        prefs.edit().putBoolean("browser_use_geckoview", use).commit()
+        prefs.edit().putBoolean("browser_use_geckoview", use).apply()
     }
 
     private fun saveBrowserBookmarks(list: List<BrowserBookmark>) {
@@ -4278,7 +4288,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             obj.put("url", it.url)
             json.put(obj)
         }
-        prefs.edit().putString("browser_bookmarks", json.toString()).commit()
+        prefs.edit().putString("browser_bookmarks", json.toString()).apply()
     }
 
     private fun loadBrowserBookmarks() {
@@ -4305,11 +4315,12 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 obj.put("title", tab.title)
                 obj.put("url", tab.url)
                 obj.put("isDesktopMode", tab.isDesktopMode)
+                if (tab.parentTabId != null) obj.put("parentTabId", tab.parentTabId)
                 json.put(obj)
             }
             prefs.edit().putString("browser_tabs", json.toString())
                 .putString("browser_active_tab_id", activeTabId)
-                .commit()
+                .apply()
         } catch (e: Exception) {}
     }
 
@@ -4325,7 +4336,8 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                     id = obj.getString("id"),
                     title = obj.getString("title"),
                     url = obj.getString("url"),
-                    isDesktopMode = obj.optBoolean("isDesktopMode", false)
+                    isDesktopMode = obj.optBoolean("isDesktopMode", false),
+                    parentTabId = if (obj.has("parentTabId")) obj.optString("parentTabId", null) else null
                 ))
             }
             if (list.isNotEmpty()) {
@@ -4348,7 +4360,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             obj.put("timestamp", it.timestamp)
             json.put(obj)
         }
-        prefs.edit().putString("browser_history", json.toString()).commit()
+        prefs.edit().putString("browser_history", json.toString()).apply()
     }
 
     private fun loadBrowserHistory() {
@@ -4389,7 +4401,7 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                 obj.put("destination", item.destination)
                 json.put(obj)
             }
-            prefs.edit().putString("browser_downloads", json.toString()).commit()
+            prefs.edit().putString("browser_downloads", json.toString()).apply()
         } catch (e: Exception) {}
     }
 
@@ -4753,30 +4765,23 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
         contentLength: Long,
         destination: DownloadDestination = DownloadDestination.SECRET_VAULT,
         existingTaskId: String? = null,
-        isResume: Boolean = false
+        isResume: Boolean = false,
+        referrerUrl: String = ""
     ) {
         val taskId = existingTaskId ?: java.util.UUID.randomUUID().toString()
-        var rawFilename = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType)
-        if (rawFilename.isNullOrEmpty() || rawFilename == "downloadfile.bin") {
-            val lastPathSegment = Uri.parse(url).lastPathSegment
-            if (!lastPathSegment.isNullOrEmpty()) {
-                rawFilename = lastPathSegment
-            } else {
-                rawFilename = "downloaded_file"
-            }
-        }
-        var filename = try {
-            java.net.URLDecoder.decode(rawFilename, "UTF-8")
-        } catch (e: Exception) {
-            rawFilename
-        }
+        val (resolvedInitialFilename, resolvedInitialMime) = SecretDownloadFilenameHelper.resolveFilenameAndMime(
+            url = url,
+            contentDisposition = contentDisposition,
+            mimeType = mimeType
+        )
         
         val tempDir = java.io.File(context.filesDir, "downloads_temp")
         if (!tempDir.exists()) tempDir.mkdirs()
         val partFile = java.io.File(tempDir, "$taskId.part")
 
         val existingTask = _downloads.value.find { it.id == taskId }
-        val finalFilename = existingTask?.filename ?: filename
+        val finalFilename = existingTask?.filename ?: resolvedInitialFilename
+        val effectiveMimeType = if (resolvedInitialMime.isNotEmpty()) resolvedInitialMime else (existingTask?.mimeType ?: mimeType)
         val initialDownloaded = if (isResume && partFile.exists()) partFile.length() else 0L
         val initialTotal = if (contentLength > 0) contentLength else (existingTask?.totalBytes ?: 0L)
         val initialProgress = if (initialTotal > 0) (initialDownloaded.toFloat() / initialTotal.toFloat()).coerceIn(0f, 1f) else 0f
@@ -4788,7 +4793,7 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
             progress = initialProgress,
             status = "Downloading",
             sizeString = if (initialTotal > 0) "${formatFileSize(initialDownloaded)} / ${formatFileSize(initialTotal)}" else formatFileSize(initialTotal),
-            mimeType = mimeType.ifEmpty { existingTask?.mimeType ?: "" },
+            mimeType = effectiveMimeType,
             filePath = "",
             downloadedBytes = initialDownloaded,
             totalBytes = initialTotal,
@@ -4824,8 +4829,8 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                 var startByte = if (isResume && partFile.exists() && partFile.length() > 0) partFile.length() else 0L
                 var responseCode = -1
                 var connectAttempts = 0
-                val defaultUa = "Mozilla/5.0 (Linux; Android 14; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0"
-                val chromeUa = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+                val defaultUa = "Mozilla/5.0 (Android 14; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0"
+                val effectiveUa = if (userAgent.isNotBlank()) userAgent else defaultUa
 
                 while (connectAttempts < 5) {
                     val urlObj = java.net.URL(currentUrl)
@@ -4835,8 +4840,8 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     connection.connectTimeout = 25000
                     connection.readTimeout = 40000
                     
-                    val reqUa = if (connectAttempts >= 2) chromeUa else (if (userAgent.isNotBlank()) userAgent else defaultUa)
-                    connection.setRequestProperty("User-Agent", reqUa)
+                    // Maintain authentic GeckoView User-Agent across all connections and redirects
+                    connection.setRequestProperty("User-Agent", effectiveUa)
                     connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,video/*,audio/*,*/*;q=0.8")
                     connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
                     connection.setRequestProperty("Accept-Encoding", "identity")
@@ -4849,23 +4854,13 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     try {
                         val parsedUri = Uri.parse(currentUrl)
                         val origin = "${parsedUri.scheme}://${parsedUri.host}"
-                        connection.setRequestProperty("Referer", currentUrl)
+                        val effectiveReferrer = if (referrerUrl.isNotBlank() && referrerUrl != "home" && !referrerUrl.startsWith("about:")) {
+                            referrerUrl
+                        } else {
+                            origin
+                        }
+                        connection.setRequestProperty("Referer", effectiveReferrer)
                         connection.setRequestProperty("Origin", origin)
-                    } catch (e: Exception) {}
-
-                    try {
-                        val cookieMgr = android.webkit.CookieManager.getInstance()
-                        val c1 = cookieMgr.getCookie(currentUrl)
-                        val c2 = if (currentUrl != url) cookieMgr.getCookie(url) else null
-                        val combinedCookie = when {
-                            !c1.isNullOrEmpty() && !c2.isNullOrEmpty() -> "$c1; $c2"
-                            !c1.isNullOrEmpty() -> c1
-                            !c2.isNullOrEmpty() -> c2
-                            else -> null
-                        }
-                        if (!combinedCookie.isNullOrEmpty()) {
-                            connection.setRequestProperty("Cookie", combinedCookie)
-                        }
                     } catch (e: Exception) {}
 
                     if (startByte > 0) {
@@ -4895,17 +4890,10 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                         continue
                     }
 
-                    // If 403 Forbidden with Range: retry from byte 0 (without deleting partFile yet)
+                    // If 403 Forbidden with Range: retry once from byte 0
                     if (responseCode == 403 && startByte > 0 && connectAttempts < 2) {
                         try { connection.disconnect() } catch (e: Exception) {}
                         startByte = 0L
-                        connectAttempts++
-                        continue
-                    }
-
-                    // If 403 Forbidden on fresh connection: retry with standard Chrome UA
-                    if (responseCode == 403 && connectAttempts < 3) {
-                        try { connection.disconnect() } catch (e: Exception) {}
                         connectAttempts++
                         continue
                     }
@@ -4919,12 +4907,12 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                 if (responseCode == 206) {
                     append = true
                     currentDownloaded = startByte
-                    val serverRemaining = connection?.contentLength?.toLong() ?: 0L
+                    val serverRemaining = connection?.contentLengthLong ?: 0L
                     totalLength = if (initialTotal > 0) initialTotal else (if (serverRemaining > 0) startByte + serverRemaining else 0L)
                 } else if (responseCode in 200..299) {
                     append = false
                     currentDownloaded = 0L
-                    val respLength = connection?.contentLength?.toLong() ?: 0L
+                    val respLength = connection?.contentLengthLong ?: 0L
                     totalLength = if (contentLength > 0) contentLength else respLength
                 } else {
                     val connMsg = connection?.responseMessage ?: ""
@@ -4997,11 +4985,25 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     return@launch
                 }
 
-                val finalMime = safeConnection.contentType ?: mimeType
+                val respDisposition = safeConnection.getHeaderField("Content-Disposition") ?: contentDisposition
+                val respContentType = safeConnection.contentType ?: safeConnection.getHeaderField("Content-Type")
+                val redirectedUrl = safeConnection.url?.toString() ?: currentUrl
+                val effectiveDownloadMime = if (!SecretDownloadFilenameHelper.isGenericMimeType(respContentType)) {
+                    respContentType ?: resolvedInitialMime
+                } else {
+                    resolvedInitialMime
+                }
+
+                val (resolvedFinalFilename, resolvedFinalMime) = SecretDownloadFilenameHelper.resolveFilenameAndMime(
+                    url = redirectedUrl,
+                    contentDisposition = respDisposition,
+                    mimeType = effectiveDownloadMime
+                )
+
                 val downloadHandler = VaultDownloadHandler(context)
                 val targetFilePath = downloadHandler.saveDownloadedFile(
-                    filename = finalFilename,
-                    mimeType = finalMime,
+                    filename = resolvedFinalFilename,
+                    mimeType = resolvedFinalMime,
                     sourceFile = partFile,
                     destination = destination,
                     deviceFileSaver = { fname, mime, src -> saveDownloadedFile(context, fname, mime, src) },
@@ -5014,9 +5016,10 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     val finalDownloads = _downloads.value.map { task ->
                         if (task.id == taskId) {
                             task.copy(
+                                filename = resolvedFinalFilename,
                                 progress = 1f,
                                 status = if (success) "Completed" else "Failed",
-                                mimeType = finalMime,
+                                mimeType = resolvedFinalMime,
                                 filePath = targetFilePath ?: "",
                                 canResume = false,
                                 sizeString = formatFileSize(currentDownloaded)
@@ -5026,9 +5029,9 @@ val downloads: StateFlow<List<DownloadTask>> = _downloads.asStateFlow()
                     _downloads.value = finalDownloads
                     saveDownloads(finalDownloads)
                     if (success) {
-                        android.widget.Toast.makeText(context, "$finalFilename download completed!", android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(context, "$resolvedFinalFilename download completed!", android.widget.Toast.LENGTH_LONG).show()
                     } else {
-                        android.widget.Toast.makeText(context, "Failed to save downloaded file $finalFilename", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Failed to save downloaded file $resolvedFinalFilename", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (e: Exception) {

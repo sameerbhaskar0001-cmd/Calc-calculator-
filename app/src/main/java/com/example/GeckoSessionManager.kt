@@ -17,10 +17,10 @@ object GeckoSessionManager {
     
     // Thread-safe maps for update and download callbacks to prevent stale lambdas and memory leaks
     private val onUpdateCallbacks = ConcurrentHashMap<String, ((TabState) -> TabState) -> Unit>()
-    private val onDownloadCallbacks = ConcurrentHashMap<String, ((String, String, String, String, Long) -> Unit)>()
-    var globalDownloadCallback: ((String, String, String, String, Long) -> Unit)? = null
+    private val onDownloadCallbacks = ConcurrentHashMap<String, ((String, String, String, String, Long, String) -> Unit)>()
+    var globalDownloadCallback: ((String, String, String, String, Long, String) -> Unit)? = null
     var onOpenSecretRunner: (() -> Unit)? = null
-    var onOpenNewTab: ((String) -> Unit)? = null
+    var onOpenNewTab: ((String, String?) -> Unit)? = null
 
     /**
      * Creates a new GeckoSession or returns an existing one for the specified tabId.
@@ -32,7 +32,7 @@ object GeckoSessionManager {
         tabId: String,
         initialUrl: String,
         isDesktopMode: Boolean,
-        onDownloadRequested: ((url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long) -> Unit)? = null,
+        onDownloadRequested: ((url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long, referrerUrl: String) -> Unit)? = null,
         onCrash: (() -> Unit)? = null,
         onUpdateParam: ((TabState) -> TabState) -> Unit
     ): GeckoSession {
@@ -154,7 +154,7 @@ object GeckoSessionManager {
                             SecretBrowserTrackingProtection.onTrackerBlocked?.invoke(tabId, currentMainUrl)
                         } else {
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                onOpenNewTab?.invoke(cleanUri)
+                                onOpenNewTab?.invoke(cleanUri, tabId)
                             }
                         }
                     }
@@ -453,9 +453,10 @@ object GeckoSessionManager {
                 val contentLength = (headers["Content-Length"] ?: headers["content-length"] ?: headers["Content-length"])?.toLongOrNull() ?: 0L
                 val isDesktop = s.settings.userAgentMode == GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
                 val userAgent = if (isDesktop) "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" else "Mozilla/5.0 (Android 14; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0"
+                val referrerUrl = currentMainUrl
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    onDownloadCallbacks[tabId]?.invoke(url, userAgent, contentDisposition, mimeType, contentLength)
-                    globalDownloadCallback?.invoke(url, userAgent, contentDisposition, mimeType, contentLength)
+                    onDownloadCallbacks[tabId]?.invoke(url, userAgent, contentDisposition, mimeType, contentLength, referrerUrl)
+                    globalDownloadCallback?.invoke(url, userAgent, contentDisposition, mimeType, contentLength, referrerUrl)
                 }
             }
         }
